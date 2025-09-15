@@ -1,0 +1,474 @@
+package com.altcraft.sdk.data
+
+//  Created by Andrey Pogodin.
+//
+//  Copyright © 2025 Altcraft. All rights reserved.
+
+import android.app.PendingIntent
+import android.graphics.Bitmap
+import androidx.annotation.Keep
+import androidx.work.WorkInfo
+import com.altcraft.sdk.data.Constants.DB_ID
+import com.altcraft.sdk.data.Constants.MATCHING
+import com.altcraft.sdk.data.Constants.MATCHING_ID
+import com.altcraft.sdk.data.Constants.PROVIDER
+import com.altcraft.sdk.data.Constants.TOKEN
+import com.altcraft.sdk.data.room.ConfigurationEntity
+import com.altcraft.sdk.interfaces.RequestData
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import java.util.Date
+
+typealias error = DataClasses.Error
+typealias retry = DataClasses.RetryError
+
+/**
+ * Contains data classes used for various purposes within the SDK.
+ */
+object DataClasses {
+
+    //public
+    /**
+     * Represents a general event with associated details.
+     *
+     * @property function The name or identifier of the function where the event occurred.
+     * @property eventMessage An optional message providing additional details about the event.
+     * @property eventCode An optional code identifying the event type.
+     * @property eventValue An optional value associated with the event.
+     * @property date The date and time when the event occurred.
+     */
+    @Keep
+    @Suppress("MemberVisibilityCanBePrivate")
+    open class Event(
+        val function: String,
+        val eventCode: Int? = null,
+        val eventMessage: String? = null,
+        val eventValue: Map<String, Any?>? = null,
+        val date: Date = Date(),
+    )
+
+    /**
+     * Represents an error event, extending the general event class.
+     * Used for storing information about errors.
+     *
+     * @param function The name or identifier of the function where the error occurred.
+     * @param eventMessage An optional message providing details about the error.
+     * @param eventCode An optional code identifying the error type.
+     * @param eventValue An optional value associated with the error.
+     * @param date The date and time when the error occurred .
+     */
+    @Keep
+    open class Error(
+        function: String,
+        eventCode: Int? = 0,
+        eventMessage: String? = null,
+        eventValue: Map<String, Any?>? = null,
+        date: Date = Date(),
+    ) : Event(function, eventCode, eventMessage, eventValue, date)
+
+    /**
+     * Represents a retryable error event.
+     * This class extends `Error` and is used for errors that support retry mechanisms.
+     *
+     * @param function The name or identifier of the function where the retryable error occurred.
+     * @param eventMessage An optional message providing details about the retryable error.
+     * @param eventCode An optional code identifying the retryable error type.
+     * @param eventValue An optional value associated with the retryable error.
+     * @param date The date and time when the retryable error occurred.
+     */
+    @Keep
+    class RetryError(
+        function: String,
+        eventCode: Int? = 0,
+        eventMessage: String? = null,
+        eventValue: Map<String, Any?>? = null,
+        date: Date = Date(),
+    ) : Error(function, eventCode, eventMessage, eventValue, date)
+
+    /**
+     * Holds basic metadata about the application for Firebase analytics.
+     *
+     * @property appID The unique Firebase App identifier.
+     * @property appIID The installation identifier (Instance ID) for this app.
+     * @property appVer The version string of the application.
+     */
+    @Keep
+    @Serializable
+    data class AppInfo(
+        val appID: String,
+        val appIID: String,
+        val appVer: String
+    ) {
+        /**
+         * Converts this [AppInfo] into a key-value map for analytics fields.
+         *
+         * @return A map with keys `_app_id`, `_app_iid`, and `_app_ver`
+         *   mapped to their corresponding property values.
+         */
+        internal fun asMap(): Map<String, String> {
+            return mapOf(
+                "_app_id" to appID,
+                "_app_iid" to appIID,
+                "_app_ver" to appVer
+            )
+        }
+    }
+
+    /**
+     * Wraps the API response together with the HTTP status code.
+     *
+     * @property httpCode The HTTP status code returned by the server (e.g., 200, 404).
+     * @property response The parsed API response body, or `null` if unavailable.
+     */
+    @Keep
+    data class ResponseWithHttpCode(
+        val httpCode: Int?,
+        val response: Response?
+    )
+
+    /**
+     * Represents the response from the API.
+     *
+     * @property error The numeric error code.
+     * @property errorText The descriptive error message.
+     * @property profile The user profile data, if available.
+     * Contains information about the user's profile, including status and subscriptions.
+     */
+    @Keep
+    @Serializable
+    data class Response(
+        val error: Int? = null,
+        @SerialName("error_text")
+        val errorText: String? = null,
+        val profile: ProfileData? = null
+    )
+
+    /**
+     * Represents user profile data, including the ID, status, and subscriptions.
+     *
+     * @property id The unique profile identifier.
+     * @property status The profile status as a string.
+     * @property isTest Indicates whether the profile is a test profile.
+     * @property subscription A list of the user's subscriptions.
+     */
+    @Keep
+    @Serializable
+    data class ProfileData(
+        val id: String? = null,
+        val status: String? = null,
+        @SerialName("is_test")
+        val isTest: Boolean? = null,
+        val subscription: SubscriptionData? = null
+    )
+
+    /**
+     * Represents a subscription with its ID, status, and associated categories.
+     *
+     * @property subscriptionId The subscription token.
+     * @property hashId The unique subscription identifier.
+     * @property status The subscription status as a string.
+     * @property cats A list of subscription categories.
+     */
+    @Keep
+    @Serializable
+    data class SubscriptionData(
+        @SerialName("subscription_id")
+        val subscriptionId: String? = null,
+        @SerialName("hash_id")
+        val hashId: String? = null,
+        val provider: String? = null,
+        val status: String? = null,
+        val fields: Map<String, JsonElement>? = null,
+        val cats: List<CategoryData>? = null
+    )
+
+    /**
+     * Represents the details of a subscription category.
+     *
+     * @property name The category identifier.
+     * @property title The category name.
+     * @property steady Indicates whether the category is locked for modification.
+     * @property active Indicates whether the category is active.
+     */
+    @Keep
+    @Serializable
+    data class CategoryData(
+        val name: String? = null,
+        val title: String? = null,
+        val steady: Boolean? = null,
+        val active: Boolean? = null
+    )
+
+    /**
+     * A data class representing token data used for push notifications.
+     *
+     * @property provider The push notification provider (Firebase, Huawei, Rustore.).
+     * @property token The device-specific token used for push notifications.
+     */
+    @Keep
+    @Serializable
+    data class TokenData(
+        val provider: String,
+        val token: String
+    ) {
+        internal fun toMap(): Map<String, String> {
+            return mapOf(
+                PROVIDER to provider,
+                TOKEN to token
+            )
+        }
+    }
+
+    //internal
+    /**
+     * Data model for the JWT "matching" claim.
+     *
+     * Represents identifiers that can be used to match a profile in the platform.
+     *
+     * @param dbId ID of the database used for matching.
+     * @param email Matching identifier: profile email.
+     * @param phone Matching identifier: profile phone number.
+     * @param matching Matching method (e.g. "push_sub").
+     * @param profileId Matching identifier: unique profile ID in the platform.
+     * @param fieldValue Matching identifier: custom field value.
+     * @param subscriptionId Matching identifier: push subscription ID (required).
+     */
+    @Serializable
+    internal data class JWTMatching(
+        @SerialName("db_id") val dbId: Int,
+        @SerialName("matching") val matching: String,
+        @SerialName("email") val email: String? = null,
+        @SerialName("phone") val phone: String? = null,
+        @SerialName("profile_id") val profileId: String? = null,
+        @SerialName("field_value") val fieldValue: String? = null,
+        @SerialName("subscription_id") val subscriptionId: String? = null,
+    ) {
+        /**
+         * Builds a matching string for JWT payload.
+         *
+         * @return Combined string if at least one matching field is present,
+         *         otherwise `null` (error: matchingIdIsNull).
+         */
+        fun asString(): String? {
+            val ids = listOf(email, phone, profileId, fieldValue, subscriptionId)
+                .filter { !it.isNullOrEmpty() }
+
+            if (ids.isEmpty()) return null
+
+            val matchingValue = ids.joinToString(separator = "/") { it ?: "" }
+
+            return """{
+            "$DB_ID": "$dbId",
+            "$MATCHING": "$matching",
+            "$MATCHING_ID": "$matchingValue"
+            }"""
+        }
+    }
+
+    /**
+     * Contains the data needed to create all types of SDK requests.
+     *
+     * This data class stores key parameters that are used across various authentication
+     * and update processes, including configuration details, authentication headers,
+     * and token information.
+     *
+     * @property config The configuration entity containing SDK settings.
+     * @property authHeader The authentication header required for making secure API requests.
+     * @property matchingMode The mode used for matching authentication details.
+     */
+    internal data class CommonData(
+        val config: ConfigurationEntity,
+        val currentToken: TokenData,
+        val savedToken: TokenData?,
+        val authHeader: String,
+        val matchingMode: String
+    )
+
+    /**
+     * Represents the data required to create a subscription request.
+     *
+     * @property url API endpoint URL.
+     * @property time Request timestamp.
+     * @property rToken Resource token (optional).
+     * @property uid Unique request ID.
+     * @property authHeader Authorization header.
+     * @property matchingMode Matching mode for authentication.
+     * @property provider Push provider (e.g., android-firebase).
+     * @property deviceToken Current device token.
+     * @property status Subscription status.
+     * @property sync `1` for sync, `0` for async.
+     * @property fields Extra subscription fields.
+     * @property cats Category map (optional).
+     * @property replace If `true`, replaces existing subscription.
+     * @property skipTriggers If `true`, skips trigger execution.
+     */
+    internal data class SubscribeRequestData(
+        val url: String,
+        val time: Long,
+        val rToken: String?,
+        val uid: String,
+        val authHeader: String,
+        val matchingMode: String,
+        val provider: String,
+        val deviceToken: String,
+        val status: String,
+        val sync: Int?,
+        val profileFields: JsonElement?,
+        val fields: JsonElement?,
+        val cats: List<CategoryData>?,
+        val replace: Boolean?,
+        val skipTriggers: Boolean?,
+    ) : RequestData
+
+    /**
+     * Contains the data required to send a token update request.
+     *
+     * This class holds all necessary parameters for replacing an existing token
+     * and identifying the request during processing.
+     *
+     * @property url The endpoint to which the update request is sent.
+     * @property uid The unique identifier associated with the request.
+     * @property oldToken The token to be replaced.
+     * @property newToken The new token to be sent.
+     * @property oldProvider The provider of the old token (e.g., android-firebase).
+     * @property newProvider The provider of the new token.
+     * @property authHeader The authorization header used to authenticate the request.
+     */
+    internal data class UpdateRequestData(
+        val url: String,
+        val uid: String,
+        val oldToken: String?,
+        val newToken: String,
+        val oldProvider: String?,
+        val newProvider: String,
+        val authHeader: String
+    ) : RequestData
+
+    /**
+     * Data class representing the necessary data for sending a push event request.
+     *
+     * This class encapsulates all required parameters for a push event API call,
+     * ensuring that only valid data is included in the request.
+     *
+     * @property url The full API endpoint for the push event.
+     * @property time The timestamp of the push event in ISO 8601 format.
+     * @property authHeader The authorization header (Bearer token).
+     * @property uid The unique request identifier (matches uid in PushEventEntity).
+     * @property matchingMode The optional matching mode parameter (excluded if null).
+     */
+    internal data class PushEventRequestData(
+        val url: String,
+        val time: Long,
+        val type: String,
+        val uid: String,
+        val authHeader: String,
+        val matchingMode: String
+    ) : RequestData
+
+    /**
+     * Represents the required data for profile request, including the URL, headers,
+     * and subscription details.
+     *
+     * @property url The full API endpoint for the push event.
+     * @property authHeader The authorization header (Bearer token).
+     * @property uid The unique request identifier (matches uid in PushEventEntity).
+     * @property provider The provider identifier.
+     * @property matchingMode The optional matching mode parameter (excluded if null).
+     */
+    internal data class StatusRequestData(
+        val url: String,
+        val uid: String,
+        val authHeader: String,
+        val matchingMode: String,
+        val provider: String?,
+        val token: String?
+    ) : RequestData
+
+    /**
+     * Data model for the unSuspend request payload.
+     *
+     * @property provider Push notification provider name.
+     * @property token Device push token (subscription ID).
+     */
+    internal data class UnSuspendRequestData(
+        val url: String,
+        val uid: String,
+        val provider: String,
+        val token: String,
+        val authHeader: String,
+        val matchingMode: String,
+    ) : RequestData
+
+    /**
+     * Holds all contextual data extracted from a processed response.
+     *
+     * @property status The result status (SUCCESS, RETRY, or ERROR).
+     * @property errorPair A generated message describing the error or failure.
+     * @property successPair A generated message for a successful result.
+     * @property eventValue Map with additional event-related metadata.
+     */
+    internal data class ResponseResult(
+        val status: com.altcraft.sdk.network.Response.ResponseStatus,
+        val httpCode: Int,
+        val error: Int?,
+        val errorPair: Pair<Int, String>,
+        val successPair: Pair<Int, String>,
+        val eventValue: Map<String, Any?>,
+        val response: Response?
+    )
+
+    /**
+     * Notification data used to build and display a notification.
+     *
+     * @property uid Unique identifier for the notification.
+     * @property title Notification title.
+     * @property body Notification content text.
+     * @property icon Icon resource ID.
+     * @property messageId Internal message ID.
+     * @property channelInfo Notification channel name and description.
+     * @property smallImg Small image (icon/logo), nullable.
+     * @property largeImage Large image (banner), nullable.
+     * @property color Accent color.
+     * @property pendingIntent Click action.
+     * @property buttons Optional action buttons.
+     */
+    internal data class NotificationData(
+        val uid: String,
+        val title: String,
+        val body: String,
+        val icon: Int,
+        val messageId: Int,
+        val channelInfo: Pair<String, String>,
+        val smallImg: Bitmap?,
+        val largeImage: Bitmap?,
+        val color: Int,
+        val pendingIntent: PendingIntent,
+        val buttons: List<ButtonStructure>?
+    )
+
+    /**
+     * Represents the structure of buttons in push notifications.
+     *
+     * @property label The label or text displayed on the button.
+     * @property link The URL or deep link to navigate to a specific section of the application
+     *                after clicking the button.
+     */
+    @Serializable
+    internal data class ButtonStructure(val label: String, val link: String)
+
+    /**
+     * Represents the execution states of all periodic workers.
+     *
+     * @property updateWorkState The state of the update worker (profile updates).
+     * @property pushEventWorkState The state of the push event worker.
+     * @property tokenCheckWorkState The state of the token check worker (FCM/HMS/APNs).
+     * @property subscribeWorkState The state of the push subscription worker.
+     */
+    internal data class WorkersState(
+        val updateWorkState: WorkInfo.State?,
+        val pushEventWorkState: WorkInfo.State?,
+        val tokenCheckWorkState: WorkInfo.State?,
+        val subscribeWorkState: WorkInfo.State?
+    )
+}
