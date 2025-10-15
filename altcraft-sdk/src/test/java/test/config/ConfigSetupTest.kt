@@ -11,7 +11,7 @@ import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.SDKdb
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

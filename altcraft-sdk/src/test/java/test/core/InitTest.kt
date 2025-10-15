@@ -10,10 +10,10 @@ import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.config.ConfigSetup
 import com.altcraft.sdk.core.Init
+import com.altcraft.sdk.core.Retry
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.events.Events
-import com.altcraft.sdk.push.Core
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -39,23 +39,23 @@ import java.util.concurrent.TimeUnit
  * Positive scenarios:
  *  - test_1: init_success_inactivePush_callsBarrierComplete_andCallbackSuccess
  *            setConfig() succeeds, push inactive → InitBarrier.complete(),
- *            callback success, performPushModuleCheck() not invoked.
- *  - test_2: init_success_activePush_invokesPerformPushModuleCheck
- *            setConfig() succeeds, push active → performPushModuleCheck(ctx) invoked,
+ *            callback success, performRetryOperations() IS invoked (mobile events).
+ *  - test_2: init_success_activePush_invokesPerformRetryOperations
+ *            setConfig() succeeds, push active → performRetryOperations(ctx) invoked,
  *            InitBarrier.complete(), callback success.
  *  - test_3: init_success_activePush_verifiesCallOrder
  *            verifies correct order: setConfig → pushModuleIsActive →
- *            performPushModuleCheck(ctx) → InitBarrier.complete.
+ *            performRetryOperations(ctx) → InitBarrier.complete.
  *
  * Negative scenarios:
  *  - test_4: init_failure_fromSetConfig_callsBarrierFail_andCallbackFailure
  *            setConfig() throws → InitBarrier.fail(), Events.error(),
- *            callback failure.
+ *            callback failure, performRetryOperations() not called.
  *  - test_5: init_nullConfig_triggersFail_andCallbackFailure
  *            setConfig() returns null → exception(configIsNotSet),
- *            InitBarrier.fail() + Events.error(), callback failure.
- *  - test_6: init_performPushModuleCheckThrows_triggersFail_andCallbackFailure
- *            performPushModuleCheck(ctx) throws → InitBarrier.fail() + Events.error(),
+ *            InitBarrier.fail() + Events.error(), callback failure, performRetryOperations() not called.
+ *  - test_6: init_performRetryOperationsThrows_triggersFail_andCallbackFailure
+ *            performRetryOperations(ctx) throws → InitBarrier.fail() + Events.error(),
  *            callback failure.
  *
  * Concurrency:
@@ -78,7 +78,6 @@ class InitTest {
         const val MSG_CB_SUCCESS       = "Callback must be success"
         const val MSG_CB_FAILURE       = "Callback must be failure"
         const val MSG_BOTH_DONE        = "Both callbacks must complete"
-        const val MSG_RESERVE_CALLED   = "InitBarrier.reserve must be called"
         const val FUNC_INIT            = "init"
         const val LATCH_TIMEOUT_SEC    = 2L
     }
@@ -112,7 +111,7 @@ class InitTest {
             pushChannelDescription = null
         )
 
-        // --- Make InitCommandQueue.submit execute synchronously ---
+        // Make InitCommandQueue.submit execute synchronously in most tests
         mockkObject(CommandQueue.InitCommandQueue)
         every { CommandQueue.InitCommandQueue.submit(any()) } answers {
             val block = firstArg<suspend () -> Unit>()
@@ -122,12 +121,12 @@ class InitTest {
         // setConfig is suspend
         mockkObject(ConfigSetup)
 
-        // Mock object Core, do NOT mock CoreKt
-        mockkObject(Core)
-        every { Core.pushModuleIsActive(any()) } returns false
-        every { Core.performPushModuleCheck(any<Context>()) } just Runs // CHANGED: single-arg signature
+        // Retry object
+        mockkObject(Retry)
+        every { Retry.pushModuleIsActive(any()) } returns false
+        every { Retry.performRetryOperations(any<Context>()) } just Runs
 
-        // InitBarrier: provide a controllable gate and proper boolean returns
+        // InitBarrier: controllable gate
         mockkObject(InitBarrier)
         gate = CompletableDeferred()
         every { InitBarrier.reserve() } returns gate
@@ -152,11 +151,11 @@ class InitTest {
     @After
     fun tearDown() = unmockkAll()
 
-    /** success, push inactive → no performPushModuleCheck */
+    /** success, push inactive → performRetryOperations IS called (mobile events flow) */
     @Test
     fun init_success_inactivePush_callsBarrierComplete_andCallbackSuccess() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
-        every { Core.pushModuleIsActive(ctx) } returns false
+        every { Retry.pushModuleIsActive(ctx) } returns false
 
         val latch = CountDownLatch(1)
         var ok = false
@@ -167,20 +166,19 @@ class InitTest {
         }
 
         assertTrue(MSG_CB_SUCCESS, latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS) && ok)
-        assertTrue(MSG_RESERVE_CALLED, true) // reserve verified below
         coVerify(exactly = 1, timeout = 0) { ConfigSetup.setConfig(ctx, cfg) }
-        // barrier complete called with our gate
         io.mockk.verify(exactly = 1) { InitBarrier.complete(gate) }
         io.mockk.verify(exactly = 0) { InitBarrier.fail(any(), any()) }
-        // no performPushModuleCheck
-        io.mockk.verify(exactly = 0) { Core.performPushModuleCheck(any<Context>()) } // CHANGED
+
+        // New behavior: performRetryOperations always invoked (mobile events), even if push inactive
+        io.mockk.verify(exactly = 1) { Retry.performRetryOperations(ctx) }
     }
 
-    /** success, push active → performPushModuleCheck invoked */
+    /** success, push active → performRetryOperations invoked */
     @Test
-    fun init_success_activePush_invokesPerformPushModuleCheck() {
+    fun init_success_activePush_invokesPerformRetryOperations() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
-        every { Core.pushModuleIsActive(ctx) } returns true
+        every { Retry.pushModuleIsActive(ctx) } returns true
 
         val latch = CountDownLatch(1)
         var ok = false
@@ -193,11 +191,11 @@ class InitTest {
         assertTrue(MSG_CB_SUCCESS, latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS) && ok)
         coVerify(exactly = 1) { ConfigSetup.setConfig(ctx, cfg) }
         io.mockk.verify(exactly = 1) { InitBarrier.complete(gate) }
-        io.mockk.verify(exactly = 1) { Core.performPushModuleCheck(ctx) } // CHANGED
+        io.mockk.verify(exactly = 1) { Retry.performRetryOperations(ctx) }
         io.mockk.verify(exactly = 0) { InitBarrier.fail(any(), any()) }
     }
 
-    /** failure in setConfig → barrier.fail, Events.error, callback failure */
+    /** failure in setConfig → barrier.fail, Events.error, callback failure, no performRetryOperations */
     @Test
     fun init_failure_fromSetConfig_callsBarrierFail_andCallbackFailure() {
         coEvery { ConfigSetup.setConfig(any(), any()) } throws IllegalStateException("boom")
@@ -215,7 +213,7 @@ class InitTest {
         io.mockk.verify(exactly = 1) { InitBarrier.fail(gate, any()) }
         io.mockk.verify(exactly = 0) { InitBarrier.complete(any()) }
         io.mockk.verify(exactly = 1) { Events.error(eq(FUNC_INIT), any(), any()) }
-        io.mockk.verify(exactly = 0) { Core.performPushModuleCheck(any<Context>()) } // CHANGED
+        io.mockk.verify(exactly = 0) { Retry.performRetryOperations(any<Context>()) }
     }
 
     /** two init() calls → both callbacks complete (submit runs synchronously) */
@@ -235,10 +233,9 @@ class InitTest {
         coVerify(exactly = 2) { ConfigSetup.setConfig(ctx, cfg) }
     }
 
-    /** setConfig returns null → exception(configIsNotSet) path */
+    /** setConfig returns null → exception(configIsNotSet) path, no performRetryOperations */
     @Test
     fun init_nullConfig_triggersFail_andCallbackFailure() {
-        // setConfig returns null
         coEvery { ConfigSetup.setConfig(any(), any()) } returns null
 
         val latch = CountDownLatch(1)
@@ -255,16 +252,17 @@ class InitTest {
         io.mockk.verify(exactly = 1) { InitBarrier.fail(gate, any()) }
         io.mockk.verify(exactly = 0) { InitBarrier.complete(any()) }
         io.mockk.verify(exactly = 1) { Events.error(eq("init"), any(), any()) }
+        io.mockk.verify(exactly = 0) { Retry.performRetryOperations(any<Context>()) }
     }
 
-    /** performPushModuleCheck throws → fail path must be executed */
+    /** performRetryOperations throws → fail path must be executed */
     @Test
-    fun init_performPushModuleCheckThrows_triggersFail_andCallbackFailure() {
-        // Success config
+    fun init_performRetryOperationsThrows_triggersFail_andCallbackFailure() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
-        every { Core.pushModuleIsActive(ctx) } returns true
-        // Force performPushModuleCheck to throw
-        every { Core.performPushModuleCheck(any<Context>()) } answers { throw IllegalArgumentException("check failed") } // CHANGED
+        every { Retry.pushModuleIsActive(ctx) } returns true
+        every { Retry.performRetryOperations(any<Context>()) } answers {
+            throw IllegalArgumentException("check failed")
+        }
 
         val latch = CountDownLatch(1)
         var err: Throwable? = null
@@ -286,7 +284,7 @@ class InitTest {
     @Test
     fun init_success_activePush_verifiesCallOrder() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
-        every { Core.pushModuleIsActive(ctx) } returns true
+        every { Retry.pushModuleIsActive(ctx) } returns true
 
         val latch = CountDownLatch(1)
         var ok = false
@@ -297,12 +295,11 @@ class InitTest {
 
         coVerify(exactly = 1) { ConfigSetup.setConfig(ctx, cfg) }
         io.mockk.verify(exactly = 1) { InitBarrier.complete(gate) }
-        io.mockk.verify(exactly = 1) { Core.performPushModuleCheck(ctx) } // CHANGED
+        io.mockk.verify(exactly = 1) { Retry.performRetryOperations(ctx) }
 
         io.mockk.coVerifyOrder {
             ConfigSetup.setConfig(ctx, cfg)
-            Core.pushModuleIsActive(ctx)
-            Core.performPushModuleCheck(ctx) // CHANGED
+            Retry.performRetryOperations(ctx)
             InitBarrier.complete(gate)
         }
     }
@@ -320,20 +317,24 @@ class InitTest {
         }
 
         // Re-mock everything else
-        mockkObject(ConfigSetup, Core, InitBarrier, Events)
-        every { Core.pushModuleIsActive(any()) } returns false
+        mockkObject(ConfigSetup, Retry, InitBarrier, Events)
+        every { Retry.pushModuleIsActive(any()) } returns false
+        every { Retry.performRetryOperations(any<Context>()) } just Runs
         every { Events.error(any(), any(), any()) } returns DataClasses.Error("init", 400, "boom", null)
         every { Events.subscribe(any()) } just Runs
         every { Events.unsubscribe() } just Runs
-        // NOTE: performPushModuleCheck is not needed here because pushModuleIsActive == false
 
         // Reserve/complete
         val gate1 = CompletableDeferred<Unit>()
         val gate2 = CompletableDeferred<Unit>()
         val gates = arrayListOf(gate1, gate2)
         every { InitBarrier.reserve() } answers { gates.removeAt(0) }
-        every { InitBarrier.complete(any()) } answers { (firstArg() as CompletableDeferred<Unit>).complete(Unit) }
-        every { InitBarrier.fail(any(), any()) } answers { (firstArg() as CompletableDeferred<Unit>).complete(Unit) }
+        every { InitBarrier.complete(any()) } answers {
+            (firstArg() as CompletableDeferred<Unit>).complete(Unit)
+        }
+        every { InitBarrier.fail(any(), any()) } answers {
+            (firstArg() as CompletableDeferred<Unit>).complete(Unit)
+        }
 
         // Force first setConfig to suspend until second attempts to enter mutex
         val blockLatch = CountDownLatch(1)

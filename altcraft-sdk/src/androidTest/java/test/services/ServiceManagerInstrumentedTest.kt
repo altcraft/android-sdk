@@ -59,10 +59,6 @@ import com.altcraft.sdk.workers.coroutine.Worker
  *  - test_13: createServiceNotification — channel not created → returns null (error path).
  *  - test_14: checkStartForeground — offline → returns false and does not startForeground.
  *
- * Notes:
- *  - Instrumented (AndroidJUnit4). We mock framework interactions (startService, Notification creation).
- *  - For suspend APIs we use `coEvery`/`runBlocking`.
- *  - For methods that launch coroutines with delay (closeService/checkServiceClosed) we use CountDownLatch.
  */
 @RunWith(AndroidJUnit4::class)
 class ServiceManagerInstrumentedTest {

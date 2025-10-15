@@ -4,6 +4,7 @@ package com.altcraft.altcraftmobile.functions.app
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import com.altcraft.altcraftmobile.data.json.Converter.toStringJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -16,8 +17,8 @@ import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 
 object Converter {
-    fun mapToJsonString(map: Map<String, Any>): String = JSONObject(map).toString()
 
+    fun mapToJsonString(map: Map<String, Any>): String = map.toStringJson("mapToJsonString") ?: ""
 
     object Parser {
         internal fun parseJsonToMap(jsonString: String?): Map<String, Any> {

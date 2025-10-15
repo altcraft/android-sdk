@@ -51,8 +51,7 @@ import com.altcraft.altcraftmobile.functions.app.UI.SpacerHeightDp
 import com.altcraft.altcraftmobile.icon
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.initAltcraft
-import com.altcraft.sdk.AltcraftSDK.reinitializePushModuleInThisSession
-import com.altcraft.sdk.config.AltcraftConfiguration
+import com.altcraft.sdk.AltcraftSDK.reinitializeRetryControlInThisSession
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
@@ -66,12 +65,11 @@ object ConfigSettingComponents {
         val rTokenValue = remember { mutableStateOf("") }
         val providerValue = remember { mutableStateOf("") }
         val serviceMsgValue = remember { mutableStateOf("") }
-
         val currentConfig = remember { mutableStateOf(getConfig(context)) }
 
         val parsedConfig = remember(currentConfig.value) {
             try {
-                currentConfig.value?.let { AppDataClasses.ConfigData.from(it) }
+                currentConfig.value
             } catch (_: Exception) {
                 null
             }
@@ -142,23 +140,23 @@ object ConfigSettingComponents {
                                     return@AddButton
                                 }
 
-                                val configToSave = AltcraftConfiguration.Builder(
+                                val configToSave = AppDataClasses.ConfigData(
                                     apiUrl = apiUrl,
                                     rToken = rToken,
-                                    providerPriorityList = viewModel.providerList.value
+                                    priorityProviders = viewModel.providerList.value
                                         .takeIf { it.isNotEmpty() },
                                     icon = icon,
                                     usingService = serviceMsg.isNotEmpty(),
                                     serviceMessage = serviceMsg.ifEmpty { null }
-                                ).build()
+                                )
 
                                 setConfig(context, configToSave)
 
                                 currentConfig.value = configToSave
-                                viewModel.userName.value = configToSave.getApiUrl()
+                                viewModel.userName.value = configToSave.apiUrl
                                 viewModel.configSetting.value = configToSave.toString()
 
-                                reinitializePushModuleInThisSession()
+                                reinitializeRetryControlInThisSession()
 
                                 initAltcraft(context)
 

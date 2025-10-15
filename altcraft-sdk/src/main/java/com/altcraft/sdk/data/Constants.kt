@@ -47,14 +47,33 @@ object Constants {
     internal val validProviders = setOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
 
     //auth
-    internal const val R_TOKEN_MATCHING = "push_sub"
+
     internal const val MATCHING = "matching"
     internal const val SHA256 = "SHA-256"
     internal const val DB_ID = "db_id"
     internal const val MATCHING_ID = "matching_identifier"
 
+    //matching mode
+    internal const val PUSH_SUB_MATCHING = "push_sub"
+
+    //advertising Id
+    const val CLS_ADS_ID_CLIENT =
+        "com.google.android.gms.ads.identifier.AdvertisingIdClient"
+    const val CLS_ADS_ID_INFO =
+        "com.google.android.gms.ads.identifier.AdvertisingIdClient\$Info"
+    const val M_GET_INFO = "getAdvertisingIdInfo"
+    const val M_GET_ID = "getId"
+    const val M_IS_LIMIT = "isLimitAdTrackingEnabled"
+
     //service message
     internal const val DEFAULT_SERVICES_MESSAGE_BODY = "background process"
+
+    //services message id
+    internal const val SUB_SERVICE_MSG_ID = -1000
+    internal const val UPDATE_SERVICE_MSG_ID = -1001
+    internal const val EVENT_FG_WORKER_MSG_ID = -1002
+    internal const val PUSH_FG_WORKER_MSG_ID = -1003
+    internal const val UNKNOWN_SERVICE_MSG_ID = -1004
 
     //json
     internal const val SUBSCRIPTION_ID: String = "subscription_id"
@@ -82,12 +101,35 @@ object Constants {
     internal const val UNSUBSCRIBED: String = "unsubscribed"
     internal const val SUSPENDED: String = "suspended"
 
-    //pushEvents
+    //mobile evens
+    const val TIME_ZONE = "tz"
+    const val TIME_MOB = "t"
+    const val ALTCRAFT_CLIENT_ID = "aci"
+    const val MOB_EVENT_NAME = "wn"
+    const val PAYLOAD = "wd"
+    const val SMID_MOB = "mi"
+    const val MATCHING_MOB = "ma"
+    const val MATCHING_TYPE = "mm"
+    const val TRACKER_MOB = "px"
+    const val TYPE_MOB = "open"
+    const val VERSION_MOB = "2"
+    const val PROFILE_FIELDS_MOB = "pf"
+    const val SUBSCRIPTION_MOB = "sn"
+    const val UTM_CAMPAIGN = "cn"
+    const val UTM_CONTENT = "cc"
+    const val UTM_KEYWORD = "ck"
+    const val UTM_MEDIUM = "cm"
+    const val UTM_SOURCE = "cs"
+    const val UTM_TEMP = "ct"
+
+    //subscription channels
+    const val EMAIL_CHANNEL = "email"
+    const val SMS_CHANNEL = "sms"
+    const val PUSH_CHANNEL = "push"
+
+    //push events
     internal const val DELIVERY = "delivery"
     internal const val OPEN = "open"
-
-    //open push
-    internal const val PACKAGE_NAME = "package_Name"
 
     //retry
     internal const val RETRY_TIME_P_WORK: Long = 3 //HOURS
@@ -99,6 +141,7 @@ object Constants {
     //service
     @RequiresApi(Build.VERSION_CODES.Q)
     internal const val SERVICE_TYPE_DATA = FOREGROUND_SERVICE_TYPE_DATA_SYNC
+
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     internal const val SERVICE_TYPE_MSG = FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
 
@@ -113,18 +156,20 @@ object Constants {
 
     //coroutine worker
     internal const val PUSH_EVENT_C_WORK_TAG: String = "PUSH_EVENT_CWT"
+    internal const val MOBILE_EVENT_C_WORK_TAG: String = "MOBILE_EVENT_CWT"
     internal const val SUBSCRIBE_C_WORK_TAG: String = "SUBSCRIBE_CWT"
     internal const val UPDATE_C_WORK_TAG: String = "UPDATE_CWT"
 
     internal const val UPDATE_C_WORK_NANE: String = "UPDATE_CW"
     internal const val SUB_C_WORK_NANE: String = "SUBSCRIBE_CW"
     internal const val PUSH_EVENT_C_WORK_NAME: String = "PUSH_EVENT_CW"
+    internal const val MOBILE_EVENT_C_WORK_NAME: String = "MOBILE_EVENT_CW"
 
     //periodical worker
     internal const val SUB_P_WORK_NANE: String = "SUB_PW"
     internal const val UPDATE_P_WORK_NANE: String = " UPDATE_PW"
-    internal const val EVENT_P_WORK_NANE: String = "PUSH_EVENT_PW"
-    internal const val CHECK_P_WORK_NANE: String = "CHECK_PW"
+    internal const val PUSH_EVENT_P_WORK_NANE: String = "PUSH_EVENT_PW"
+    internal const val MOBILE_EVENT_P_WORK_NANE: String = "PUSH_EVENT_PW"
 
     //push map keys
     internal const val UID_KEY = "_uid"
@@ -135,8 +180,10 @@ object Constants {
     internal const val MESSAGE = "message"
     internal const val RESPONSE_WITH_HTTP_CODE = "response_with_http_code"
     internal const val TYPE = "type"
+    internal const val NAME = "mobile_event_name"
     internal const val UID = "uid"
     internal const val URL = "url"
+    internal const val MESSAGE_ID = "message_id"
 
     //push/status mode
     internal const val LATEST_SUBSCRIPTION = "LATEST_SUBSCRIPTION"
@@ -153,6 +200,7 @@ object Constants {
     internal const val STATUS_REQUEST = "push/status"
     internal const val UPDATE_REQUEST = "push/update"
     internal const val PUSH_EVENT_REQUEST = "event/push"
+    internal const val MOBILE_EVENT_REQUEST = "event/post"
 
     //actionsFieldsBuilder
     internal const val ACTION = "action"

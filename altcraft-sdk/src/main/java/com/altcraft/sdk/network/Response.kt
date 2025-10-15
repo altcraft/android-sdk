@@ -7,17 +7,18 @@ package com.altcraft.sdk.network
 import com.altcraft.sdk.additional.MapBuilder.createEventValue
 import com.altcraft.sdk.additional.PairBuilder.getRequestMessages
 import com.altcraft.sdk.additional.SubFunction.isJsonString
+import com.altcraft.sdk.additional.SubFunction.stringContainsHtml
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.STATUS_REQUEST
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
 import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
 import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.EventList.bodyIsNotJson
-import com.altcraft.sdk.events.EventList.responseDataIsNull
-import com.altcraft.sdk.events.Events.retry
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.EventList.responseDataIsNull
+import com.altcraft.sdk.sdk_events.Events.retry
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.interfaces.RequestData
 import com.altcraft.sdk.json.Converter.json
@@ -42,38 +43,20 @@ internal object Response {
     enum class ResponseStatus { SUCCESS, RETRY, ERROR }
 
     /**
-     * Returns the response body or error body as a string.
+     * Parses a JSON response into an [DataClasses.Response] object.
      *
-     * Safe wrapper for Retrofit [Response] with basic exception handling.
-     *
-     * @param response The Retrofit HTTP response.
-     * @return The body string, or `null` on failure.
+     * @param response The server response containing the status code and body data.
+     * @return An `AsyncSubscribeResponse` object if parsing is successful, otherwise `null`.
      */
-    private fun getResponseBody(response: Response<JsonElement>): String? {
-        val func = "getResponseBody"
+    private fun parseResponse(response: Response<JsonElement>): DataClasses.Response? {
         return try {
             val body = if (response.isSuccessful) response.body()?.toString()
             else response.errorBody()?.string()
-
-            if (body.isJsonString()) body else if (body == null) null else {
-                error(func, bodyIsNotJson, value = mapOf("body" to body))
-                null
+            when {
+                body.isNullOrEmpty() || stringContainsHtml(body)-> null
+                body.isJsonString() -> json.decodeFromString<DataClasses.Response>(body)
+                else -> DataClasses.Response(error = null, errorText = body, null)
             }
-        } catch (e: Exception) {
-            error(func, e)
-            null
-        }
-    }
-
-    /**
-     * Parses a JSON response into an [DataClasses.Response] object.
-     *
-     * @param body The JSON element containing the response.
-     * @return An `AsyncSubscribeResponse` object if parsing is successful, otherwise `null`.
-     */
-    private fun parseResponse(body: String?): DataClasses.Response? {
-        return try {
-            body?.let { json.decodeFromString<DataClasses.Response>(it) }
         } catch (e: Exception) {
             error("parseResponse", e)
             null
@@ -90,7 +73,7 @@ internal object Response {
         response: Response<JsonElement>, request: RequestData
     ): DataClasses.ResponseResult? {
         return try {
-            parseResponse(getResponseBody(response)).let {
+            parseResponse(response).let {
                 val msg = getRequestMessages(response.code(), it, request)
                 val value = createEventValue(response.code(), it, request)
                 val status = responseStatus(response.code())
@@ -157,6 +140,7 @@ internal object Response {
      */
     fun getRequestName(requestData: RequestData): String {
         return when (requestData) {
+            is DataClasses.MobileEventRequestData -> MOBILE_EVENT_REQUEST
             is DataClasses.UnSuspendRequestData -> UNSUSPEND_REQUEST
             is DataClasses.SubscribeRequestData -> SUBSCRIBE_REQUEST
             is DataClasses.StatusRequestData -> STATUS_REQUEST

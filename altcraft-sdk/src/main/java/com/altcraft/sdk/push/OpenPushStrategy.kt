@@ -9,7 +9,7 @@ import android.os.Build
 import androidx.work.Data
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.push.events.PushEvent.sendPushEvent
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.data.Constants.DELIVERY
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.UID_KEY

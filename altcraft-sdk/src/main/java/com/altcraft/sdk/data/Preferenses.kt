@@ -7,7 +7,7 @@ package com.altcraft.sdk.data
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import androidx.core.content.edit
 import com.altcraft.sdk.json.Converter.json
 import kotlinx.serialization.encodeToString
@@ -131,12 +131,12 @@ internal object Preferenses {
      */
     fun getMessageId(context: Context): Int {
         return try {
-            val next = getPreferences(context).getInt(MESSAGE_ID_KEY, 4) + 1
+            val next = getPreferences(context).getInt(MESSAGE_ID_KEY, 0) + 1
             getPreferences(context).edit { putInt(MESSAGE_ID_KEY, next) }
             next
         } catch (e: Exception) {
             error("getMessageId", e)
-            5
+            1
         }
     }
 }

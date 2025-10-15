@@ -4,22 +4,21 @@ package com.altcraft.sdk.push.action
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
-import com.altcraft.sdk.data.Constants
+import com.altcraft.sdk.data.Constants.MESSAGE_ID
 import com.altcraft.sdk.data.Constants.OPEN
 import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.data.Constants.URL
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.push.events.PushEvent.sendPushEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.Random
+import kotlin.String
 
 /**
  * The `PushAction` object is needed to create actions that will be performed after clicking
@@ -27,72 +26,8 @@ import java.util.Random
  */
 internal object PushAction {
 
-    // Intent flags to reuse the activity if it exists, or start it fresh
-    private const val FLAGS = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or
-            Intent.FLAG_ACTIVITY_CLEAR_TOP
-
     @Volatile
     private var uid: String? = null
-
-    /**
-     * Creates an [Intent] to launch [AltcraftPushActionActivity].
-     *
-     * @param ctx The context used to construct the intent.
-     * @return An explicit [Intent] pointing to [AltcraftPushActionActivity].
-     */
-    private fun intent(ctx: Context): Intent = Intent(ctx, AltcraftPushActionActivity::class.java)
-
-    /**
-     * Creates and returns a `PendingIntent` to start an activity in Android after clicking
-     * on a push notification.
-     *
-     * @param context The application context used to create the intent.
-     * @param url The URL that should be opened when the push notification is clicked.
-     * @param uid The parameter takes the value of the url hubLink open. after clicking
-     * on the notification, a request is made for this url to record information about opening the
-     * notification on the server..
-     * @return A `PendingIntent` configured to start the appropriate activity.
-     */
-    fun getIntent(
-        context: Context,
-        url: String,
-        uid: String
-    ): PendingIntent {
-        val newIntent = newIntent(context, url, uid).addFlags(FLAGS)
-        val flag = PendingIntent.FLAG_IMMUTABLE
-
-        return PendingIntent.getActivity(context, Random().nextInt(1000), newIntent, flag)
-    }
-
-    /**
-     * Builds an intent to open a URL via PushActionActivity,
-     * or fallback to app launch if URL is empty.
-     *
-     * @param context The application context.
-     * @param url The URL to open.
-     * @param uid The UID used to report notification opening.
-     * @return A properly configured intent.
-     */
-    private fun newIntent(context: Context, url: String, uid: String): Intent {
-        val intent = intent(context).putExtras(bundleOf(URL to url, UID to uid))
-        return if (url.isNotEmpty()) intent else openAppIntent(context, uid)
-    }
-
-    /**
-     * Creates an intent to launch the application with package name and UID extras.
-     *
-     * @param context The application context.
-     * @param uid The UID used to report notification opening.
-     * @return An intent that starts the app via PushActionActivity.
-     */
-    private fun openAppIntent(context: Context, uid: String): Intent {
-        return intent(context).putExtras(
-            bundleOf(
-                Constants.PACKAGE_NAME to context.packageName,
-                UID to uid
-            )
-        )
-    }
 
     /**
      * Registers a unique push opening event ("open" event)
@@ -108,6 +43,16 @@ internal object PushAction {
     }
 
     /**
+     * Closes (cancels) a notification by its ID if provided.
+     *
+     * @param context Application context.
+     * @param id Notification ID to cancel; ignored if null.
+     */
+    private fun closeNotification(context: Context, id: Int?) = id?.let {
+        NotificationManagerCompat.from(context).cancel(it)
+    }
+
+    /**
      * Handles extras received from the notification and performs the appropriate action:
      * creates an open event and navigates to a link or launches the app.
      *
@@ -116,10 +61,12 @@ internal object PushAction {
      */
     fun handleExtras(context: Context, extras: Bundle?) {
         try {
-            val link = extras?.getString(URL)
             val uid = extras?.getString(UID)
+            val link = extras?.getString(URL)
+            val id = extras?.getInt(MESSAGE_ID)
 
             openEvent(context, uid)
+            closeNotification(context, id)
 
             if (!link.isNullOrEmpty() && this.uid != uid) {
                 this.uid = uid; openLink(context, link)

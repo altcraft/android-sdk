@@ -1,4 +1,4 @@
-package com.altcraft.sdk.events
+package com.altcraft.sdk.sdk_events
 
 //  Created by Andrey Pogodin.
 //
@@ -29,9 +29,10 @@ internal object EventList {
      * 230–234 — Success codes for completed server requests:
      *  - 230 → subscribe request succeeded
      *  - 231 → token update request succeeded
-     *  - 232 → push event delivered successfully
-     *  - 233 -> unsuspend request succeeded
-     *  - 234 → status request succeeded
+     *  - 232 -> unsuspend request succeeded
+     *  - 233 → status request succeeded
+     *  - 234 → push event delivered successfully
+     *  - 235 → mobile event delivered successfully
      */
 
     //400 - used for exceptions, after which the operation cannot be repeated.
@@ -41,14 +42,16 @@ internal object EventList {
     val userTagIsNullE = 402 to "userTag is null. It is impossible to identify the user"
     val unsupportedEntityType = 403 to "Unsupported entity type"
     val sdkInitWaitingExpired = 404 to "The SDK initialization timeout has expired"
+    val mobileEventPartsIsNull = 405 to "mobile event parts is null"
 
     /**
-     * 430–434 — SDK-to-server request errors without automatic retry
-     *  - 430 → subscribe request failed
-     *  - 431 → token update request failed
-     *  - 432 → push event delivery failed
-     *  - 433 → unsuspend request failed
-     *  - 434 → profile request failed
+     * 430–435 — SDK-to-server request errors without automatic retry
+     * - 430 → subscribe request failed
+     * - 431 → token update request failed
+     * - 432 → unsuspend request failed
+     * - 433 → status request failed
+     * - 434 → push event delivery failed
+     * - 435 → mobile event request failed
      */
 
     /**notification error*/
@@ -67,12 +70,21 @@ internal object EventList {
     val fieldsIsObjects = 472 to "invalid customFields: not all values are primitives"
 
     /**
-     * 423–424 — Missing request payloads (no automatic retry)
+     * 424–425 — Missing request payloads (no automatic retry)
      * These errors indicate missing request data for which the SDK does not attempt to recollect
      * or retry.
      */
-    val unSuspendRequestDataIsNull = 423 to "unsuspend request data is null"
-    val profileRequestDataIsNull = 424 to "profile request data is null"
+    val unSuspendRequestDataIsNull = 422 to "unsuspend request data is null"
+    val profileRequestDataIsNull = 423 to "profile request data is null"
+
+    /**
+     * 480 - 485 - The request was removed from the database due to an excessive number of repeated
+     * executions.
+     *
+     * 480 - subscribe retry limit
+     * 484 - push event retry limit
+     * 485 - mobile event retry limit
+     */
 
     //500 - used for exception, after which the operation should be retried automatically
 
@@ -83,7 +95,6 @@ internal object EventList {
     val permissionDenied = 504 to "no permission to send notifications"
     val noInternetConnect = 505 to "no internet connection, retry when connection is " +
             "restored"
-    val bodyIsNotJson = 506 to "The response body is probably not a json string."
 
     /**
      * 520–529 — Missing or null request payloads
@@ -93,20 +104,25 @@ internal object EventList {
     val commonDataIsNull = 529 to "common data is null"
     val pushSubscribeRequestDataIsNull = 520 to "push subscribe request data is null"
     val tokenUpdateRequestDataIsNull = 521 to "token update request data is null"
-    val pushEventRequestDataIsNull = 522 to "push event request data is null"
+    val pushEventRequestDataIsNull = 524 to "push event request data is null"
+    val mobEventRequestDataIsNull = 525 to "mobile event request data is null"
 
     /**
-     * 530–532 — SDK-to-server request errors with automatic retry by the SDK
+     * 530–534 — SDK-to-server request errors with automatic retry by the SDK
      *  - 530 → subscribe request failed
      *  - 531 → token update request failed
-     *  - 532 → push event delivery failed
+     *  - 534 → push event delivery failed
+     *  - 535 → mobile event delivery failed
      */
 
-    /** 540–544 — Authorization-related errors */
+    /** 540–545 — Authorization-related errors */
     val jwtIsNull = 540 to "JWT token is null"
     val matchingIsNull = 541 to "matching mode is null"
-    val authDataIsNull = 543 to "auth data is null"
-    val matchingIdIsNull = 544 to "matching claim does not contain a matching ID"
+    val jwtTooLarge = 542 to "JWT payload exceeds allowed size (16 KB limit): input rejected to" +
+            " prevent DoS."
+    val payloadIsMissing = 543 to "JWT does not contain a payload"
+    val authDataIsNull = 544 to "auth data is null"
+    val matchingIdIsNull = 545 to "matching claim does not contain a matching ID"
 
     /** Response data issues */
     val responseDataIsNull = 560 to "response data is null"

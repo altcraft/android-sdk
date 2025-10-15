@@ -62,7 +62,7 @@ class JsonFactoryTest {
         profileFields: JsonElement? = null,
         fields: JsonElement? = null,
         cats: List<CategoryData>? = listOf(
-            CategoryData(name = "news", title = "News", steady = true,  active = true),
+            CategoryData(name = "news", title = "News",   steady = true,  active = true),
             CategoryData(name = "sports", title = "Sports", steady = false, active = true),
         ),
         replace: Boolean? = true,
@@ -146,7 +146,7 @@ class JsonFactoryTest {
         )
 
         val obj = json.jsonObject
-        assertEquals(123456789L, obj[TIME]?.jsonPrimitive?.long)
+        assertEquals(123456L, obj[TIME]?.jsonPrimitive?.long)
         assertEquals("tkn", obj[SUBSCRIPTION_ID]?.jsonPrimitive?.content)
 
         val sub = obj[SUBSCRIPTION]?.jsonObject!!
@@ -158,10 +158,10 @@ class JsonFactoryTest {
         val cats = sub[CATS]?.jsonArray!!
         assertEquals(2, cats.size)
         val c0 = cats[0].jsonObject
-        assertEquals("news", c0[CATS_NAME]?.jsonPrimitive?.content)
-        assertEquals("News", c0[CATS_TITLE]?.jsonPrimitive?.content)
-        assertEquals(true,  c0[CATS_STEADY]?.jsonPrimitive?.boolean)
-        assertEquals(true,  c0[CATS_ACTIVE]?.jsonPrimitive?.boolean)
+        assertEquals("news",  c0[CATS_NAME]?.jsonPrimitive?.content)
+        assertEquals("News",  c0[CATS_TITLE]?.jsonPrimitive?.content)
+        assertEquals(true,    c0[CATS_STEADY]?.jsonPrimitive?.boolean)
+        assertEquals(true,    c0[CATS_ACTIVE]?.jsonPrimitive?.boolean)
 
         assertEquals(25, obj[PROFILE_FIELDS]?.jsonObject?.get("age")?.jsonPrimitive?.int)
         assertEquals(true,  obj[REPLACE]?.jsonPrimitive?.boolean)
@@ -174,7 +174,7 @@ class JsonFactoryTest {
         val json = JsonFactory.createPushEventJson(pushReq(uid = "E123", time = 999L))
         val obj = json.jsonObject
 
-        assertEquals(999L, obj[TIME]?.jsonPrimitive?.long)
+        assertEquals(0L, obj[TIME]?.jsonPrimitive?.long)
         assertEquals("E123", obj[SMID]?.jsonPrimitive?.content)
         assertEquals(2, obj.size)
     }

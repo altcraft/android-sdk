@@ -5,7 +5,8 @@ package com.altcraft.sdk.additional
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.data.Constants.NAME
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.data.Constants.RESPONSE_WITH_HTTP_CODE
 import com.altcraft.sdk.data.Constants.TYPE
 import com.altcraft.sdk.data.Constants.UID
@@ -23,11 +24,12 @@ internal object MapBuilder {
     /**
      * Builds a map with push event details for logging or analytics.
      *
-     * Includes:
+     * The map can contain the following entries:
      * - "code": HTTP status code
      * - "data": Full response object
      * - "uid": Cleaned UID without "delivery"/"open"
      * - "type": Event type extracted from UID
+     * - "name": Name of the mobile event
      *
      * @param code HTTP response code
      * @param response Response data
@@ -43,11 +45,12 @@ internal object MapBuilder {
             it.uid to it.type
         } ?: (null to null)
 
+        val name = (requestData as? DataClasses.MobileEventRequestData)?.name
+
         val res = DataClasses.ResponseWithHttpCode(httpCode = code, response = response)
 
-        return mapOf(RESPONSE_WITH_HTTP_CODE to res, UID to uid, TYPE to type).filterValues {
-            it != null
-        }
+        return mapOf(RESPONSE_WITH_HTTP_CODE to res, UID to uid, TYPE to type, NAME to name)
+            .filterValues { it != null }
     }
 
     /**

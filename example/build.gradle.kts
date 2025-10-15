@@ -1,8 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    //alias(libs.plugins.google.gms.google.services)
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
+    //alias(libs.plugins.google.gms.google.services)
     //id("com.huawei.agconnect")
 }
 
@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.altcraft.altcraftmobile"
-        minSdk = 24
+        minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -27,6 +27,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -82,8 +83,7 @@ dependencies {
 
     // --- Push providers ---
     // FCM
-    implementation("com.google.firebase:firebase-messaging:24.0.2")
-    implementation("com.google.firebase:firebase-messaging-directboot:24.0.2")
+    implementation("com.google.firebase:firebase-messaging:25.0.0")
 
     // HMS
     implementation("com.huawei.hms:push:6.11.0.300")
@@ -100,3 +100,4 @@ dependencies {
         }
     }
 }
+

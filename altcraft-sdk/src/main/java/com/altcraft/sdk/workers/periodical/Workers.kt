@@ -8,13 +8,15 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
+import com.altcraft.sdk.data.room.RoomRequest.clearOldMobileEventsFromRoom
 import com.altcraft.sdk.push.events.PushEvent
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.push.token.TokenManager
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.push.token.TokenUpdate.tokenUpdate
 import com.altcraft.sdk.data.room.RoomRequest.clearOldPushEventsFromRoom
 import com.altcraft.sdk.data.room.SDKdb
+import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
+import com.altcraft.sdk.workers.coroutine.CancelWork.cancelMobileEventWorkerTask
 import com.altcraft.sdk.workers.coroutine.CancelWork.cancelPushEventWorkerTask
 import com.altcraft.sdk.workers.coroutine.CancelWork.cancelSubscribeWorkerTask
 import com.altcraft.sdk.workers.coroutine.CancelWork.cancelUpdateWorkerTask
@@ -28,7 +30,7 @@ import com.altcraft.sdk.workers.periodical.CommonFunctions.awaitCancel
 internal object Workers {
 
     /**
-     * A worker that retryHubLink() function periodically.
+     * A periodic worker for performing retry operations on push events.
      *
      * @constructor Creates a new instance of `RetryPushEventWorker`.
      * @param appContext The application context.
@@ -54,6 +56,38 @@ internal object Workers {
                 Result.success()
             } catch (e: Exception) {
                 error("RetryPushEventWorker :: doWork", e)
+                Result.failure()
+            }
+        }
+    }
+
+    /**
+     * A periodic worker for performing retry operations on mobile events.
+     *
+     * @constructor Creates a new instance of `RetryPushEventWorker`.
+     * @param appContext The application context.
+     * @param workerParams Parameters to setup the worker.
+     */
+    class RetryMobileEventWorker(appContext: Context, workerParams: WorkerParameters) :
+        CoroutineWorker(appContext, workerParams) {
+        private val context = appContext
+
+        /**
+         * Scans for unsent mobile events and processes their delivery.
+         *
+         * @return `Result.success()` if all events are processed successfully,
+         *         `Result.failure()` if a critical error occurs.
+         */
+        override suspend fun doWork(): Result {
+            return try {
+                if (!isAppInForegrounded()) {
+                    awaitCancel(context, ::cancelMobileEventWorkerTask)
+                    MobileEvent.isRetry(context)
+                    clearOldMobileEventsFromRoom(SDKdb.getDb(context))
+                }
+                Result.success()
+            } catch (e: Exception) {
+                error("RetryMobileEventWorker :: doWork", e)
                 Result.failure()
             }
         }
@@ -91,7 +125,7 @@ internal object Workers {
     }
 
     /**
-     * A WorkManager that performs the retryPushSubscribe() function.
+     * A worker manager who performs checks and updates the push token.
      *
      * @constructor Creates a new instance of `RetryUpdateWorker`.
      * @param appContext The application context.
@@ -118,30 +152,6 @@ internal object Workers {
                 error("RetryUpdateWorker :: doWork", e)
                 Result.failure()
             }
-        }
-    }
-
-    /**
-     * WorkManager is a class that executes a request for the current fcm token.
-     *
-     * @constructor Creates a new instance of `TokenCheckWorker`.
-     * @param appContext The application context.
-     * @param workerParams Parameters to setup the worker.
-     */
-    class TokenCheckWorker(appContext: Context, workerParams: WorkerParameters) :
-        CoroutineWorker(appContext, workerParams) {
-        private val context = appContext
-
-        /**
-         * Executes a request for the current FCM token in the background.
-         *
-         * @return Result of the worker execution, which is always `Result.success()`.
-         */
-        override suspend fun doWork(): Result {
-            if (!isAppInForegrounded()) {
-                TokenManager.getCurrentToken(context)
-            }
-            return Result.success()
         }
     }
 }

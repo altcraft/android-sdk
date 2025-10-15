@@ -206,19 +206,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateConfigUI(context: Context) {
-
         val config = getConfig(context)
+        val saveSubSetting = getSubscribeSettings(context)
+        val defaultSubSetting = AppDataClasses.SubscribeSettings.getDefault()
 
-        val configData = AppDataClasses.ConfigData.from(config).toString()
 
-        providerList.value = config?.getProviderPriorityList() ?: emptyList()
+        val subscribeSetting = saveSubSetting ?: defaultSubSetting
+        providerList.value = config?.priorityProviders ?: emptyList()
 
-        val subscribeSetting =
-            getSubscribeSettings(context) ?: AppDataClasses.SubscribeSettings.getDefault()
-
-        userName.value = config?.getApiUrl()
-
-        configSetting.value = configData
+        userName.value = config?.apiUrl
+        configSetting.value = config.toString()
         subscribeSettings.value = subscribeSetting
 
         anonJWT.value = getAnonJWT(context) ?: ""

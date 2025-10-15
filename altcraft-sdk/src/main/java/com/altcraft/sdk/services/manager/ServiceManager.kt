@@ -28,11 +28,14 @@ import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
 import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
 import com.altcraft.sdk.data.Constants.SERVICE_TYPE_DATA
 import com.altcraft.sdk.data.Constants.DEFAULT_SERVICES_MESSAGE_BODY
+import com.altcraft.sdk.data.Constants.SUB_SERVICE_MSG_ID
+import com.altcraft.sdk.data.Constants.UNKNOWN_SERVICE_MSG_ID
+import com.altcraft.sdk.data.Constants.UPDATE_SERVICE_MSG_ID
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.events.EventList.channelNotCreated
-import com.altcraft.sdk.events.EventList.noInternetConnect
-import com.altcraft.sdk.events.EventList.notificationErr
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.channelNotCreated
+import com.altcraft.sdk.sdk_events.EventList.noInternetConnect
+import com.altcraft.sdk.sdk_events.EventList.notificationErr
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
 import com.altcraft.sdk.push.PushChannel.isChannelCreated
@@ -195,9 +198,9 @@ internal object ServiceManager {
      */
     private fun getId(service: Service): Int {
         return when (service) {
-            is SubscribeService -> 1
-            is UpdateService -> 2
-            else -> 3
+            is SubscribeService -> SUB_SERVICE_MSG_ID
+            is UpdateService -> UPDATE_SERVICE_MSG_ID
+            else -> UNKNOWN_SERVICE_MSG_ID
         }
     }
 

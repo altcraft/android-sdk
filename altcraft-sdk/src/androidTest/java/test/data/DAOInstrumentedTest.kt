@@ -4,50 +4,38 @@ package test.data
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.data.room.DAO
-import test.room.TestRoom
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.room.ConfigurationEntity
+import com.altcraft.sdk.data.room.DAO
+import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import org.junit.*
 import org.junit.runner.RunWith
+import test.room.TestRoom
+import java.util.UUID
 
 /**
  * DaoInstrumentedTest
  *
  * Positive scenarios:
  *  - test_1: config_insert_get_updateProviderList_and_delete
- *            insert ConfigurationEntity, verify getConfig(), updateProviderPriorityList,
- *            and deleteConfig clears table.
  *  - test_2: subscribe_insert_query_order_and_exists
- *            insert multiple SubscribeEntity, verify allSubscriptionsByTag ordering and
- *            subscriptionsExistsByTag true/false.
  *  - test_3: subscribe_increaseRetry_and_deleteByUid
- *            insert SubscribeEntity, increase retry count, then delete by UID.
  *  - test_4: subscribe_deleteAll
- *            insert multiple SubscribeEntity, deleteAllSubscriptions clears table.
  *  - test_5: push_insert_query_order_desc_and_exists_count
- *            insert multiple PushEventEntity, verify ordering (DESC), exists, and count.
  *  - test_6: push_increaseRetry_getOldest_limit_and_delete
- *            verify increasePushEventRetryCount, getOldestPushEvents(limit),
- *            delete by UID, and batch delete.
  *  - test_7: push_deleteAll
- *            insert multiple PushEventEntity, deleteAllPushEvents clears table.
- *
- * Negative scenarios:
- *  - Not directly tested; invalid/malformed data prevented at Room level.
- *
- * Notes:
- *  - Instrumented Android tests (androidTest), run with real in-memory Room database.
- *  - Uses TestRoom with production entities and converters.
- *  - Ensures DAO queries perform correctly on real Room-generated implementation.
+ *  - test_8: mobile_insert_and_count
+ *  - test_9: mobile_increaseRetry_and_deleteById
+ *  - test_10: mobile_getOldest_limit_and_batchDelete
+ *  - test_11: mobile_deleteAll
  */
 @RunWith(AndroidJUnit4::class)
 class DaoInstrumentedTest {
@@ -56,7 +44,6 @@ class DaoInstrumentedTest {
     private lateinit var db: TestRoom
     private lateinit var dao: DAO
 
-    // Real provider constants
     private companion object {
         const val FCM_PROVIDER = "android-firebase"
         const val HMS_PROVIDER = "android-huawei"
@@ -122,7 +109,7 @@ class DaoInstrumentedTest {
         Assert.assertNull(dao.getConfig())
     }
 
-    /** Verifies insert/orderBy ASC/exists for subscribeTable. */
+    /** Verifies insert/orderBy ASC for subscribeTable. */
     @Test
     fun subscribe_insert_query_order_and_exists() = runBlocking {
         val now = System.currentTimeMillis() / 1000
@@ -149,9 +136,6 @@ class DaoInstrumentedTest {
 
         val list = dao.allSubscriptionsByTag("tagA")
         Assert.assertEquals(listOf("sub-1", "sub-2", "sub-3"), list.map { it.uid })
-
-        Assert.assertTrue(dao.subscriptionsExistsByTag("tagA"))
-        Assert.assertFalse(dao.subscriptionsExistsByTag("tagB"))
     }
 
     /** Verifies increaseSubscribeRetryCount and deleteSubscribeByUid. */
@@ -179,7 +163,6 @@ class DaoInstrumentedTest {
 
         val del = dao.deleteSubscribeByUid("sub-x")
         Assert.assertEquals(1, del)
-        Assert.assertFalse(dao.subscriptionsExistsByTag("tagX"))
     }
 
     /** Verifies deleteAllSubscriptions clears subscribeTable. */
@@ -198,7 +181,7 @@ class DaoInstrumentedTest {
         Assert.assertTrue(dao.allSubscriptionsByTag("t").isEmpty())
     }
 
-    /** Verifies insert/getAll DESC/exists/count for pushEventTable. */
+    /** Verifies insert/getAll DESC/count for pushEventTable. */
     @Test
     fun push_insert_query_order_desc_and_exists_count() = runBlocking {
         val now = System.currentTimeMillis() / 1000
@@ -213,7 +196,6 @@ class DaoInstrumentedTest {
         val list = dao.getAllPushEvents()
         Assert.assertEquals(listOf("p3", "p2", "p1"), list.map { it.uid })
 
-        Assert.assertTrue(dao.pushEventsExists())
         Assert.assertEquals(3, dao.getPushEventCount())
     }
 
@@ -251,10 +233,164 @@ class DaoInstrumentedTest {
     fun push_deleteAll() = runBlocking {
         dao.insertPushEvent(PushEventEntity("u1", "opened"))
         dao.insertPushEvent(PushEventEntity("u2", "received"))
-        Assert.assertTrue(dao.pushEventsExists())
 
         dao.deleteAllPushEvents()
-        Assert.assertFalse(dao.pushEventsExists())
         Assert.assertEquals(0, dao.getPushEventCount())
+    }
+
+    // ----------------------
+    // MobileEvent tests
+    // ----------------------
+
+    /** Verifies insert and count for mobileEventTable (with explicit userTag). */
+    @Test
+    fun mobile_insert_and_count() = runBlocking {
+        val tag = "tagM"
+
+        val e1 = MobileEventEntity(
+            id = 0L,
+            userTag = tag,
+            timeZone = 0,
+            time = System.currentTimeMillis(),
+            sid = "sid-1",
+            altcraftClientID = "cid-1",
+            eventName = "evt-a",
+            payload = null,
+            matching = null,
+            profileFields = null,
+            subscription = null,
+            sendMessageId = "smid-1",
+            matchingType = null,
+            utmTags = null,
+            retryCount = 0,
+            maxRetryCount = 5
+        )
+        val e2 = e1.copy(
+            userTag = tag,
+            sid = "sid-2",
+            altcraftClientID = "cid-2",
+            eventName = "evt-b",
+            sendMessageId = "smid-2",
+            time = System.currentTimeMillis() + 1
+        )
+
+        dao.insertMobileEvent(e1)
+        dao.insertMobileEvent(e2)
+
+        val listByTag = dao.allMobileEventsByTag(tag)
+        Assert.assertTrue(listByTag.size >= 2)
+        Assert.assertEquals(2, dao.getMobileEventCount())
+        Assert.assertTrue(listByTag.any { it.eventName == "evt-a" } && listByTag.any { it.eventName == "evt-b" })
+    }
+
+    /** Verifies increaseMobileEventRetryCount and delete by id (query by tag). */
+    @Test
+    fun mobile_increaseRetry_and_deleteById() = runBlocking {
+        val tag = "tagX"
+        val e = MobileEventEntity(
+            id = 0L,
+            userTag = tag,
+            timeZone = 60,
+            time = System.currentTimeMillis(),
+            sid = "sid-x",
+            altcraftClientID = "cid-x",
+            eventName = "evt-x",
+            payload = null,
+            matching = null,
+            profileFields = null,
+            subscription = null,
+            sendMessageId = null,
+            matchingType = null,
+            utmTags = null,
+            retryCount = 0,
+            maxRetryCount = 5
+        )
+        dao.insertMobileEvent(e)
+
+        val saved = dao.allMobileEventsByTag(tag).last()
+        val id = saved.id
+        Assert.assertTrue(id > 0)
+
+        dao.increaseMobileEventRetryCount(id, saved.retryCount + 1)
+        val afterInc = dao.allMobileEventsByTag(tag).first { it.id == id }
+        Assert.assertEquals(saved.retryCount + 1, afterInc.retryCount)
+
+        val del = dao.deleteMobileEventById(id)
+        Assert.assertEquals(1, del)
+    }
+
+    /** Verifies getOldestMobileEvents(limit) and batch delete across all tags. */
+    @Test
+    fun mobile_getOldest_limit_and_batchDelete() = runBlocking {
+        // Insert several rows with increasing time
+        val base = System.currentTimeMillis()
+        repeat(3) { idx ->
+            dao.insertMobileEvent(
+                MobileEventEntity(
+                    id = 0L,
+                    userTag = "tagB",
+                    timeZone = 0,
+                    time = base + idx, // ensure ASC order by time
+                    sid = "sid-$idx",
+                    altcraftClientID = "cid-$idx",
+                    eventName = "evt-$idx",
+                    payload = null,
+                    matching = null,
+                    profileFields = null,
+                    subscription = null,
+                    matchingType = null,
+                    utmTags = null,
+                    sendMessageId = UUID.randomUUID().toString(),
+                    retryCount = 0,
+                    maxRetryCount = 5
+                )
+            )
+        }
+
+        val beforeCount = dao.getMobileEventCount()
+        Assert.assertTrue(beforeCount >= 3)
+
+        val oldest2 = dao.getOldestMobileEvents(2)
+        Assert.assertEquals(2, oldest2.size)
+
+        dao.deleteMobileEvents(oldest2)
+        val remainingCount = dao.getMobileEventCount()
+        Assert.assertEquals(beforeCount - 2, remainingCount)
+
+        val removedIds = oldest2.map { it.id }.toSet()
+        val remainingByTag = dao.allMobileEventsByTag("tagB")
+        Assert.assertTrue(remainingByTag.none { it.id in removedIds })
+    }
+
+    /** Verifies deleteAllMobileEvents clears table. */
+    @Test
+    fun mobile_deleteAll() = runBlocking {
+        repeat(2) {
+            dao.insertMobileEvent(
+                MobileEventEntity(
+                    id = 0L,
+                    userTag = "tagC",
+                    timeZone = 0,
+                    time = System.currentTimeMillis() + it,
+                    sid = "s$it",
+                    altcraftClientID = "c$it",
+                    eventName = "e$it",
+                    payload = null,
+                    matching = null,
+                    profileFields = null,
+                    subscription = null,
+                    sendMessageId = null,
+                    matchingType = null,
+                    utmTags = null,
+                    retryCount = 0,
+                    maxRetryCount = 5
+                )
+            )
+        }
+        Assert.assertTrue(dao.getMobileEventCount() >= 2)
+
+        dao.deleteAllMobileEvents()
+        Assert.assertEquals(0, dao.getMobileEventCount())
+        Assert.assertTrue(dao.allMobileEventsByTag("tagC").isEmpty())
     }
 }

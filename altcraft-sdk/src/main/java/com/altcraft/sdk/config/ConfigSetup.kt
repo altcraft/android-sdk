@@ -9,9 +9,9 @@ import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.SDKdb
-import com.altcraft.sdk.events.EventList.configIsSet
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.EventList.configIsSet
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.event
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,6 +67,7 @@ internal object ConfigSetup {
         val (newRToken, oldRToken) = newConfig?.rToken to oldConfig?.rToken
         if (newRToken != null && oldRToken != null && newRToken != oldRToken) {
             dao.deleteAllSubscriptions()
+            dao.deleteAllMobileEvents()
         }
     }
 

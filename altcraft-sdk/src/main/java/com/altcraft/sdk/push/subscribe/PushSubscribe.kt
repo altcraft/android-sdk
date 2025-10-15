@@ -23,14 +23,14 @@ import com.altcraft.sdk.data.room.RoomRequest.entityDelete
 import com.altcraft.sdk.data.room.RoomRequest.entityInsert
 import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.data.room.SubscribeEntity
-import com.altcraft.sdk.events.EventList.configIsNotSet
-import com.altcraft.sdk.events.EventList.configIsNull
-import com.altcraft.sdk.events.EventList.fieldsIsObjects
-import com.altcraft.sdk.events.EventList.noInternetConnect
-import com.altcraft.sdk.events.EventList.userTagIsNull
-import com.altcraft.sdk.events.EventList.userTagIsNullE
-import com.altcraft.sdk.events.Events.retry
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
+import com.altcraft.sdk.sdk_events.EventList.configIsNull
+import com.altcraft.sdk.sdk_events.EventList.fieldsIsObjects
+import com.altcraft.sdk.sdk_events.EventList.noInternetConnect
+import com.altcraft.sdk.sdk_events.EventList.userTagIsNull
+import com.altcraft.sdk.sdk_events.EventList.userTagIsNullE
+import com.altcraft.sdk.sdk_events.Events.retry
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.extension.MapExtension.mapToJson
 import com.altcraft.sdk.services.manager.ServiceManager.startSubscribeWorker
@@ -55,6 +55,7 @@ internal object PushSubscribe {
      * @param status The subscription status (default is "subscribe").
      * @param sync An optional synchronization flag.
      * @param customFields Additional custom fields associated with the subscription.
+     * @param profileFields Optional profile fields to include in the request.
      * @param cats A map of category preferences for the subscription.
      * @param replace A flag indicating whether to replace an existing subscription.
      * @param skipTriggers A flag indicating whether to skip associated triggers.
@@ -70,7 +71,6 @@ internal object PushSubscribe {
         skipTriggers: Boolean? = null
     ) {
         val initGate = InitBarrier.current()
-
         CommandQueue.SubscribeCommandQueue.submit {
             try {
                 withInitReady("pushSubscribe", gate = initGate) {
@@ -105,7 +105,7 @@ internal object PushSubscribe {
     }
 
     /**
-     * Determines whether any subscription should be retried
+     * Determines whether subscription requests need to be retried
      *
      * This function retrieves all subscription records associated with the current user tag
      * and attempts to process them. If a subscription request fails with a `RetryError`,
@@ -117,7 +117,7 @@ internal object PushSubscribe {
      * - Calls `checkSubServerClosed()` after processing.
      * - Releases the subscription lock to allow further operations.
      *
-     * @return `true` if at least one subscription should be retried, otherwise `false`.
+     * @return `true` if at least one subscription request needs to be retried, otherwise `false`.
      */
     suspend fun isRetry(context: Context): Boolean {
         return try {

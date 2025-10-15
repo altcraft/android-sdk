@@ -5,7 +5,7 @@ package test.events
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.extension.ExceptionExtension
 import org.junit.*

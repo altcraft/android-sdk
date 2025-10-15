@@ -53,6 +53,7 @@ import com.altcraft.altcraftmobile.functions.app.Formatter.getUserNameForInfo
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.updateProvider
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.text.TextStyle
 import com.altcraft.altcraftmobile.R
 import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
@@ -200,7 +201,7 @@ object InfoComponents {
                     }
                 }
             }
-            /** switch for QA test
+// qa test ui ------------------------------------------------------------------------
             Text(
                 text = "QA",
                 modifier = Modifier
@@ -221,7 +222,7 @@ object InfoComponents {
                     .offset(x = 25.dp, y = 20.dp),
                 viewModel
             )
-            */
+// qa test ui ------------------------------------------------------------------------
         }
     }
 
@@ -441,15 +442,14 @@ object InfoComponents {
                 )
             }
         }
-
-        /** QA test
-        LaunchedEffect(isChecked.value) {
-            if (isChecked.value) {
-                AltcraftTest.startTests(context, viewModel)
-            } else {
-                AltcraftTest.stopTests()
-            }
-        }
-        */
+// qa test ui --------------------------------------------------------------------------------------
+//        LaunchedEffect(isChecked.value) {
+//            if (isChecked.value) {
+//                AltcraftTest.startTests(context, viewModel)
+//            } else {
+//                AltcraftTest.stopTests()
+//            }
+//        }
+// qa test ui --------------------------------------------------------------------------------------
     }
 }

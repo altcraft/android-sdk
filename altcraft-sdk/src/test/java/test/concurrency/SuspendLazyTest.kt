@@ -4,7 +4,7 @@ package test.concurrency
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.data.DataClasses
 import io.mockk.every
 import io.mockk.mockk

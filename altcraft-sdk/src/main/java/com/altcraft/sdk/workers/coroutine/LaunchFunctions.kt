@@ -7,10 +7,12 @@ package com.altcraft.sdk.workers.coroutine
 import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkManager
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_NAME
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_NAME
 import com.altcraft.sdk.data.Constants.SUB_C_WORK_NANE
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_NANE
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.workers.coroutine.Request.mobileEventRequest
 import com.altcraft.sdk.workers.coroutine.Request.pushEventRequest
 import com.altcraft.sdk.workers.coroutine.Request.subscribeRequest
 import com.altcraft.sdk.workers.coroutine.Request.updateRequest
@@ -42,6 +44,21 @@ internal object LaunchFunctions {
     }
 
     /**
+     * Starts the mobile event worker as a unique work chain without waiting for its result.
+     *
+     * @param context Application context.
+     */
+    fun startMobileEventCoroutineWorker(context: Context) {
+        try {
+            WorkManager.getInstance(context).beginUniqueWork(
+                MOBILE_EVENT_C_WORK_NAME, policy, mobileEventRequest()
+            ).enqueue()
+        } catch (e: Exception) {
+            error("startPushEventCoroutineWorker", e)
+        }
+    }
+
+    /**
      * Starts the subscribe worker as a unique work chain without waiting for its result.
      *
      * @param context Application context.
@@ -49,7 +66,7 @@ internal object LaunchFunctions {
     fun startSubscribeCoroutineWorker(context: Context) {
         try {
             WorkManager.getInstance(context).beginUniqueWork(
-                SUB_C_WORK_NANE, ExistingWorkPolicy.REPLACE, subscribeRequest()
+                SUB_C_WORK_NANE, policy, subscribeRequest()
             ).enqueue()
         } catch (e: Exception) {
             error("startSubscribeCoroutineWorker", e)

@@ -5,7 +5,6 @@ package com.altcraft.altcraftmobile.providers.hms
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.sdk.interfaces.HMSInterface
 import com.huawei.agconnect.AGConnectOptionsBuilder
 import com.huawei.hms.aaid.HmsInstanceId
@@ -41,8 +40,7 @@ class HMSProvider : HMSInterface {
             val appId = AGConnectOptionsBuilder().build(context).getString(APP_ID)
 
             HmsInstanceId.getInstance(context).getToken(appId, TOKEN_SCOPE)
-        } catch (e: Exception) {
-            SubFunction.logger(e.toString())
+        } catch (_: Exception) {
             null
         }
     }
@@ -61,7 +59,7 @@ class HMSProvider : HMSInterface {
 
             HmsInstanceId.getInstance(context).deleteToken(appId, TOKEN_SCOPE)
             complete(true)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             complete(false)
         }
     }

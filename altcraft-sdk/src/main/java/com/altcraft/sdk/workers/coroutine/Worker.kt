@@ -12,6 +12,7 @@ import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
+import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.token.TokenUpdate
 import com.altcraft.sdk.services.manager.ServiceManager.checkServiceClosed
 import com.altcraft.sdk.services.manager.ServiceManager.closeService
@@ -36,8 +37,9 @@ internal object Worker {
     suspend fun awaitInBackground() {
         if (!isAppInForegrounded()) delay(1500)
     }
+
     /**
-     * Worker that handles processing of push event data in the background.
+     * Worker that handles processing of push event data.
      *
      * @param appContext Application context.
      * @param workerParams Parameters used to initialize the worker.
@@ -65,7 +67,35 @@ internal object Worker {
     }
 
     /**
-     * Worker that handles subscription logic in the background.
+     * Worker that handles processing of mobile event data.
+     *
+     * @param appContext Application context.
+     * @param workerParams Parameters used to initialize the worker.
+     */
+    class MobileEventCoroutineWorker(
+        appContext: Context,
+        workerParams: WorkerParameters
+    ) : CoroutineWorker(appContext, workerParams) {
+        /**
+         * Executes the background task.
+         * Returns success, retry, or failure based on internal logic.
+         *
+         * @return Result of the background task.
+         */
+        override suspend fun doWork(): Result {
+
+            awaitInBackground()
+
+            val retry = MobileEvent.isRetry(applicationContext)
+
+            return if (retry) {
+                Result.retry()
+            } else Result.success()
+        }
+    }
+
+    /**
+     * Worker that handles subscription logic.
      *
      * @param appContext Application context
      * @param workerParams Parameters used to initialize the worker.
@@ -102,7 +132,7 @@ internal object Worker {
     }
 
     /**
-     * Worker that performs profile update operations in the background.
+     * Worker that performs profile update operations.
      *
      * @param appContext Application context.
      * @param workerParams Parameters used to initialize the worker.

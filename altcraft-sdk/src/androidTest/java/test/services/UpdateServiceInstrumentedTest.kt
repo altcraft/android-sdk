@@ -32,9 +32,6 @@ import java.util.concurrent.TimeUnit
  * Edge:
  *  - test_3: onStartCommand() with STOP_SERVICE_ACTION: does not start worker, but calls closedServiceHandler()
  *
- * Notes:
- *  - Instrumentation tests (androidTest) executed on device/emulator.
- *  - Service is started via real Context.startService(...).
  */
 @RunWith(AndroidJUnit4::class)
 class UpdateServiceInstrumentedTest {

@@ -4,6 +4,7 @@ package com.altcraft.sdk.additional
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_REQUEST
 import com.altcraft.sdk.network.Response
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.STATUS_REQUEST
@@ -12,7 +13,7 @@ import com.altcraft.sdk.data.Constants.SUCCESS_REQUEST
 import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
 import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.EventList.pushProviderSet
+import com.altcraft.sdk.sdk_events.EventList.pushProviderSet
 import com.altcraft.sdk.interfaces.RequestData
 
 /**
@@ -55,14 +56,19 @@ internal object PairBuilder {
                 231 to "$SUCCESS_REQUEST $UPDATE_REQUEST"
 
             UNSUSPEND_REQUEST ->
-                233 to "$SUCCESS_REQUEST $UNSUSPEND_REQUEST"
+                232 to "$SUCCESS_REQUEST $UNSUSPEND_REQUEST"
 
             STATUS_REQUEST ->
-                234 to "$SUCCESS_REQUEST $STATUS_REQUEST"
+                233 to "$SUCCESS_REQUEST $STATUS_REQUEST"
+
+            PUSH_EVENT_REQUEST -> {
+                val type = (request as? DataClasses.PushEventRequestData)?.type
+                234 to "$SUCCESS_REQUEST $PUSH_EVENT_REQUEST. Event type: $type"
+            }
 
             else -> {
-                val type = (request as? DataClasses.PushEventRequestData)?.type
-                232 to "$SUCCESS_REQUEST $PUSH_EVENT_REQUEST. Event type: $type"
+                val name = (request as? DataClasses.MobileEventRequestData)?.name
+                235 to "$SUCCESS_REQUEST $MOBILE_EVENT_REQUEST. Event name: $name"
             }
         }
     }
@@ -75,7 +81,8 @@ internal object PairBuilder {
     private val retryableRequestErrorCodeMap = mapOf(
         SUBSCRIBE_REQUEST to (530 to 430),
         UPDATE_REQUEST to (531 to 431),
-        PUSH_EVENT_REQUEST to (532 to 432),
+        PUSH_EVENT_REQUEST to (534 to 434),
+        MOBILE_EVENT_REQUEST to (535 to 435)
     )
 
     /**
@@ -98,18 +105,19 @@ internal object PairBuilder {
         val requestName = Response.getRequestName(requestData)
         val baseMsg = "request: $requestName, http code: $code, error: $error, errorText: $text"
 
-        val errorMsg = if (requestData is DataClasses.PushEventRequestData) {
-            "$baseMsg, type: ${requestData.type}"
-        } else baseMsg
-
+        val errorMsg = when (requestData) {
+            is DataClasses.PushEventRequestData -> "$baseMsg, type: ${requestData.type}"
+            is DataClasses.MobileEventRequestData -> "$baseMsg, name: ${requestData.name}"
+            else -> baseMsg
+        }
         return when (requestName) {
             in retryableRequestErrorCodeMap -> {
                 val (code5xx, code4xx) = retryableRequestErrorCodeMap.getValue(requestName)
                 if (code in 500..599) code5xx to errorMsg else code4xx to errorMsg
             }
 
-            UNSUSPEND_REQUEST -> 433 to errorMsg
-            STATUS_REQUEST -> 434 to errorMsg
+            UNSUSPEND_REQUEST -> 432 to errorMsg
+            STATUS_REQUEST -> 433 to errorMsg
             else -> if (code in 500..599) 539 to "unknown request: $errorMsg" else
                 439 to "unknown request: $errorMsg"
         }

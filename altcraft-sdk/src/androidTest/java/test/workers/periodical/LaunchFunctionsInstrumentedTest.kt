@@ -16,19 +16,17 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestDriver
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.altcraft.sdk.additional.SubFunction
-import com.altcraft.sdk.data.Constants.CHECK_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.FCM_PROVIDER
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
-import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.RoomRequest
-import com.altcraft.sdk.workers.periodical.CommonFunctions
-import com.altcraft.sdk.workers.periodical.LaunchFunctions
+import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
-import com.altcraft.sdk.push.token.TokenManager
 import com.altcraft.sdk.push.token.TokenUpdate
+import com.altcraft.sdk.workers.periodical.CommonFunctions
+import com.altcraft.sdk.workers.periodical.LaunchFunctions
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -46,16 +44,15 @@ import org.junit.runner.RunWith
 /**
  * PeriodicalLaunchFunctionsE2EInstrumentedTest
  *
- * test_1: startPeriodicalPushEventWorker() — schedules real periodic work; we trigger execution and verify
- *         PushEvent.isRetry(...) and RoomRequest.clearOldPushEventsFromRoom(...) are called.
- * test_2: startPeriodicalSubscribeWorker() — schedules real periodic work; we trigger execution and verify
- *         PushSubscribe.isRetry(...) is called.
- * test_3: startPeriodicalUpdateWorker() — schedules real periodic work; we trigger execution and verify
- *         TokenUpdate.tokenUpdate(...) is called.
- * test_4: startPeriodicalTokenCheckWorker() — schedules real periodic work; we trigger execution and verify
- *         TokenManager.getCurrentToken(...) is called.
- *
- * Все тесты прогоняют реальный WorkManager через WorkManagerTestInitHelper.
+ * Positive scenarios:
+ *  - test_1: startPeriodicalPushEventWorker() — schedules periodic work; run once and verify:
+ *             PushEvent.isRetry(...) and RoomRequest.clearOldPushEventsFromRoom(...) are called.
+ *  - test_2: startPeriodicalSubscribeWorker() — schedules periodic work; run once and verify:
+ *             PushSubscribe.isRetry(...) is called.
+ *  - test_3: startPeriodicalUpdateWorker() — schedules periodic work; run once and verify:
+ *             TokenUpdate.tokenUpdate(...) is called.
+ *  - test_4: startPeriodicalMobileEventWorker() — schedules periodic work; run once and verify:
+ *             MobileEvent.isRetry(...) and RoomRequest.clearOldMobileEventsFromRoom(...) are called.
  */
 @RunWith(AndroidJUnit4::class)
 class PeriodicalLaunchFunctionsE2EInstrumentedTest {
@@ -86,11 +83,11 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
             PushEvent,
             PushSubscribe,
             TokenUpdate,
-            TokenManager,
+            MobileEvent,
             RoomRequest
         )
 
-        // Workers run their body only when app is NOT foregrounded.
+        // Workers execute their body only when app is NOT foregrounded.
         every { SubFunction.isAppInForegrounded() } returns false
 
         // Do not actually cancel anything; just let awaitCancel return immediately.
@@ -103,10 +100,9 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
 
         coEvery { PushSubscribe.isRetry(any()) } returns false
         coEvery { TokenUpdate.tokenUpdate(any()) } returns Unit
-        coEvery { TokenManager.getCurrentToken(any()) } returns DataClasses.TokenData(
-            FCM_PROVIDER,
-            "token"
-        )
+
+        coEvery { MobileEvent.isRetry(any()) } returns false
+        coEvery { RoomRequest.clearOldMobileEventsFromRoom(any()) } returns Unit
     }
 
     @After
@@ -121,7 +117,7 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         LaunchFunctions.startPeriodicalPushEventWorker(context)
 
         // Ensure unique work exists
-        val infos = workManager.getWorkInfosForUniqueWork(EVENT_P_WORK_NANE).get()
+        val infos = workManager.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get()
         assertEquals(1, infos.size)
         assertTrue(infos.first().state == WorkInfo.State.ENQUEUED)
 
@@ -173,21 +169,26 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
     }
 
-    /** test_4: TOKEN CHECK periodic worker runs and invokes TokenManager.getCurrentToken(...) */
+    /** test_4: MOBILE EVENT periodic worker runs and invokes MobileEvent + cleanup */
     @Test
-    fun test_4_startPeriodicalTokenCheckWorker_runs() {
-        LaunchFunctions.startPeriodicalTokenCheckWorker(context)
+    fun test_4_startPeriodicalMobileEventWorker_runs() {
+        // Enqueue periodic worker via LaunchFunctions API
+        LaunchFunctions.startPeriodicalMobileEventWorker(context)
 
-        val infos = workManager.getWorkInfosForUniqueWork(CHECK_P_WORK_NANE).get()
+        // Ensure unique work exists
+        val infos = workManager.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get()
         assertEquals(1, infos.size)
         assertTrue(infos.first().state == WorkInfo.State.ENQUEUED)
 
+        // Trigger constraints + period to run the worker once
         val id = infos.first().id
         testDriver!!.setAllConstraintsMet(id)
         testDriver!!.setPeriodDelayMet(id)
 
-        coVerify(exactly = 1) { TokenManager.getCurrentToken(any()) }
-        // This worker does NOT use awaitCancel
-        coVerify(exactly = 0) { CommonFunctions.awaitCancel(any(), any()) }
+        // Verify business effects happened inside the worker
+        coVerify(exactly = 1) { MobileEvent.isRetry(any()) }
+        coVerify(exactly = 1) { RoomRequest.clearOldMobileEventsFromRoom(any()) }
+        coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
+        assertEquals(context.packageName, ctxSlot.captured.packageName)
     }
 }

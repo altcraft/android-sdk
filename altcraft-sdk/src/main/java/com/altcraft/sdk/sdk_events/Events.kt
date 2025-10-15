@@ -1,4 +1,4 @@
-package com.altcraft.sdk.events
+package com.altcraft.sdk.sdk_events
 
 //  Created by Andrey Pogodin.
 //

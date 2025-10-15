@@ -15,9 +15,13 @@ import com.altcraft.sdk.data.Constants.PROVIDER
 import com.altcraft.sdk.data.Constants.TOKEN
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.interfaces.RequestData
+import com.altcraft.sdk.json.serializer.subscription.SubscriptionSerializer
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.util.Date
 
 typealias error = DataClasses.Error
@@ -194,10 +198,10 @@ object DataClasses {
     @Keep
     @Serializable
     data class CategoryData(
-        val name: String? = null,
+        val name: String?,
         val title: String? = null,
         val steady: Boolean? = null,
-        val active: Boolean? = null
+        val active: Boolean?
     )
 
     /**
@@ -220,19 +224,179 @@ object DataClasses {
         }
     }
 
+    /**
+     * Base interface for all subscription types.
+     *
+     * @property resourceId Resource identifier.
+     * @property status Subscription status (optional).
+     * @property priority Subscription priority (optional).
+     * @property customFields Standard and custom subscription fields (optional).
+     * @property cats Subscription categories (optional).
+     * @property channel Channel type.
+     */
+    @Keep
+    @Serializable(with = SubscriptionSerializer::class)
+    sealed interface Subscription {
+        @SerialName("resource_id")
+        val resourceId: Int
+        val status: String?
+        val priority: Int?
+        @SerialName("custom_fields")
+        val customFields: Map<String, @Contextual Any?>?
+        val cats: List<String>?
+        val channel: String
+    }
+
+    /**
+     * Email channel subscription.
+     *
+     * @property resourceId Resource identifier.
+     * @property email Email address.
+     * @property status Subscription status (optional).
+     * @property priority Subscription priority (optional).
+     * @property customFields Standard and custom subscription fields (optional).
+     * @property cats Subscription categories (optional).
+     * @property channel Channel type, always `"email"`.
+     */
+    @Keep
+    @Suppress("unused")
+    @Serializable
+    data class EmailSubscription(
+        @SerialName("resource_id")
+        override val resourceId: Int,
+        val email: String,
+        override val status: String? = null,
+        override val priority: Int? = null,
+        @SerialName("custom_fields")
+        override val customFields: Map<String, @Contextual Any?>? = null,
+        override val cats: List<String>? = null,
+    ) : Subscription {
+        @SerialName("channel")
+        override val channel: String = "email"
+    }
+
+    /**
+     * SMS channel subscription.
+     *
+     * @property resourceId Resource identifier.
+     * @property phone Phone number.
+     * @property status Subscription status (optional).
+     * @property priority Subscription priority (optional).
+     * @property customFields Standard and custom subscription fields (optional).
+     * @property cats Subscription categories (optional).
+     * @property channel Channel type, always `"sms"`.
+     */
+    @Keep
+    @Suppress("unused")
+    @Serializable
+    data class SmsSubscription(
+        @SerialName("resource_id")
+        override val resourceId: Int,
+        val phone: String,
+        override val status: String? = null,
+        override val priority: Int? = null,
+        @SerialName("custom_fields")
+        override val customFields: Map<String, @Contextual Any?>? = null,
+        override val cats: List<String>? = null,
+    ) : Subscription {
+        @SerialName("channel")
+        override val channel: String = "sms"
+    }
+
+    /**
+     * Push channel subscription.
+     *
+     * @property resourceId Resource identifier.
+     * @property provider Provider type (e.g., `"android-firebase"`).
+     * @property subscriptionId Unique subscription identifier.
+     * @property status Subscription status (optional).
+     * @property priority Subscription priority (optional).
+     * @property customFields Standard and custom subscription fields (optional).
+     * @property cats Subscription categories (optional).
+     * @property channel Channel type, always `"push"`.
+     */
+    @Keep
+    @Suppress("unused")
+    @Serializable
+    data class PushSubscription(
+        @SerialName("resource_id")
+        override val resourceId: Int,
+        val provider: String,
+        @SerialName("subscription_id")
+        val subscriptionId: String,
+        override val status: String? = null,
+        override val priority: Int? = null,
+        @SerialName("custom_fields")
+        override val customFields: Map<String, @Contextual Any?>? = null,
+        override val cats: List<String>? = null,
+    ) : Subscription {
+        @SerialName("channel")
+        override val channel: String = "push"
+    }
+
+    /**
+     * Subscription with `cc_data`, used for Telegram, WhatsApp, Viber, and Notify channels.
+     *
+     * @property resourceId Resource identifier.
+     * @property channel Channel type: `"telegram_bot"`, `"whatsapp"`, `"viber"`, or `"notify"`.
+     * @property ccData Channel-specific data (e.g., chat ID or phone number).
+     * @property status Subscription status (optional).
+     * @property priority Subscription priority (optional).
+     * @property customFields Standard and custom subscription fields (optional).
+     * @property cats Subscription categories (optional).
+     */
+    @Keep
+    @Suppress("unused")
+    @Serializable
+    data class CcDataSubscription(
+        @SerialName("resource_id")
+        override val resourceId: Int,
+        @SerialName("channel")
+        override val channel: String,
+        @SerialName("cc_data")
+        val ccData: JsonObject,
+        override val status: String? = null,
+        override val priority: Int? = null,
+        @SerialName("custom_fields")
+        override val customFields: Map<String, @Contextual Any?>? = null,
+        override val cats: List<String>? = null,
+    ) : Subscription
+
+    /**
+     * UTM params for mobile events (all optional).
+     *
+     * @property campaign UTM Campaign
+     * @property content  UTM Content
+     * @property keyword  UTM Keyword/Term
+     * @property medium   UTM Medium
+     * @property source   UTM Source
+     * @property temp     UTM Temp
+     */
+    @Serializable
+    data class UTM (
+        val campaign: String? = null,
+        val content: String? = null,
+        val keyword: String? = null,
+        val medium: String? = null,
+        val source: String? = null,
+        val temp: String? = null
+    )
+
     //internal
     /**
      * Data model for the JWT "matching" claim.
      *
      * Represents identifiers that can be used to match a profile in the platform.
      *
-     * @param dbId ID of the database used for matching.
-     * @param email Matching identifier: profile email.
-     * @param phone Matching identifier: profile phone number.
-     * @param matching Matching method (e.g. "push_sub").
-     * @param profileId Matching identifier: unique profile ID in the platform.
-     * @param fieldValue Matching identifier: custom field value.
-     * @param subscriptionId Matching identifier: push subscription ID (required).
+     * @param dbId            ID of the database used for matching.
+     * @param matching        Matching method.
+     * @param email           Matching identifier: profile email.
+     * @param phone           Matching identifier: profile phone number.
+     * @param profileId       Matching identifier: unique profile ID in the platform.
+     * @param fieldName       Matching identifier: custom field name (for custom matching).
+     * @param fieldValue      Matching identifier: custom field value (string or number).
+     * @param provider        Matching identifier: provider code (if the matching requires it).
+     * @param subscriptionId  Matching identifier: subscription id.
      */
     @Serializable
     internal data class JWTMatching(
@@ -241,28 +405,43 @@ object DataClasses {
         @SerialName("email") val email: String? = null,
         @SerialName("phone") val phone: String? = null,
         @SerialName("profile_id") val profileId: String? = null,
-        @SerialName("field_value") val fieldValue: String? = null,
+        @SerialName("field_name") val fieldName: String? = null,
+        @SerialName("field_value") val fieldValue: JsonPrimitive? = null,
+        @SerialName("provider") val provider: String? = null,
         @SerialName("subscription_id") val subscriptionId: String? = null,
     ) {
         /**
          * Builds a matching string for JWT payload.
          *
+         * Order: email / phone / profileId / fieldName / fieldValue / provider / subscriptionId.
+         *
          * @return Combined string if at least one matching field is present,
-         *         otherwise `null` (error: matchingIdIsNull).
+         *         otherwise `null` (no matching identifiers provided).
          */
         fun asString(): String? {
-            val ids = listOf(email, phone, profileId, fieldValue, subscriptionId)
-                .filter { !it.isNullOrEmpty() }
+            val parts = buildList {
+                fun addIfNotBlank(v: String?) {
+                    if (!v.isNullOrBlank()) add(v)
+                }
 
-            if (ids.isEmpty()) return null
+                addIfNotBlank(email)
+                addIfNotBlank(phone)
+                addIfNotBlank(profileId)
+                addIfNotBlank(fieldName)
+                fieldValue?.let { add(it.content) }
+                addIfNotBlank(provider)
+                addIfNotBlank(subscriptionId)
+            }
 
-            val matchingValue = ids.joinToString(separator = "/") { it ?: "" }
+            if (parts.isEmpty()) return null
+
+            val matchingValue = parts.joinToString(separator = "/")
 
             return """{
             "$DB_ID": "$dbId",
             "$MATCHING": "$matching",
             "$MATCHING_ID": "$matchingValue"
-            }"""
+        }""".trimIndent()
         }
     }
 
@@ -367,6 +546,24 @@ object DataClasses {
     ) : RequestData
 
     /**
+     * Data class representing the necessary data for sending a mobile event request.
+     *
+     * This class encapsulates all required parameters for a mobile event API call,
+     * ensuring that only valid data is included in the request.
+     *
+     * @property url The full API endpoint for the push event.
+     * @property sid The string ID of the pixel.
+     * @property name The event name.
+     * @property authHeader The authorization header (Bearer token).
+     */
+    internal data class MobileEventRequestData(
+        val url: String,
+        val sid: String,
+        val name: String,
+        val authHeader: String
+    ) : RequestData
+
+    /**
      * Represents the required data for profile request, including the URL, headers,
      * and subscription details.
      *
@@ -458,17 +655,15 @@ object DataClasses {
     internal data class ButtonStructure(val label: String, val link: String)
 
     /**
-     * Represents the execution states of all periodic workers.
+     * Represents the execution states of periodic workers related to **push notifications**.
      *
-     * @property updateWorkState The state of the update worker (profile updates).
-     * @property pushEventWorkState The state of the push event worker.
-     * @property tokenCheckWorkState The state of the token check worker (FCM/HMS/APNs).
      * @property subscribeWorkState The state of the push subscription worker.
+     * @property updateWorkState The state of the push token/update worker.
+     * @property pushEventWorkState The state of the push event worker.
      */
-    internal data class WorkersState(
+    internal data class PushWorkersState(
+        val subscribeWorkState: WorkInfo.State?,
         val updateWorkState: WorkInfo.State?,
-        val pushEventWorkState: WorkInfo.State?,
-        val tokenCheckWorkState: WorkInfo.State?,
-        val subscribeWorkState: WorkInfo.State?
+        val pushEventWorkState: WorkInfo.State?
     )
 }

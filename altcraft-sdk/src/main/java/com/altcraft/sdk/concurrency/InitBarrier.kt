@@ -4,9 +4,9 @@ package com.altcraft.sdk.concurrency
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.events.EventList.initAwait
-import com.altcraft.sdk.events.EventList.sdkInitWaitingExpired
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.EventList.initAwait
+import com.altcraft.sdk.sdk_events.EventList.sdkInitWaitingExpired
+import com.altcraft.sdk.sdk_events.Events.event
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout

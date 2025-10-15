@@ -3,7 +3,6 @@
 package test.workers.foreground
 
 //  Created by Andrey Pogodin.
-//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.app.Notification
@@ -20,12 +19,7 @@ import com.altcraft.sdk.push.PushPresenter
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.services.manager.ServiceManager
 import com.altcraft.sdk.workers.foreground.Worker
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.mockkObject
-import io.mockk.slot
-import io.mockk.unmockkAll
-import io.mockk.unmockkObject
+import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,12 +29,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * ForegroundWorkerInstrumentedTest
+ * ForegroundWorkerInstrumentedTest (updated for new Worker implementation)
  *
  * test_1: EventForegroundWorker — returns Success and calls sendPushEvent(context, DELIVERY, uid);
  *         also requests foreground notification via ServiceManager.createServiceNotification(...)
  * test_2: PushForegroundWorker  — returns Success and calls showPush(context, inputMap);
  *         also requests foreground notification via ServiceManager.createServiceNotification(...)
+ *
  */
 @RunWith(AndroidJUnit4::class)
 class WorkersInstrumentedTest {
@@ -56,16 +51,18 @@ class WorkersInstrumentedTest {
         mockkObject(PushEvent)
         mockkObject(PushPresenter)
 
-        // Return a simple notification for foreground info.
+        // Provide a concrete Notification so ForegroundInfo creation succeeds across API levels.
         val fakeNotification: Notification =
             NotificationCompat.Builder(context, "test-channel")
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
+                .setContentTitle("test")
                 .setContentText("fg")
                 .build()
 
+        // IMPORTANT: these functions are NOT suspend; use `every`, not `coEvery`.
         coEvery { ServiceManager.createServiceNotification(any()) } returns fakeNotification
-        coEvery { PushEvent.sendPushEvent(any(), any(), any()) } returns Unit
-        coEvery { PushPresenter.showPush(any(), any()) } returns Unit
+        coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
+        coEvery { PushPresenter.showPush(any(), any()) } just Runs
     }
 
     @After
@@ -131,3 +128,4 @@ class WorkersInstrumentedTest {
         }
     }
 }
+

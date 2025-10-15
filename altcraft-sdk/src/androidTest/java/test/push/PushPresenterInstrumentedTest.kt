@@ -16,8 +16,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.app.NotificationManagerCompat
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Repository
-import com.altcraft.sdk.events.EventList.pushIsPosted
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.EventList.pushIsPosted
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.push.PushChannel
 import com.altcraft.sdk.push.PushPresenter
 import com.altcraft.sdk.additional.SubFunction

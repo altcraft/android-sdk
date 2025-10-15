@@ -4,7 +4,7 @@ package test.json
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.json.Converter.fromStringJson
 import com.altcraft.sdk.json.Converter.toStringJson
 import com.altcraft.sdk.data.DataClasses

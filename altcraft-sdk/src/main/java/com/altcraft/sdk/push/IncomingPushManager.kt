@@ -10,11 +10,11 @@ import com.altcraft.sdk.additional.SubFunction.altcraftPush
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.data.Constants.PUSH_RECEIVER
 import com.altcraft.sdk.data.Constants.MESSAGE
-import com.altcraft.sdk.events.EventList.altcraftPush
-import com.altcraft.sdk.events.EventList.notAltcraftPush
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.event
-import com.altcraft.sdk.events.Message.RECEIVER_REDEFINED
+import com.altcraft.sdk.sdk_events.EventList.altcraftPush
+import com.altcraft.sdk.sdk_events.EventList.notAltcraftPush
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.event
+import com.altcraft.sdk.sdk_events.Message.RECEIVER_REDEFINED
 import com.altcraft.sdk.push.OpenPushStrategy.deliveryEventStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

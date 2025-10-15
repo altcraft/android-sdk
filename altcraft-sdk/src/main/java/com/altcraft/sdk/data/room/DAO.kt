@@ -49,9 +49,6 @@ internal interface DAO {
     @Query("DELETE FROM subscribeTable")
     suspend fun deleteAllSubscriptions(): Int
 
-    @Query("SELECT EXISTS(SELECT 1 FROM subscribeTable WHERE userTag = :tag)")
-    suspend fun subscriptionsExistsByTag(tag: String): Boolean
-
     // PushEvent
     /** Inserts a push event. */
     @Insert
@@ -60,10 +57,6 @@ internal interface DAO {
     /** Returns all push events ordered from newest to oldest. */
     @Query("SELECT * FROM pushEventTable ORDER BY time DESC")
     suspend fun getAllPushEvents(): List<PushEventEntity>
-
-    /** Returns true if pushEventTable has at least one row, false otherwise. */
-    @Query("SELECT EXISTS(SELECT 1 FROM pushEventTable)")
-    suspend fun pushEventsExists(): Boolean
 
     /** Deletes a push event by UID. */
     @Query("DELETE FROM pushEventTable WHERE uid = :uid")
@@ -85,6 +78,36 @@ internal interface DAO {
     @Query("SELECT * FROM pushEventTable ORDER BY time ASC LIMIT :limit")
     suspend fun getOldestPushEvents(limit: Int): List<PushEventEntity>
 
+    //MobileEvent
+
+    /** Inserts a mobile event. */
+    @Insert
+    suspend fun insertMobileEvent(event: MobileEventEntity)
+
+    /** Returns mobile events filtered by user tag, ordered from oldest to newest. */
+    @Query("SELECT * FROM mobileEventTable WHERE userTag = :userTag ORDER BY time ASC")
+    suspend fun allMobileEventsByTag(userTag: String?): List<MobileEventEntity>
+
+    /** Deletes a mobile event by ID. */
+    @Query("DELETE FROM mobileEventTable WHERE id = :id")
+    suspend fun deleteMobileEventById(id: Long): Int
+
+    /** Deletes all mobile events. */
+    @Query("DELETE FROM mobileEventTable")
+    suspend fun deleteAllMobileEvents()
+
+    /** Returns the number of stored mobile events. */
+    @Query("SELECT COUNT(*) FROM mobileEventTable")
+    suspend fun getMobileEventCount(): Int
+
+    /** Deletes the given list of mobile events. */
+    @Delete
+    suspend fun deleteMobileEvents(events: List<MobileEventEntity>)
+
+    /** Returns oldest mobile events up to a limit. */
+    @Query("SELECT * FROM mobileEventTable ORDER BY time ASC LIMIT :limit")
+    suspend fun getOldestMobileEvents(limit: Int): List<MobileEventEntity>
+
     //Increase retry count
 
     /** Updates retry count for a subscription by UID. */
@@ -94,6 +117,10 @@ internal interface DAO {
     /** Updates retry count for a push event by UID. */
     @Query("UPDATE pushEventTable SET retryCount = :newRetryCount WHERE uid = :uid")
     suspend fun increasePushEventRetryCount(uid: String, newRetryCount: Int)
+
+    /** Updates retry count for a mobile event by ID. */
+    @Query("UPDATE mobileEventTable SET retryCount = :newRetryCount WHERE id = :id")
+    suspend fun increaseMobileEventRetryCount(id: Long, newRetryCount: Int)
 
     //Update
     /**

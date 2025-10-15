@@ -75,7 +75,7 @@ internal data class SubscribeEntity(
     @ColumnInfo(name = "uid")
     var uid: String = UUID.randomUUID().toString(),
     @ColumnInfo(name = "time")
-    var time: Long = System.currentTimeMillis() / 1000,
+    var time: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "retryCount")
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
@@ -84,12 +84,6 @@ internal data class SubscribeEntity(
 
 /**
  * Entity representing a push event stored in the database.
- *
- * @property uid Unique identifier of the event (now used as the primary key).
- * @property type Type of push event (e.g., "received", "opened", "dismissed").
- * @property time Timestamp of the event in string format.
- * @property retryCount Current retry attempt count.
- * @property maxRetryCount Maximum number of retry attempts allowed.
  */
 @Entity(tableName = "pushEventTable")
 internal data class PushEventEntity(
@@ -99,7 +93,47 @@ internal data class PushEventEntity(
     @ColumnInfo(name = "type")
     var type: String,
     @ColumnInfo(name = "time")
-    var time: Long = System.currentTimeMillis() / 1000,
+    var time: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "retryCount")
+    var retryCount: Int = START_RETRY_COUNT,
+    @ColumnInfo(name = "maxRetryCount")
+    var maxRetryCount: Int = MAX_RETRY_COUNT,
+)
+
+/**
+ * Entity representing a mobile event stored in the database.
+ */
+@Entity(tableName = "mobileEventTable")
+internal data class MobileEventEntity(
+    @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "id")
+    var id: Long = 0L,
+    @ColumnInfo(name = "userTag")
+    var userTag: String,
+    @ColumnInfo(name = "tz")
+    var timeZone: Int,
+    @ColumnInfo(name = "time")
+    var time: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "sid")
+    var sid: String,
+    @ColumnInfo(name = "altcraftClientID")
+    var altcraftClientID: String?,
+    @ColumnInfo(name = "eventName")
+    var eventName: String,
+    @ColumnInfo(name = "payload")
+    var payload: String?,
+    @ColumnInfo(name = "matching")
+    var matching: String?,
+    @ColumnInfo(name = "matchingType")
+    var matchingType: String?,
+    @ColumnInfo(name = "profileFields")
+    var profileFields: String?,
+    @ColumnInfo(name = "subscription")
+    var subscription: String?,
+    @ColumnInfo(name = "sendMessageId")
+    var sendMessageId: String?,
+    @ColumnInfo(name = "utm")
+    var utmTags: String?,
     @ColumnInfo(name = "retryCount")
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")

@@ -12,10 +12,10 @@ import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
 import com.altcraft.sdk.data.Constants.validProviders
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Preferenses.getManualToken
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.interfaces.FCMInterface
 import com.altcraft.sdk.interfaces.HMSInterface
 import com.altcraft.sdk.interfaces.RustoreInterface

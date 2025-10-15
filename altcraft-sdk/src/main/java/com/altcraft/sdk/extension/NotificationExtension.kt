@@ -7,8 +7,8 @@ package com.altcraft.sdk.extension
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.push.action.PushAction.getIntent
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.push.action.Intent.getIntent
 
 /**
  * `NotificationExtension` provides utilities to enhance notifications
@@ -27,12 +27,19 @@ internal object NotificationExtension {
      * @param uid Unique ID passed with each intent.
      * @return Notification builder with actions added.
      */
-     fun NotificationCompat.Builder.addActions(
+    fun NotificationCompat.Builder.addActions(
         context: Context,
+        messageId: Int,
         buttons: List<DataClasses.ButtonStructure>?,
         uid: String
     ): NotificationCompat.Builder {
-        buttons?.forEach { addAction(0, it.label, getIntent(context, it.link, uid)) }
+        buttons?.forEach {
+            try {
+                addAction(0, it.label, getIntent(context, messageId, it.link, uid))
+            } catch (e: Exception) {
+                error("addActions", e)
+            }
+        }
         return this
     }
 
@@ -45,7 +52,7 @@ internal object NotificationExtension {
      * @param data Notification content including title and image.
      * @return Notification builder with style applied if possible.
      */
-     fun NotificationCompat.Builder.applyBigPictureStyle(
+    fun NotificationCompat.Builder.applyBigPictureStyle(
         data: DataClasses.NotificationData
     ): NotificationCompat.Builder {
         try {

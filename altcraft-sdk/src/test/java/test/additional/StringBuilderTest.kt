@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.additional
 
 //  Created by Andrey Pogodin.
@@ -13,6 +15,9 @@ import io.mockk.mockk
 import org.junit.Assert.*
 import org.junit.Test
 
+// Alias to avoid clash with java.lang.StringBuilder
+private typealias ACStringBuilder = com.altcraft.sdk.additional.StringBuilder
+
 /**
  * StringBuilderTest
  *
@@ -22,6 +27,8 @@ import org.junit.Test
  *  - test_3: eventLogBuilder with empty string → returns "fn(): " with a single space after colon.
  *  - test_7: invalidConfigMsg with valid configuration → returns only the prefix "invalid config: "
  *            (no errors appended).
+ *  - test_8: deletedMobileEventsMsg returns the expected summary string with total count.
+ *  - test_9: mobileEventInvalid builds an error message that contains the event name and reason.
  *
  * Negative scenarios:
  *  - test_4: invalidConfigMsg with empty apiUrl → message contains "apiUrl is empty".
@@ -35,9 +42,6 @@ import org.junit.Test
  *  - Assertion messages and common fragments are defined as constants for consistency.
  */
 
-// Alias to avoid clash with java.lang.StringBuilder
-private typealias ACStringBuilder = com.altcraft.sdk.additional.StringBuilder
-
 // ---------- Test inputs ----------
 private const val FN_PUSH_SUBSCRIBE = "pushSubscribe"
 private const val FN_SIMPLE        = "fn"
@@ -46,11 +50,15 @@ private const val URL_VALID        = "https://pxl.altcraft.com"
 private const val PROV_INVALID_1   = "android-unknown"
 private const val PROV_INVALID_2   = "android-bad"
 private const val PROV_INVALID_3   = "android-wrong"
+private const val TOTAL_COUNT_EX   = 321
+private const val EVENT_NAME_EX    = "event_xyz"
 
 // ---------- Expected full strings ----------
 private const val EXPECT_LOG_OK            = "$FN_PUSH_SUBSCRIBE(): $MSG_OK"
 private const val EXPECT_LOG_NULL_MESSAGE  = "$FN_PUSH_SUBSCRIBE():"
 private const val EXPECT_LOG_EMPTY_MESSAGE = "$FN_SIMPLE(): "
+private const val EXPECT_DELETED_MOB_MSG   =
+    "Deleted 100 oldest mobile events. Total count before: $TOTAL_COUNT_EX"
 
 // ---------- Expected fragments / formatting ----------
 private const val PREFIX_INVALID_CONFIG         = "invalid config:"
@@ -58,6 +66,8 @@ private const val ERR_API_URL_EMPTY             = "apiUrl is empty"
 private const val ERR_INVALID_PROVIDERS_PREFIX  = "providerPriorityList contains invalid values:"
 private const val FRAG_ALLOWED                  = "Allowed:"
 private const val ERRORS_SEPARATOR              = "; "
+private const val FRAG_MOBILE_INVALID_PREFIX    = "invalid mobile event payload: not all values are primitives."
+private const val FRAG_EVENT_NAME_PREFIX        = "Event name: "
 
 // ---------- Assertion messages ----------
 private const val MSG_NO_TRAILING_SPACE            = "Must not end with space"
@@ -68,12 +78,15 @@ private const val MSG_CONTAINS_ALLOWED_LIST        = "Should contain 'Allowed:'"
 private const val MSG_ERRORS_ORDERED               = "Errors should be ordered"
 private const val MSG_HAS_ERRORS_SEPARATOR         = "Should contain '; ' as errors separator"
 private const val MSG_NO_ERRORS_APPENDED           = "No errors expected; only prefix with space"
+private const val MSG_DELETED_MOBILE_EVENTS        = "deletedMobileEventsMsg must match expected format"
+private const val MSG_MOBILE_EVENT_INVALID_PREFIX  = "mobileEventInvalid must contain the fixed reason prefix"
+private const val MSG_MOBILE_EVENT_INVALID_NAME    = "mobileEventInvalid must include the event name"
+
+// ---------------------------
+// eventLogBuilder
+// ---------------------------
 
 class StringBuilderTest {
-
-    // ---------------------------
-    // eventLogBuilder
-    // ---------------------------
 
     @Test
     // Appends message text when provided (non-null).
@@ -159,5 +172,28 @@ class StringBuilderTest {
 
         val msg = ACStringBuilder.invalidConfigMsg(config)
         assertEquals(MSG_NO_ERRORS_APPENDED, "$PREFIX_INVALID_CONFIG ", msg) // no errors appended
+    }
+
+    // ---------------------------
+    // deletedMobileEventsMsg
+    // ---------------------------
+
+    @Test
+    // Returns proper summary message for deleted mobile events with given total count.
+    fun `deletedMobileEventsMsg returns expected summary`() {
+        val msg = ACStringBuilder.deletedMobileEventsMsg(TOTAL_COUNT_EX)
+        assertEquals(MSG_DELETED_MOBILE_EVENTS, EXPECT_DELETED_MOB_MSG, msg)
+    }
+
+    // ---------------------------
+    // mobileEventInvalid
+    // ---------------------------
+
+    @Test
+    // Builds error message that contains fixed reason and the event name.
+    fun `mobileEventInvalid includes reason and event name`() {
+        val msg = ACStringBuilder.mobileEventPayloadInvalid(EVENT_NAME_EX)
+        assertTrue(MSG_MOBILE_EVENT_INVALID_PREFIX, msg.contains(FRAG_MOBILE_INVALID_PREFIX))
+        assertTrue(MSG_MOBILE_EVENT_INVALID_NAME, msg.contains("$FRAG_EVENT_NAME_PREFIX$EVENT_NAME_EX"))
     }
 }

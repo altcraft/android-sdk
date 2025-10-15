@@ -19,25 +19,27 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestDriver
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.altcraft.sdk.additional.SubFunction
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
+import com.altcraft.sdk.data.Constants.RETRY_TIME_C_WORK
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.RETRY_TIME_C_WORK
-import com.altcraft.sdk.services.manager.ServiceManager
-import com.altcraft.sdk.workers.coroutine.Request
-import com.altcraft.sdk.workers.coroutine.Worker
+import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.push.token.TokenUpdate
+import com.altcraft.sdk.services.manager.ServiceManager
+import com.altcraft.sdk.workers.coroutine.Request
+import com.altcraft.sdk.workers.coroutine.Worker
 import io.mockk.*
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import java.util.concurrent.TimeUnit
 
 /**
@@ -46,6 +48,7 @@ import java.util.concurrent.TimeUnit
  * test_1: pushEventRequest() builds request with correct shape and runs -> SUCCEEDED
  * test_2: subscribeRequest() builds correctly and on run -> SUCCEEDED; closeService(..., PUSH_SUBSCRIBE_SERVICE, true)
  * test_3: updateRequest() builds correctly and on run -> SUCCEEDED; closeService(..., TOKEN_UPDATE_SERVICE, true)
+ * test_4: mobileEventRequest() builds request with correct shape and runs -> SUCCEEDED
  */
 @RunWith(AndroidJUnit4::class)
 class RequestInstrumentedTest {
@@ -66,7 +69,7 @@ class RequestInstrumentedTest {
         workManager = WorkManager.getInstance(context)
         testDriver = WorkManagerTestInitHelper.getTestDriver(context)
 
-        mockkObject(SubFunction, ServiceManager, PushEvent, PushSubscribe, TokenUpdate)
+        mockkObject(SubFunction, ServiceManager, PushEvent, PushSubscribe, TokenUpdate, MobileEvent)
 
         // Non-suspend collaborators
         every { SubFunction.isAppInForegrounded() } returns true
@@ -77,6 +80,7 @@ class RequestInstrumentedTest {
         coEvery { PushEvent.isRetry(any()) } returns false
         coEvery { PushSubscribe.isRetry(any()) } returns false
         coEvery { TokenUpdate.isRetry(any(), any()) } returns false
+        coEvery { MobileEvent.isRetry(any()) } returns false
 
         Worker.retrySubscribe = 0
         Worker.retryUpdate = 0
@@ -84,7 +88,7 @@ class RequestInstrumentedTest {
 
     @After
     fun tearDown() {
-        unmockkObject(SubFunction, ServiceManager, PushEvent, PushSubscribe, TokenUpdate)
+        unmockkObject(SubFunction, ServiceManager, PushEvent, PushSubscribe, TokenUpdate, MobileEvent)
         unmockkAll()
     }
 
@@ -104,7 +108,6 @@ class RequestInstrumentedTest {
         )
         assertEquals(expectedBackoffMs, req.workSpec.backoffDelayDuration)
 
-        // Compare with JVM name (contains '$' for nested classes)
         assertEquals(
             Worker.PushEventCoroutineWorker::class.java.name,
             req.workSpec.workerClassName
@@ -183,5 +186,34 @@ class RequestInstrumentedTest {
         assertEquals("Package must match", context.packageName, ctx.captured.packageName)
 
         coVerify(exactly = 1) { TokenUpdate.isRetry(any(), any()) }
+    }
+
+    /** test_4: mobileEventRequest builds with expected constraints/backoff/class and runs to SUCCEEDED */
+    @Test
+    fun test_4_mobileEventRequest_buildsAndRunsSucceeded() {
+        val req = Request.mobileEventRequest()
+
+        assertTrue(req.tags.contains(MOBILE_EVENT_C_WORK_TAG))
+        assertEquals(NetworkType.CONNECTED, req.workSpec.constraints.requiredNetworkType)
+        assertEquals(BackoffPolicy.EXPONENTIAL, req.workSpec.backoffPolicy)
+
+        val expectedBackoffMs = maxOf(
+            TimeUnit.SECONDS.toMillis(RETRY_TIME_C_WORK),
+            WorkRequest.MIN_BACKOFF_MILLIS
+        )
+        assertEquals(expectedBackoffMs, req.workSpec.backoffDelayDuration)
+
+        assertEquals(
+            Worker.MobileEventCoroutineWorker::class.java.name,
+            req.workSpec.workerClassName
+        )
+
+        workManager.enqueue(req).result.get()
+        testDriver!!.setAllConstraintsMet(req.id)
+
+        val info = workManager.getWorkInfoById(req.id).get()
+        assertEquals(WorkInfo.State.SUCCEEDED, info?.state)
+
+        coVerify(exactly = 1) { MobileEvent.isRetry(any()) }
     }
 }

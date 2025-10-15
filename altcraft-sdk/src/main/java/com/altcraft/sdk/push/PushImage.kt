@@ -8,9 +8,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import com.altcraft.sdk.additional.SubFunction
-import com.altcraft.sdk.events.EventList
-import com.altcraft.sdk.events.Events
-import com.altcraft.sdk.events.Message.SUCCESS_IMG_LOAD
+import com.altcraft.sdk.sdk_events.EventList
+import com.altcraft.sdk.sdk_events.Events
+import com.altcraft.sdk.sdk_events.Message.SUCCESS_IMG_LOAD
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition

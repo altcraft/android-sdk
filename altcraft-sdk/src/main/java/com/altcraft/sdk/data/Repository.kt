@@ -5,7 +5,6 @@ package com.altcraft.sdk.data
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import android.graphics.Color
 import com.altcraft.sdk.additional.StringBuilder.eventPushUrl
 import com.altcraft.sdk.additional.StringBuilder.profileUrl
 import com.altcraft.sdk.additional.StringBuilder.subscribeUrl
@@ -18,20 +17,23 @@ import com.altcraft.sdk.data.Preferenses.getMessageId
 import com.altcraft.sdk.data.Preferenses.getSavedToken
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
-import com.altcraft.sdk.events.EventList.authDataIsNull
-import com.altcraft.sdk.events.EventList.commonDataIsNull
-import com.altcraft.sdk.events.EventList.configIsNull
-import com.altcraft.sdk.events.EventList.currentTokenIsNull
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.authDataIsNull
+import com.altcraft.sdk.sdk_events.EventList.commonDataIsNull
+import com.altcraft.sdk.sdk_events.EventList.configIsNull
+import com.altcraft.sdk.sdk_events.EventList.currentTokenIsNull
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
-import com.altcraft.sdk.push.action.PushAction.getIntent
 import com.altcraft.sdk.push.PushData
 import com.altcraft.sdk.push.PushImage.loadLargeImage
 import com.altcraft.sdk.push.PushImage.loadSmallImage
 import java.util.UUID
 import com.altcraft.altcraftsdk.R
+import com.altcraft.sdk.additional.StringBuilder.eventMobileUrl
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
-import androidx.core.graphics.toColorInt
+import com.altcraft.sdk.additional.SubFunction.getIconColor
+import com.altcraft.sdk.data.DataClasses.MobileEventRequestData
+import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.push.action.Intent.getIntent
 
 /**
  *  The DataFactory object is designed to convert JSON objects into Data classes,
@@ -181,6 +183,37 @@ internal object Repository {
     }
 
     /**
+     * Retrieves the necessary data for sending a mobile event to the server.
+     *
+     * This function constructs the full request URL and gathers required authentication details.
+     * It also builds multipart/form-data parts from the provided entity. If some values are missing,
+     * they are excluded from the final request body by `buildMobileEventParts`.
+     *
+     * @param context The application context.
+     * @param event   The mobile event entity containing event details.
+     * @return A [MobileEventRequestData] object with all required data, or null if an error occurs.
+     */
+    suspend fun getMobileEventRequestData(
+        context: Context,
+        event: MobileEventEntity
+    ): MobileEventRequestData? {
+        return try {
+            val common = getCommonData(context) ?: exception(commonDataIsNull)
+            val url = eventMobileUrl(common.config.apiUrl)
+
+            MobileEventRequestData(
+                url = url,
+                sid = event.sid,
+                name = event.eventName,
+                authHeader = common.authHeader
+            )
+        } catch (e: Exception) {
+            error("getMobileEventRequestData", e)
+            null
+        }
+    }
+
+    /**
      * Builds request data for the unSuspend request.
      *
      * @param context The application context.
@@ -263,13 +296,11 @@ internal object Repository {
             val icon = config?.icon ?: R.drawable.icon
             val smallImage = loadSmallImage(context, pushData)
             val largeImage = loadLargeImage(context, pushData)
-
-            val messageId = getMessageId(context)
             val channelInfo = getChannelInfo(config, pushData)
-            val intent = getIntent(context, pushData.url, pushData.uid)
+            val color = getIconColor(pushData.color)
+            val messageId = getMessageId(context)
 
-            val color = runCatching { pushData.color.toColorInt() }
-                .getOrElse { Color.BLACK }
+            val intent = getIntent(context, messageId, pushData.url, pushData.uid)
 
             DataClasses.NotificationData(
                 uid = pushData.uid,

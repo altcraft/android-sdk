@@ -16,9 +16,9 @@ import com.altcraft.sdk.data.Constants.MATCH_CURRENT_CONTEXT
 import com.altcraft.sdk.data.Constants.RESPONSE_WITH_HTTP_CODE
 import com.altcraft.sdk.data.Constants.validProviders
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.EventList.invalidPushProvider
+import com.altcraft.sdk.sdk_events.EventList.invalidPushProvider
 import com.altcraft.sdk.network.Request.statusRequest
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 
 /**
@@ -28,16 +28,16 @@ import com.altcraft.sdk.extension.ExceptionExtension.exception
 object PublicPushSubscriptionFunctions {
 
     /**
-     * Performs a **synchronous** push subscription request.
-     * This call blocks until a response is received from the server.
+     * Initiates a push subscription request.
      *
      * @param context The application context for the subscription request.
+     * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
+     * @param profileFields Optional profile fields to include in the request.
      * @param customFields Optional custom fields to include in the request.
-     * @param cats Optional map of categories to associate with the subscription.
+     * @param cats Optional list of categories to associate with the subscription.
      * @param replace Optional flag to replace an existing subscription (`true`).
      * @param skipTriggers Optional flag to skip trigger execution during subscription.
      */
-    @Suppress("unused")
     fun pushSubscribe(
         context: Context,
         sync: Boolean = true,
@@ -60,13 +60,17 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Initiates a request to **suspend** push notifications for the current profile.
+     * Initiates a request to suspend push notifications for the current profile.
      * Unlike unsubscription, this temporarily pauses delivery without removing the subscription.
      *
      * @param context The application context for the suspend request.
-     * @param sync Optional flag for synchronous (`1`) or asynchronous (`0`) request execution.
+     * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
+     * @param profileFields Optional profile fields to include in the request.
+     * @param customFields Optional custom fields to include in the request.
+     * @param cats Optional list of categories to associate with the subscription.
+     * @param replace Optional flag to replace an existing subscription (`true`).
+     * @param skipTriggers Optional flag to skip trigger execution during subscription.
      */
-    @Suppress("unused")
     fun pushSuspend(
         context: Context,
         sync: Boolean = true,
@@ -89,17 +93,17 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Performs a **synchronous** push unsubscription request, notifying the server
+     * Initiates a push unsubscription request, notifying the server
      * to stop sending push notifications for the current profile.
-     * This call blocks until a response is received.
      *
      * @param context The application context for the unsubscription request.
+     * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
+     * @param profileFields Optional profile fields to include in the request.
      * @param customFields Optional custom fields to include in the request.
-     * @param cats Optional map of categories to disassociate during unsubscription.
+     * @param cats Optional list of categories to disassociate during unsubscription.
      * @param replace Optional flag to replace the current subscription (`true`).
      * @param skipTriggers Optional flag to skip trigger execution during unsubscription.
      */
-    @Suppress("unused")
     fun pushUnSubscribe(
         context: Context,
         sync: Boolean = true,
@@ -132,7 +136,6 @@ object PublicPushSubscriptionFunctions {
      * @param context Android [Context] for configuration and request execution.
      * @return [DataClasses.ResponseWithHttpCode] with HTTP code and response, or `null` on failure.
      */
-    @Suppress("unused")
     suspend fun unSuspendPushSubscription(context: Context): DataClasses.ResponseWithHttpCode? {
         return try {
             val eventValue = Request.unSuspendRequest(context).eventValue
@@ -149,7 +152,6 @@ object PublicPushSubscriptionFunctions {
      *
      * @param context Application context used for internal request resolution.
      */
-    @Suppress("unused")
     suspend fun getStatusOfLatestSubscription(
         context: Context
     ): DataClasses.ResponseWithHttpCode? {
@@ -172,7 +174,6 @@ object PublicPushSubscriptionFunctions {
      * @param context Application context used for internal request resolution.
      * @param provider Optional push provider name to override the current one.
      */
-    @Suppress("unused")
     suspend fun getStatusOfLatestSubscriptionForProvider(
         context: Context,
         provider: String? = null
@@ -193,7 +194,6 @@ object PublicPushSubscriptionFunctions {
      *
      * @param context Application context used for internal request resolution.
      */
-    @Suppress("unused")
     suspend fun getStatusForCurrentSubscription(
         context: Context
     ): DataClasses.ResponseWithHttpCode? {
@@ -214,7 +214,6 @@ object PublicPushSubscriptionFunctions {
      * @return A builder for specifying the desired action (set, incr, etc.) and value.
      */
     @Keep
-    @Suppress("unused")
     fun actionField(key: String) = ActionFieldBuilder(key)
 
     /**

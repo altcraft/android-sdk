@@ -45,7 +45,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
         WindowCompat.setDecorFitsSystemWindows(window, false)
         resources.configuration.fontScale = 1f
         AltcraftSDK.requestNotificationPermission(this, this)

@@ -6,7 +6,7 @@ package test.concurrency
 
 import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -30,7 +30,9 @@ import java.util.concurrent.TimeUnit
  *  - test_4: SubscribeCommandQueue FIFO (IO) — tasks execute in order using CountDownLatch.
  *  - test_5: SubscribeCommandQueue resilience — execution continues after a failure; later tasks run.
  *  - test_6: SubscribeCommandQueue submit() is non-blocking — caller not blocked; completion observed via latch.
- *
+ *  - test_7: MobileEventCommandQueue FIFO — tasks execute in submission order (1,2,3).
+ *  - test_8: MobileEventCommandQueue resilience — continues after a failure; later tasks run.
+ *  - test_9: MobileEventCommandQueue submit() is non-blocking — caller not blocked; completion observed via latch.
  */
 
 // ---------- Assertion messages ----------
@@ -131,9 +133,7 @@ class CommandQueueTest {
             latch.countDown()
         }
 
-
         assertEquals(0, marker)
-
         assertTrue(MSG_TASK_NOT_FINISH, latch.await(1, TimeUnit.SECONDS))
         assertEquals(2, marker)
     }
@@ -202,5 +202,73 @@ class CommandQueueTest {
         assertTrue(MSG_TASK_NOT_FINISH, latch.await(1, TimeUnit.SECONDS))
         assertEquals(2, marker)
     }
-}
 
+    // -------------------------------
+    // MobileEventCommandQueue tests
+    // -------------------------------
+
+    /** Ensures MobileEventCommandQueue executes tasks sequentially (FIFO) */
+    @Test
+    fun mobileEventQueue_sequential_fifo() {
+        val order = Collections.synchronizedList(mutableListOf<Int>())
+        val latch = CountDownLatch(3)
+
+        CommandQueue.MobileEventCommandQueue.submit {
+            delay(15)
+            order.add(1)
+            latch.countDown()
+        }
+        CommandQueue.MobileEventCommandQueue.submit {
+            delay(5)
+            order.add(2)
+            latch.countDown()
+        }
+        CommandQueue.MobileEventCommandQueue.submit {
+            order.add(3)
+            latch.countDown()
+        }
+
+        assertTrue(MSG_TASKS_NOT_FINISH_IN_TIME, latch.await(1, TimeUnit.SECONDS))
+        assertEquals(listOf(1, 2, 3), order.toList())
+    }
+
+    /** Ensures MobileEventCommandQueue continues after a failure */
+    @Test
+    fun mobileEventQueue_continues_after_failure() {
+        val order = Collections.synchronizedList(mutableListOf<String>())
+        val latch = CountDownLatch(2)
+
+        CommandQueue.MobileEventCommandQueue.submit {
+            order.add(LBL_BEFORE)
+            throw RuntimeException("boom-mobile")
+        }
+        CommandQueue.MobileEventCommandQueue.submit {
+            order.add(LBL_AFTER)
+            latch.countDown()
+        }
+        CommandQueue.MobileEventCommandQueue.submit {
+            order.add(LBL_TAIL)
+            latch.countDown()
+        }
+
+        assertTrue(MSG_TASKS_NOT_FINISH_IN_TIME, latch.await(1, TimeUnit.SECONDS))
+        assertTrue(order.containsAll(listOf(LBL_AFTER, LBL_TAIL)))
+    }
+
+    /** Ensures MobileEventCommandQueue.submit is non-blocking */
+    @Test
+    fun mobileEventQueue_submit_is_non_blocking() {
+        var marker = 0
+        val latch = CountDownLatch(1)
+
+        CommandQueue.MobileEventCommandQueue.submit {
+            delay(50)
+            marker = 2
+            latch.countDown()
+        }
+
+        assertEquals(0, marker)
+        assertTrue(MSG_TASK_NOT_FINISH, latch.await(1, TimeUnit.SECONDS))
+        assertEquals(2, marker)
+    }
+}

@@ -79,24 +79,29 @@ object SubscribeSettingComponents {
         }
 
         val syncChecked = remember {
-            mutableStateOf(parsedSettings?.sync == true)
+            val sync = parsedSettings?.sync
+            mutableStateOf(sync ?: true)
         }
         val replaceChecked = remember {
-            mutableStateOf(parsedSettings?.replace == false)
+            mutableStateOf(parsedSettings?.replace ?: false)
         }
         val skipTriggersChecked = remember {
-            mutableStateOf(parsedSettings?.skipTriggers == false)
+            mutableStateOf(parsedSettings?.skipTriggers ?: false)
         }
 
         val customFieldsHint by remember(viewModel.subscribeSettings.value) {
             mutableStateOf(
-                viewModel.subscribeSettings.value.customFields.let { mapToJsonString(it) }
+                viewModel.subscribeSettings.value.customFields.let {
+                    mapToJsonString(it)
+                }
             )
         }
 
         val profileFieldsHint by remember(viewModel.subscribeSettings.value) {
             mutableStateOf(
-                viewModel.subscribeSettings.value.profileFields.let { mapToJsonString(it) }
+                viewModel.subscribeSettings.value.profileFields.let {
+                    mapToJsonString(it)
+                }
             )
         }
 
@@ -647,7 +652,7 @@ object SubscribeSettingComponents {
                     ) {
                         BasicTextField(
                             value = viewModel.newFieldValue.value,
-                            onValueChange = { viewModel.newFieldValue.value = it },
+                            onValueChange = { viewModel.newFieldValue.value = it},
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             textStyle = LocalTextStyle.current.copy(

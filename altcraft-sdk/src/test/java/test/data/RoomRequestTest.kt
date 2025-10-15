@@ -1,22 +1,24 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.data
 
 //  Created by Andrey Pogodin.
-//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.sdk.data.room.*
-import com.altcraft.sdk.events.Events
 import com.altcraft.sdk.additional.SubFunction
+import com.altcraft.sdk.data.Constants.NAME
 import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.room.*
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import org.junit.After
-import org.junit.Test
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Test
 
 /**
  * RoomRequestUnitTest
@@ -32,14 +34,16 @@ import org.junit.Before
  *  - test_8: isRetryLimit PushEventEntity not over → increases retryCount.
  *  - test_9: clearOldPushEventsFromRoom when >500 → deletes oldest 100 and logs.
  *  - test_10: clearOldPushEventsFromRoom when <=500 → no action.
- *  - test_11: existSubscriptions returns true/false as DAO reports.
- *  - test_12: existPushEvents returns true/false as DAO reports.
+ *  - test_11: entityInsert inserts MobileEventEntity via DAO.
+ *  - test_12: entityDelete deletes MobileEventEntity via DAO.
+ *  - test_13: isRetryLimit MobileEventEntity over limit → emits event & deletes (with name).
+ *  - test_14: isRetryLimit MobileEventEntity not over → increases retryCount.
+ *  - test_15: clearOldMobileEventsFromRoom when >500 → deletes oldest 100 and logs.
+ *  - test_16: clearOldMobileEventsFromRoom when <=500 → no action.
  *
  * Negative scenarios:
- *  - test_13: entityInsert with unsupported type → emits Events.error.
- *  - test_14: entityDelete with unsupported type → emits Events.error.
- *  - test_15: existSubscriptions on DAO exception → returns false + emits Events.error.
- *  - test_16: existPushEvents on DAO exception → returns false + emits Events.error.
+ *  - test_17: entityInsert with unsupported type → emits Events.error.
+ *  - test_18: entityDelete with unsupported type → emits Events.error.
  *
  * Notes:
  *  - Pure JVM unit tests (no Android runtime).
@@ -47,10 +51,6 @@ import org.junit.Before
  *  - Events.event/error and SubFunction.logger are stubbed.
  *  - Suspend DAO calls are verified with coVerify.
  */
-
-private const val MSG_RET_VAL_TRUE = "Return value must be true"
-private const val MSG_RET_VAL_FALSE = "Return value must be false"
-
 class RoomRequestUnitTest {
 
     private lateinit var ctx: Context
@@ -61,12 +61,14 @@ class RoomRequestUnitTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
+        // Mock DB and DAO wiring
         mockkObject(SDKdb)
         sdkDB = mockk(relaxed = true)
         dao = mockk(relaxed = true)
         every { SDKdb.getDb(any()) } returns sdkDB
         every { sdkDB.request() } returns dao
 
+        // Stub Events.event / Events.error
         mockkObject(Events)
         every { Events.event(any(), any<Pair<Int, String>>(), any()) } answers {
             val fn = firstArg<String>()
@@ -77,6 +79,7 @@ class RoomRequestUnitTest {
         every { Events.error(any(), any(), any()) } returns
                 DataClasses.Error("fn", 400, "err", null)
 
+        // Stub logger
         mockkObject(SubFunction)
         every { SubFunction.logger(any()) } returns 0
     }
@@ -84,7 +87,9 @@ class RoomRequestUnitTest {
     @After
     fun tearDown() = unmockkAll()
 
-    // Helpers
+    // -------- Helpers --------
+
+    // SubscribeEntity factory
     private fun sub(uid: String = "sub-uid", retry: Int = 1, max: Int = 3) = SubscribeEntity(
         userTag = "tag",
         status = SUBSCRIBED,
@@ -100,10 +105,36 @@ class RoomRequestUnitTest {
         maxRetryCount = max
     )
 
+    // PushEventEntity factory
     private fun push(uid: String = "push-uid", retry: Int = 1, max: Int = 3) = PushEventEntity(
         uid = uid,
         type = "opened",
         time = System.currentTimeMillis() / 1000,
+        retryCount = retry,
+        maxRetryCount = max
+    )
+
+    // MobileEventEntity factory — updated to pass matchingType explicitly (and keep altcraftClientID nullable)
+    private fun mobile(
+        id: Long = 0L,
+        name: String = "evt",
+        retry: Int = 1,
+        max: Int = 3
+    ) = MobileEventEntity(
+        id = id,
+        userTag = "tag",            // non-null in entity
+        timeZone = 0,
+        time = System.currentTimeMillis(),
+        sid = "sid",
+        altcraftClientID = "cid",   // nullable; provide a value for tests
+        eventName = name,
+        payload = null,
+        matching = null,
+        matchingType = null,        // NEW: pass matchingType to avoid parameter shift
+        profileFields = null,
+        subscription = null,
+        sendMessageId = "smid",
+        utmTags = null,             // NEW: explicit presence in constructor
         retryCount = retry,
         maxRetryCount = max
     )
@@ -126,7 +157,15 @@ class RoomRequestUnitTest {
         coVerify { dao.insertPushEvent(e) }
     }
 
-    /** test_13: entityInsert with unsupported type → emits Events.error */
+    /** test_11: entityInsert inserts MobileEventEntity via DAO */
+    @Test
+    fun entityInsert_mobile_callsDao() = runBlocking {
+        val e = mobile()
+        RoomRequest.entityInsert(ctx, e)
+        coVerify { dao.insertMobileEvent(e) }
+    }
+
+    /** test_17: entityInsert with unsupported type → emits Events.error */
     @Test
     fun entityInsert_unsupported_emitsError() = runBlocking {
         RoomRequest.entityInsert(ctx, "unsupported")
@@ -151,7 +190,15 @@ class RoomRequestUnitTest {
         coVerify { dao.deletePushEventByUid("Y") }
     }
 
-    /** test_14: entityDelete with unsupported type → emits Events.error */
+    /** test_12: entityDelete deletes MobileEventEntity via DAO */
+    @Test
+    fun entityDelete_mobile_callsDao() = runBlocking {
+        val e = mobile(id = 777)
+        RoomRequest.entityDelete(sdkDB, e)
+        coVerify { dao.deleteMobileEventById(777) }
+    }
+
+    /** test_18: entityDelete with unsupported type → emits Events.error */
     @Test
     fun entityDelete_unsupported_emitsError() = runBlocking {
         RoomRequest.entityDelete(sdkDB, 12345)
@@ -165,12 +212,12 @@ class RoomRequestUnitTest {
     fun isRetryLimit_subscribe_overLimit_deletes_and_emitsEvent() = runBlocking {
         val e = sub(retry = 5, max = 3)
         val result = RoomRequest.isRetryLimit(sdkDB, e)
-        assertTrue(MSG_RET_VAL_TRUE, result)
+        assertTrue("Return value must be true", result)
         coVerify { dao.deleteSubscribeByUid(e.uid) }
         verify {
             Events.event(
                 eq("isRetryLimit"),
-                match<Pair<Int, String>> { it.first == 420 },
+                match<Pair<Int, String>> { it.first == 480 }, // SUBSCRIBE_RETRY_LIMIT
                 any()
             )
         }
@@ -181,7 +228,7 @@ class RoomRequestUnitTest {
     fun isRetryLimit_subscribe_notOver_incrementsRetry() = runBlocking {
         val e = sub(retry = 2, max = 3)
         val result = RoomRequest.isRetryLimit(sdkDB, e)
-        assertFalse(MSG_RET_VAL_FALSE, result)
+        assertFalse("Return value must be false", result)
         coVerify { dao.increaseSubscribeRetryCount(e.uid, e.retryCount + 1) }
         coVerify(exactly = 0) { dao.deleteSubscribeByUid(any()) }
     }
@@ -193,12 +240,12 @@ class RoomRequestUnitTest {
     fun isRetryLimit_push_overLimit_deletes_and_emitsEvent_withUid() = runBlocking {
         val e = push(retry = 10, max = 3)
         val result = RoomRequest.isRetryLimit(sdkDB, e)
-        assertTrue(MSG_RET_VAL_TRUE, result)
+        assertTrue("Return value must be true", result)
         coVerify { dao.deletePushEventByUid(e.uid) }
         verify {
             Events.event(
                 eq("isRetryLimit"),
-                match<Pair<Int, String>> { it.first == 421 },
+                match<Pair<Int, String>> { it.first == 484 }, // PUSH_EVENT_RETRY_LIMIT
                 match { it["uid"] == e.uid }
             )
         }
@@ -209,9 +256,37 @@ class RoomRequestUnitTest {
     fun isRetryLimit_push_notOver_incrementsRetry() = runBlocking {
         val e = push(retry = 0, max = 3)
         val result = RoomRequest.isRetryLimit(sdkDB, e)
-        assertFalse(MSG_RET_VAL_FALSE, result)
+        assertFalse("Return value must be false", result)
         coVerify { dao.increasePushEventRetryCount(e.uid, e.retryCount + 1) }
         coVerify(exactly = 0) { dao.deletePushEventByUid(any()) }
+    }
+
+    // ---------- isRetryLimit: MobileEventEntity ----------
+
+    /** test_13: isRetryLimit MobileEventEntity over limit → emits event & deletes (with name) */
+    @Test
+    fun isRetryLimit_mobile_overLimit_deletes_and_emitsEvent_withName() = runBlocking {
+        val e = mobile(id = 99L, name = "purchase", retry = 9, max = 3)
+        val result = RoomRequest.isRetryLimit(sdkDB, e)
+        assertTrue("Return value must be true", result)
+        coVerify { dao.deleteMobileEventById(99L) }
+        verify {
+            Events.event(
+                eq("isRetryLimit"),
+                match<Pair<Int, String>> { it.first == 485 }, // MOBILE_EVENT_RETRY_LIMIT
+                match<Map<String, Any?>> { it[NAME] == "purchase" }
+            )
+        }
+    }
+
+    /** test_14: isRetryLimit MobileEventEntity not over → increases retryCount */
+    @Test
+    fun isRetryLimit_mobile_notOver_incrementsRetry() = runBlocking {
+        val e = mobile(id = 5L, name = "open", retry = 1, max = 3)
+        val result = RoomRequest.isRetryLimit(sdkDB, e)
+        assertFalse("Return value must be false", result)
+        coVerify { dao.increaseMobileEventRetryCount(5L, 2) }
+        coVerify(exactly = 0) { dao.deleteMobileEventById(any()) }
     }
 
     // ---------- clearOldPushEventsFromRoom ----------
@@ -229,7 +304,7 @@ class RoomRequestUnitTest {
         coVerify { dao.getPushEventCount() }
         coVerify { dao.getOldestPushEvents(100) }
         coVerify { dao.deletePushEvents(oldest) }
-        verify { SubFunction.logger(match { it.contains("deleted", ignoreCase = true) == true }) }
+        verify { SubFunction.logger(match { it.contains("Deleted 100 oldest push events") }) }
     }
 
     /** test_10: clearOldPushEventsFromRoom when <=500 → no action */
@@ -245,44 +320,53 @@ class RoomRequestUnitTest {
         verify(exactly = 0) { SubFunction.logger(any()) }
     }
 
-    // ---------- existSubscriptions / existPushEvents ----------
+    // ---------- clearOldMobileEventsFromRoom ----------
 
-    /** test_11: existSubscriptions returns true/false as DAO reports */
+    /** test_15: clearOldMobileEventsFromRoom when >500 → deletes oldest 100 and logs */
     @Test
-    fun existSubscriptions_true_false_ok() = runBlocking {
-        coEvery { dao.subscriptionsExistsByTag("A") } returns true
-        coEvery { dao.subscriptionsExistsByTag("B") } returns false
+    fun clearOldMobileEventsFromRoom_overThreshold_deletesOldest100_and_logs() = runBlocking {
+        coEvery { dao.getMobileEventCount() } returnsMany listOf(700, 350)
 
-        assertTrue(MSG_RET_VAL_TRUE, RoomRequest.existSubscriptions(ctx, "A"))
-        assertFalse(MSG_RET_VAL_FALSE, RoomRequest.existSubscriptions(ctx, "B"))
+        // Build 100 MobileEventEntity instances with the new signature (non-null userTag, added matchingType and utmTags)
+        val oldest = (1..100).map {
+            MobileEventEntity(
+                id = it.toLong(),
+                userTag = "tag$it",
+                timeZone = 0,
+                time = System.currentTimeMillis(),
+                sid = "sid$it",
+                altcraftClientID = "cid$it",
+                eventName = "evt$it",
+                payload = null,
+                matching = null,
+                matchingType = null,       // ensure parameter order stays correct
+                profileFields = null,
+                subscription = null,
+                sendMessageId = "smid$it",
+                utmTags = null
+            )
+        }
+        coEvery { dao.getOldestMobileEvents(100) } returns oldest
+        coJustRun { dao.deleteMobileEvents(oldest) }
+
+        RoomRequest.clearOldMobileEventsFromRoom(sdkDB)
+
+        coVerify { dao.getMobileEventCount() }
+        coVerify { dao.getOldestMobileEvents(100) }
+        coVerify { dao.deleteMobileEvents(oldest) }
+        verify { SubFunction.logger(match { it.contains("Deleted 100 oldest mobile events") }) }
     }
 
-    /** test_15: existSubscriptions on DAO exception → returns false + emits Events.error */
+    /** test_16: clearOldMobileEventsFromRoom when <=500 → no action */
     @Test
-    fun existSubscriptions_onError_returnsFalse_andEmitsError() = runBlocking {
-        coEvery { dao.subscriptionsExistsByTag(any()) } throws IllegalStateException("boom")
-        val ok = RoomRequest.existSubscriptions(ctx, "X")
-        assertFalse(MSG_RET_VAL_FALSE, ok)
-        verify { Events.error(eq("existSubscription"), any(), any()) }
-    }
+    fun clearOldMobileEventsFromRoom_underThreshold_noop() = runBlocking {
+        coEvery { dao.getMobileEventCount() } returns 42
 
-    /** test_12: existPushEvents returns true/false as DAO reports */
-    @Test
-    fun existPushEvents_true_false_ok() = runBlocking {
-        coEvery { dao.pushEventsExists() } returnsMany listOf(true, false)
+        RoomRequest.clearOldMobileEventsFromRoom(sdkDB)
 
-        assertTrue(MSG_RET_VAL_TRUE, RoomRequest.existPushEvents(ctx))
-        assertFalse(MSG_RET_VAL_FALSE, RoomRequest.existPushEvents(ctx))
-    }
-
-    /** test_16: existPushEvents on DAO exception → returns false + emits Events.error */
-    @Test
-    fun existPushEvents_onError_returnsFalse_andEmitsError() = runBlocking {
-        coEvery { dao.pushEventsExists() } throws RuntimeException("err")
-        val ok = RoomRequest.existPushEvents(ctx)
-        assertFalse(MSG_RET_VAL_FALSE, ok)
-        verify { Events.error(eq("existPushEvents"), any(), any()) }
+        coVerify { dao.getMobileEventCount() }
+        coVerify(exactly = 0) { dao.getOldestMobileEvents(any()) }
+        coVerify(exactly = 0) { dao.deleteMobileEvents(any()) }
+        verify(exactly = 0) { SubFunction.logger(any()) }
     }
 }
-
-

@@ -8,7 +8,7 @@ package test.data
 
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.Converter
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import kotlinx.serialization.json.*
 import org.junit.After
 import org.junit.Assert.*

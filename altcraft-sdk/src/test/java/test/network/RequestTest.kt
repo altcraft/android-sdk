@@ -1,7 +1,6 @@
 package test.network
 
 //  Created by Andrey Pogodin.
-//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
@@ -11,18 +10,21 @@ import com.altcraft.sdk.data.Constants.LATEST_SUBSCRIPTION
 import com.altcraft.sdk.data.Constants.MATCH_CURRENT_CONTEXT
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Repository
+import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.mob_events.PartsFactory
 import com.altcraft.sdk.network.Api
 import com.altcraft.sdk.network.Network
-import com.altcraft.sdk.network.Response
 import com.altcraft.sdk.network.Request
+import com.altcraft.sdk.network.Response
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import okhttp3.MultipartBody
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -40,6 +42,7 @@ import retrofit2.Response as RResponse
  *  - test_5: statusRequest LATEST_SUBSCRIPTION → provider/token null → calls Api.getProfile and returns result.
  *  - test_6: statusRequest MATCH_CURRENT_CONTEXT → provider/token from data → calls Api.getProfile and returns result.
  *  - test_7: statusRequest LATEST_FOR_PROVIDER with override → uses targetProvider, token null.
+ *  - test_13: mobileEventRequest → data OK + parts OK → calls Api.mobileEvent and returns processResponse result.
  *
  * Negative scenarios:
  *  - test_8: subscribeRequest → permission denied → returns RetryError, Api not called.
@@ -47,6 +50,8 @@ import retrofit2.Response as RResponse
  *  - test_10: pushEventRequest → getPushEventRequestData = null → returns RetryError, Api not called.
  *  - test_11: unSuspendRequest → getUnSubscribeRequestData = null → returns Error("profileRequest"), Api not called.
  *  - test_12: statusRequest → getStatusRequestData = null → returns Error("profileRequest"), Api not called.
+ *  - test_14: mobileEventRequest → getMobileEventRequestData = null → returns RetryError, Api not called.
+ *  - test_15: mobileEventRequest → parts == null → returns Error("mobileEventRequest"), Api not called.
  *
  * Notes:
  *  - Pure JVM unit tests with MockK; Retrofit calls mocked.
@@ -322,8 +327,8 @@ class RequestTest {
         val req = DataClasses.StatusRequestData(
             url = "https://api/profile",
             uid = "uid-4",
-            provider = "android-firebase", // should be ignored in this mode
-            token = "tkn",                  // should be ignored in this mode
+            provider = "android-firebase", // ignored in this mode
+            token = "tkn",                  // ignored in this mode
             authHeader = "Bearer X",
             matchingMode = "device"
         )
@@ -451,5 +456,142 @@ class RequestTest {
         assertTrue(out is DataClasses.Error)
         assertEquals("profileRequest", out.function)
         coVerify(exactly = 0) { api.getProfile(any(), any(), any(), any(), any(), any()) }
+    }
+
+    // ------------------------ mobileEventRequest ------------------------
+
+    /** test_13: mobileEventRequest → data OK + parts OK → Api.mobileEvent called; returns processResponse result. */
+    @Test
+    fun mobileEventRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
+        val entity = MobileEventEntity(
+            id = 1L,
+            userTag = "tag",
+            timeZone = 180,
+            time = 1_700_000_000_000L,
+            sid = "sid-1",
+            altcraftClientID = "cid-1",
+            eventName = "purchase",
+            payload = """{"sum":5}""",
+            matching = """{"m":"v"}""",
+            matchingType = "email",              // new field provided
+            profileFields = """{"age":20}""",
+            subscription = """{"channel":"email"}""",
+            sendMessageId = """"sm-1"""",
+            utmTags = null,                      // new field explicitly set
+            retryCount = 0,
+            maxRetryCount = 3
+        )
+
+        val req = DataClasses.MobileEventRequestData(
+            url = "https://api/mobile",
+            sid = "sid-1",
+            name = "purchase",
+            authHeader = "Bearer X"
+        )
+        mockkObject(PartsFactory)
+        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns req
+        every { PartsFactory.createMobileEventParts(entity) } returns listOf(
+            MultipartBody.Part.createFormData("x", "y")
+        )
+
+        val retrofitResp = RResponse.success<JsonElement>(JsonNull)
+        coEvery {
+            api.mobileEvent(
+                req.url,
+                req.authHeader,
+                req.sid,
+                any(), // TRACKER_MOB
+                any(), // TYPE_MOB
+                any(), // VERSION_MOB
+                parts = any()
+            )
+        } returns retrofitResp
+
+        val expected = DataClasses.Event("process", 200, "ok", null)
+        every { Response.processResponse(req, retrofitResp) } returns expected
+
+        val out = Request.mobileEventRequest(ctx, entity)
+        assertSame(expected, out)
+
+        coVerify(exactly = 1) {
+            api.mobileEvent(
+                req.url,
+                req.authHeader,
+                req.sid,
+                any(),
+                any(),
+                any(),
+                parts = any()
+            )
+        }
+        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
+    }
+
+    /** test_14: mobileEventRequest → getMobileEventRequestData = null → returns RetryError; Api not called. */
+    @Test
+    fun mobileEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
+        val entity = MobileEventEntity(
+            id = 2L,
+            userTag = "tag",
+            timeZone = 0,
+            time = 0L,
+            sid = "s",
+            altcraftClientID = "c",
+            eventName = "e",
+            payload = null,
+            matching = null,
+            matchingType = null,                 // new field present as null
+            profileFields = null,
+            subscription = null,
+            sendMessageId = null,
+            utmTags = null,                      // new field present as null
+            retryCount = 0,
+            maxRetryCount = 3
+        )
+        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns null
+
+        val out = Request.mobileEventRequest(ctx, entity)
+        assertTrue(out is DataClasses.RetryError)
+        assertEquals("mobileEventRequest", out.function)
+
+        coVerify(exactly = 0) { api.mobileEvent(any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    /** test_15: mobileEventRequest → parts == null → returns Error("mobileEventRequest"); Api not called. */
+    @Test
+    fun mobileEventRequest_partsNull_returnsError_noApiCall() = runBlocking {
+        val entity = MobileEventEntity(
+            id = 3L,
+            userTag = "tag",
+            timeZone = 0,
+            time = 0L,
+            sid = "s",
+            altcraftClientID = "c",
+            eventName = "e",
+            payload = null,
+            matching = null,
+            matchingType = null,                 // new field present as null
+            profileFields = null,
+            subscription = null,
+            sendMessageId = null,
+            utmTags = null,                      // new field present as null
+            retryCount = 0,
+            maxRetryCount = 3
+        )
+        val req = DataClasses.MobileEventRequestData(
+            url = "https://api/mobile",
+            sid = "s",
+            name = "e",
+            authHeader = "Bearer X"
+        )
+        mockkObject(PartsFactory)
+        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns req
+        every { PartsFactory.createMobileEventParts(entity) } returns null
+
+        val out = Request.mobileEventRequest(ctx, entity)
+        assertTrue(out is DataClasses.Error)
+        assertEquals("mobileEventRequest", out.function)
+
+        coVerify(exactly = 0) { api.mobileEvent(any(), any(), any(), any(), any(), any(), any()) }
     }
 }

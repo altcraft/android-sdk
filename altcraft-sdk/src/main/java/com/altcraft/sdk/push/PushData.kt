@@ -1,6 +1,6 @@
 package com.altcraft.sdk.push
 
-//  Created by Andrey Pogodin.
+//  Created by Andrey Pogodin, Andrey Morozov.
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 

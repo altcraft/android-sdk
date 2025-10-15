@@ -55,6 +55,14 @@ internal object StringBuilder {
     fun eventPushUrl(apiUrl: String, type: String) = "$apiUrl/event/push/$type"
 
     /**
+     * Generates the URL for mobile event tracking.
+     *
+     * @param apiUrl The base API URL.
+     * @return The full URL with event type appended.
+     */
+    fun eventMobileUrl(apiUrl: String) = "$apiUrl/event/post"
+
+    /**
      * Builds a Bearer authorization header using the given JWT token.
      *
      * @param jwtToken The JWT token to format.
@@ -78,6 +86,26 @@ internal object StringBuilder {
      */
     fun deletedPushEventsMsg(totalCount: Int) =
         "Deleted 100 oldest push events. Total count before: $totalCount"
+
+    /**
+     * Generates a message about deleted push events.
+     *
+     * @param totalCount The total number of events before deletion.
+     * @return A summary message indicating deletion count.
+     */
+    fun deletedMobileEventsMsg(totalCount: Int) =
+        "Deleted 100 oldest mobile events. Total count before: $totalCount"
+
+    /**
+     * Creates a message for an event indicating the presence of invalid fields that are objects in
+     * mobile event parameters.
+     *
+     * @param eventName The name of the mobile event that contains invalid fields
+     * @return Error message string indicating that the mobile event payload contains non-primitive
+     * values
+     */
+    fun mobileEventPayloadInvalid(eventName: String) =
+        "invalid mobile event payload: not all values are primitives. Event name: $eventName"
 
     /**
      * Formats an exception message for a specific service.

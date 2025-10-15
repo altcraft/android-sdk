@@ -12,11 +12,12 @@ import com.altcraft.sdk.auth.JWTManager
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.push.token.PublicPushTokenFunctions
 import com.altcraft.sdk.core.ClearCache
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.push.subscribe.PublicPushSubscriptionFunctions
 import com.altcraft.sdk.core.Init
 import com.altcraft.sdk.interfaces.JWTInterface
-import com.altcraft.sdk.push.Core.pushControl
+import com.altcraft.sdk.core.Retry.retryControl
+import com.altcraft.sdk.mob_events.PublicMobileEventFunction
 import com.altcraft.sdk.push.IncomingPushManager.handlePush
 import com.altcraft.sdk.push.OpenPushStrategy.openPushStrategy
 import com.altcraft.sdk.push.events.PublicPushEventFunctions
@@ -38,7 +39,11 @@ object AltcraftSDK {
     @Keep
     val pushTokenFunctions = PublicPushTokenFunctions
 
-    // Working with push event functions
+    //Working with mobile events
+    @Keep
+    val mobileEventFunction = PublicMobileEventFunction
+
+    // Working with push events
     @Keep
     val pushEventFunction = PublicPushEventFunctions
 
@@ -88,8 +93,8 @@ object AltcraftSDK {
      * allowing reinitialization of the push module to occur.
      */
     @Keep
-    fun reinitializePushModuleInThisSession() {
-        pushControl = AtomicBoolean(false)
+    fun reinitializeRetryControlInThisSession() {
+        retryControl = AtomicBoolean(false)
     }
 
     /**

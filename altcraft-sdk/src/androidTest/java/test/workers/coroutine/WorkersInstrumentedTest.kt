@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.workers.coroutine
 
 //  Created by Andrey Pogodin.
@@ -31,6 +33,7 @@ import org.junit.runner.RunWith
 import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
+import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.push.token.TokenUpdate
@@ -44,18 +47,18 @@ import com.altcraft.sdk.workers.coroutine.Worker
  *  - test_1: PushEventCoroutineWorker → PushEvent.isRetry = true ⇒ Result.retry
  *  - test_2: PushEventCoroutineWorker → PushEvent.isRetry = false ⇒ Result.success
  *  - test_3: SubscribeCoroutineWorker → isRetry = true ⇒ calls ServiceManager.checkServiceClosed(
- *  ..., PUSH_SUBSCRIBE_SERVICE, ++retrySubscribe), returns Result.retry
+ *            ..., PUSH_SUBSCRIBE_SERVICE, ++retrySubscribe), returns Result.retry
  *  - test_4: SubscribeCoroutineWorker → isRetry = false ⇒ calls ServiceManager.closeService(
- *  ..., PUSH_SUBSCRIBE_SERVICE, true), returns Result.success
+ *            ..., PUSH_SUBSCRIBE_SERVICE, true), returns Result.success
  *  - test_5: UpdateCoroutineWorker → isRetry = true ⇒ calls ServiceManager.checkServiceClosed(
- *  ..., TOKEN_UPDATE_SERVICE, ++retrySubscribe), returns Result.retry
+ *            ..., TOKEN_UPDATE_SERVICE, ++retrySubscribe), returns Result.retry
  *  - test_6: UpdateCoroutineWorker → isRetry = false ⇒ calls ServiceManager.closeService(
- *  ..., TOKEN_UPDATE_SERVICE, true), returns Result.success
+ *            ..., TOKEN_UPDATE_SERVICE, true), returns Result.success
+ *  - test_7: MobileEventCoroutineWorker → MobileEvent.isRetry = true ⇒ Result.retry
+ *  - test_8: MobileEventCoroutineWorker → MobileEvent.isRetry = false ⇒ Result.success
  *
  * Notes:
- *  - No production code changes.
- *  - Singletons are mocked with mockkObject.
- *  - isAppInForegrounded() mocked to true to skip delay in awaitInBackground().
+ *  - isAppInForegrounded() is mocked to true to skip delay in awaitInBackground().
  *  - Worker.retrySubscribe / Worker.retryUpdate are reset between tests.
  */
 @RunWith(AndroidJUnit4::class)
@@ -78,6 +81,7 @@ class WorkersInstrumentedTest {
         mockkObject(PushEvent)
         mockkObject(PushSubscribe)
         mockkObject(TokenUpdate)
+        mockkObject(MobileEvent)
         mockkObject(ServiceManager)
 
         every { SubFunction.isAppInForegrounded() } returns true
@@ -95,6 +99,9 @@ class WorkersInstrumentedTest {
 
     private fun buildPushEventWorker(): Worker.PushEventCoroutineWorker =
         TestListenableWorkerBuilder<Worker.PushEventCoroutineWorker>(context).build()
+
+    private fun buildMobileEventWorker(): Worker.MobileEventCoroutineWorker =
+        TestListenableWorkerBuilder<Worker.MobileEventCoroutineWorker>(context).build()
 
     private fun buildSubscribeWorker(): Worker.SubscribeCoroutineWorker =
         TestListenableWorkerBuilder<Worker.SubscribeCoroutineWorker>(context).build()
@@ -128,6 +135,34 @@ class WorkersInstrumentedTest {
 
         assertThat(result is ListenableWorker.Result.Success, `is`(true))
         coVerify(exactly = 1) { PushEvent.isRetry(context) }
+    }
+
+    // --------------------------
+    // MobileEventCoroutineWorker
+    // --------------------------
+
+    /** Ensures MobileEvent worker returns Result.retry when MobileEvent.isRetry() is true. */
+    @Test
+    fun mobileEventWorker_returns_retry_when_MobileEvent_isRetry_true() = runTest {
+        coEvery { MobileEvent.isRetry(any()) } returns true
+
+        val worker = buildMobileEventWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Retry, `is`(true))
+        coVerify(exactly = 1) { MobileEvent.isRetry(context) }
+    }
+
+    /** Ensures MobileEvent worker returns Result.success when MobileEvent.isRetry() is false. */
+    @Test
+    fun mobileEventWorker_returns_success_when_MobileEvent_isRetry_false() = runTest {
+        coEvery { MobileEvent.isRetry(any()) } returns false
+
+        val worker = buildMobileEventWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Success, `is`(true))
+        coVerify(exactly = 1) { MobileEvent.isRetry(context) }
     }
 
     // --------------------------
@@ -208,3 +243,4 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { TokenUpdate.isRetry(context, any()) }
     }
 }
+

@@ -11,12 +11,14 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.altcraft.sdk.push.events.PushEvent.sendPushEvent
 import com.altcraft.sdk.data.Constants.DELIVERY
+import com.altcraft.sdk.data.Constants.EVENT_FG_WORKER_MSG_ID
+import com.altcraft.sdk.data.Constants.PUSH_FG_WORKER_MSG_ID
 import com.altcraft.sdk.data.Constants.UID_KEY
 import com.altcraft.sdk.data.Constants.SERVICE_TYPE_DATA
 import com.altcraft.sdk.data.Constants.SERVICE_TYPE_MSG
-import com.altcraft.sdk.events.EventList.foregroundInfoIsNull
-import com.altcraft.sdk.events.EventList.notificationErr
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.foregroundInfoIsNull
+import com.altcraft.sdk.sdk_events.EventList.notificationErr
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.DataExtension.toStringMap
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.push.PushPresenter.showPush
@@ -52,7 +54,7 @@ internal object Worker {
             val context = applicationContext
             val pushData = inputData.toStringMap()
             return try {
-                setForegroundAsync(createForegroundInfo(context, 1001) ?: exception(e)).await()
+                setForegroundAsync(eventForegroundInfo(context)).await()
 
                 sendPushEvent(context, DELIVERY, pushData[UID_KEY])
 
@@ -84,7 +86,7 @@ internal object Worker {
             val context = applicationContext
             val pushData = inputData.toStringMap()
             return try {
-                setForegroundAsync(createForegroundInfo(context, 1002) ?: exception(e)).await()
+                setForegroundAsync(pushForegroundInfo(context)).await()
 
                 showPush(context, pushData)
 
@@ -120,4 +122,20 @@ internal object Worker {
             null
         }
     }
+
+    /**
+     * Returns [ForegroundInfo] for the event tracking worker.
+     *
+     * @param context Application context for notification creation.
+     */
+    private suspend fun eventForegroundInfo(context: Context) =
+        createForegroundInfo(context, EVENT_FG_WORKER_MSG_ID) ?: exception(e)
+
+    /**
+     * Returns [ForegroundInfo] for the push display worker.
+     *
+     * @param context Application context for notification creation.
+     */
+    private suspend fun pushForegroundInfo(context: Context) =
+        createForegroundInfo(context, PUSH_FG_WORKER_MSG_ID) ?: exception(e)
 }

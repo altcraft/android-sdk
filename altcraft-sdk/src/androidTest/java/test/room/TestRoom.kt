@@ -12,6 +12,7 @@ import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.Converter
+import com.altcraft.sdk.data.room.MobileEventEntity
 
 /**
  * Minimal Room database for androidTest, using production entities and converters.
@@ -21,7 +22,8 @@ import com.altcraft.sdk.data.room.Converter
     entities = [
         ConfigurationEntity::class,
         SubscribeEntity::class,
-        PushEventEntity::class
+        PushEventEntity::class,
+        MobileEventEntity::class
     ],
     version = 1,
     exportSchema = false

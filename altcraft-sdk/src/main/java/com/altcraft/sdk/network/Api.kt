@@ -6,14 +6,17 @@ package com.altcraft.sdk.network
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Url
+import retrofit2.http.*
 
 /**
  * Interface for server API calls related to push subscriptions.
@@ -29,6 +32,7 @@ internal interface Api {
      * @param matchingMode Optional user matching mode.
      * @param sync Optional sync flag (1 or null).
      * @param requestBody Subscription data in JSON.
+     * @return Server response.
      */
     @POST
     @Headers("Content-Type: application/json")
@@ -50,6 +54,7 @@ internal interface Api {
      * @param requestId Unique request ID.
      * @param matchingMode Optional matching mode.
      * @param requestBody Event data in JSON.
+     * @return Server response.
      */
     @POST
     @Headers("Content-Type: application/json")
@@ -70,6 +75,7 @@ internal interface Api {
      * @param provider Push provider.
      * @param saveToken Token to replace.
      * @param requestBody New token data in JSON.
+     * @return Server response.
      */
     @POST
     @Headers("Content-Type: application/json")
@@ -112,6 +118,7 @@ internal interface Api {
      * @param requestId Unique request ID.
      * @param matchingMode Optional user matching mode.
      * @param deviceToken save device token.
+     * @return Server response.
      */
     @GET
     @Headers("Content-Type: application/json")
@@ -122,5 +129,29 @@ internal interface Api {
         @Query("matching_mode") matchingMode: String,
         @Query("provider") provider: String?,
         @Query("subscription_id") deviceToken: String?
+    ): Response<JsonElement>
+
+    /**
+     * Sends a mobile event to the server.
+     *
+     * @param url Target endpoint.
+     * @param authHeader Authorization token.
+     * @param sid The string ID of the pixel.
+     * @param tracker Event tracker.
+     * @param type Event type.
+     * @param version Request version.
+     * @param parts Event payload
+     * @return Server response.
+     */
+    @Multipart
+    @POST
+    suspend fun mobileEvent(
+        @Url url: String,
+        @Header("Authorization") authHeader: String,
+        @Query("i") sid: String,
+        @Query("tr") tracker: String,
+        @Query("t") type: String,
+        @Query("v") version: String,
+        @Part parts: List<MultipartBody.Part>
     ): Response<JsonElement>
 }

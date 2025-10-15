@@ -5,6 +5,12 @@ package com.altcraft.altcraftmobile.functions.sdk
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.altcraftmobile.data.AppConstants.APP_ID
+import com.altcraft.altcraftmobile.data.AppConstants.APP_IID
+import com.altcraft.altcraftmobile.data.AppConstants.APP_VER
+import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_DESCRIPTION
+import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_NAME
+import com.altcraft.altcraftmobile.data.AppDataClasses
 import com.altcraft.altcraftmobile.data.AppPreferenses
 import com.altcraft.altcraftmobile.data.AppPreferenses.getConfig
 import com.altcraft.altcraftmobile.data.AppPreferenses.getSubscriptionStatus
@@ -13,6 +19,7 @@ import com.altcraft.altcraftmobile.data.AppPreferenses.setConfig
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.config.AltcraftConfiguration
+import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.push.subscribe.PublicPushSubscriptionFunctions.unSuspendPushSubscription
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +36,20 @@ object SDKFunctions {
      */
     fun initAltcraft(context: Context) {
         getConfig(context)?.let {
-            AltcraftSDK.initialization(context, it)
+
+            val config = AltcraftConfiguration.Builder(
+                apiUrl = it.apiUrl,
+                icon = it.icon,
+                rToken = it.rToken,
+                usingService = it.usingService,
+                serviceMessage = it.serviceMessage,
+                providerPriorityList = it.priorityProviders,
+                pushChannelName = PUSH_CHANNEL_NAME,
+                pushChannelDescription = PUSH_CHANNEL_DESCRIPTION,
+                appInfo = DataClasses.AppInfo(appID = APP_ID, appIID = APP_IID, appVer = APP_VER)
+            ).build()
+
+            AltcraftSDK.initialization(context, config)
             if (getSubscriptionStatus(context) == null) {
                 CoroutineScope(Dispatchers.IO).launch {
                     AltcraftSDK.pushSubscriptionFunctions.getStatusForCurrentSubscription(
@@ -164,31 +184,21 @@ object SDKFunctions {
         providerList: List<String>
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-
-             // Changes the priority order of push providers used by the SDK
             AltcraftSDK.pushTokenFunctions.changePushProviderPriorityList(context, providerList)
 
             val currentConfig = getConfig(context)
 
             if (currentConfig != null) {
-                val updatedConfig = AltcraftConfiguration
-                    .Builder(
-                        apiUrl =
-                            currentConfig.getApiUrl(),
-                        icon =
-                            currentConfig.getIcon(),
-                        rToken =
-                            currentConfig.getRToken(),
-                        usingService =
-                            currentConfig.getUsingService(),
-                        serviceMessage =
-                            currentConfig.getServiceMessage(),
-                        providerPriorityList =
-                            providerList
+                setConfig(
+                    context, AppDataClasses.ConfigData(
+                        apiUrl = currentConfig.apiUrl,
+                        icon = currentConfig.icon,
+                        rToken = currentConfig.rToken,
+                        usingService = currentConfig.usingService,
+                        serviceMessage = currentConfig.serviceMessage,
+                        priorityProviders = providerList
                     )
-                    .build()
-
-                setConfig(context, updatedConfig)
+                )
             }
             viewModel.updateTokenUI(context)
         }

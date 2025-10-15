@@ -4,9 +4,11 @@ package com.altcraft.sdk.json
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import com.altcraft.sdk.json.serializer.any.AnySerializer
 import kotlinx.serialization.json.*
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.modules.SerializersModule
 
 /**
  * Converter – utility for safe JSON serialization and deserialization
@@ -20,6 +22,9 @@ internal object Converter {
         ignoreUnknownKeys = true
         isLenient = true
         encodeDefaults = true
+        serializersModule = SerializersModule {
+            contextual(Any::class, AnySerializer)
+        }
     }
 
     /**

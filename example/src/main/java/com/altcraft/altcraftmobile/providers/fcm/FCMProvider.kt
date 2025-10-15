@@ -26,7 +26,7 @@ class FCMProvider : FCMInterface {
     override suspend fun getToken(): String? {
         return try {
             Firebase.messaging.token.await()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -43,7 +43,7 @@ class FCMProvider : FCMInterface {
             FirebaseMessaging.getInstance().deleteToken().addOnCompleteListener {
                 completion(it.isSuccessful)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             completion(false)
         }
     }

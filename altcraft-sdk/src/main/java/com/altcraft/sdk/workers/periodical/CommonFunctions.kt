@@ -12,17 +12,17 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.altcraft.sdk.data.Constants.CHECK_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.EVENT_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.RETRY_TIME_P_WORK
 import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalMobileEventWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalPushEventWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalSubscribeWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalUpdateWorker
-import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalTokenCheckWorker
 import kotlinx.coroutines.guava.await
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -41,21 +41,33 @@ object CommonFunctions {
         .build()
 
     /**
-     * Starts the first missing or cancelled periodic worker.
-     *
-     * Checks the status of all periodic workers and starts the first one
-     * that is either not running or was cancelled.
+     *Checks the status of periodic work manager tasks responsible for sending requests related to
+     *  push notifications. if the task is canceled or not activated, it activates the task.
      *
      * @param context Application context.
      */
-    internal suspend fun periodicalWorkerControl(context: Context) {
+    internal suspend fun pushPeriodicalWorkerControl(context: Context) {
         try {
-            getAllWorkerState(context)?.let {
+            getPushWorkersState(context)?.let {
+                if (isNotStart(it.subscribeWorkState)) startPeriodicalSubscribeWorker(context)
                 if (isNotStart(it.updateWorkState)) startPeriodicalUpdateWorker(context)
                 if (isNotStart(it.pushEventWorkState)) startPeriodicalPushEventWorker(context)
-                if (isNotStart(it.tokenCheckWorkState)) startPeriodicalTokenCheckWorker(context)
-                if (isNotStart(it.subscribeWorkState)) startPeriodicalSubscribeWorker(context)
             }
+        } catch (e: Exception) {
+            error("periodicalWorkerControl", e)
+        }
+    }
+
+    /**
+     * Checks the status of the periodic work manager task responsible for sending mobile event requests.
+     * If the task is canceled or not activated, it activates the task.
+     *
+     * @param context Application context.
+     */
+    internal suspend fun mobileEventPeriodicalWorkerControl(context: Context) {
+        try {
+            val state = getWorkState(context, MOBILE_EVENT_P_WORK_NANE)?.firstOrNull()?.state
+            if (isNotStart(state)) startPeriodicalMobileEventWorker(context)
         } catch (e: Exception) {
             error("periodicalWorkerControl", e)
         }
@@ -95,13 +107,12 @@ object CommonFunctions {
      * @param context Application context.
      * @return WorkersState containing individual work states or null on failure.
      */
-    private suspend fun getAllWorkerState(context: Context): DataClasses.WorkersState? {
+    private suspend fun getPushWorkersState(context: Context): DataClasses.PushWorkersState? {
         return try {
-            DataClasses.WorkersState(
+            DataClasses.PushWorkersState(
+                getWorkState(context, SUB_P_WORK_NANE)?.firstOrNull()?.state,
                 getWorkState(context, UPDATE_P_WORK_NANE)?.firstOrNull()?.state,
-                getWorkState(context, EVENT_P_WORK_NANE)?.firstOrNull()?.state,
-                getWorkState(context, CHECK_P_WORK_NANE)?.firstOrNull()?.state,
-                getWorkState(context, SUB_P_WORK_NANE)?.firstOrNull()?.state
+                getWorkState(context, PUSH_EVENT_P_WORK_NANE)?.firstOrNull()?.state
             )
         } catch (e: Exception) {
             error("getAllWorkerState", e)
@@ -157,8 +168,8 @@ object CommonFunctions {
      */
     internal fun cancelPeriodicalWorkersTask(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(SUB_P_WORK_NANE)
-        WorkManager.getInstance(context).cancelUniqueWork(EVENT_P_WORK_NANE)
         WorkManager.getInstance(context).cancelUniqueWork(UPDATE_P_WORK_NANE)
-        WorkManager.getInstance(context).cancelUniqueWork(CHECK_P_WORK_NANE)
+        WorkManager.getInstance(context).cancelUniqueWork(PUSH_EVENT_P_WORK_NANE)
+        WorkManager.getInstance(context).cancelUniqueWork(MOBILE_EVENT_P_WORK_NANE)
     }
 }

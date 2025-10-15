@@ -9,11 +9,15 @@ import android.content.Context
 import android.os.Build
 import com.altcraft.sdk.data.Constants.ANDROID_OS
 import com.altcraft.sdk.data.Constants.DEVICE_TYPE
-import com.google.android.gms.ads.identifier.AdvertisingIdClient
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
+import com.altcraft.sdk.data.Constants.CLS_ADS_ID_CLIENT
+import com.altcraft.sdk.data.Constants.CLS_ADS_ID_INFO
+import com.altcraft.sdk.data.Constants.M_GET_ID
+import com.altcraft.sdk.data.Constants.M_GET_INFO
+import com.altcraft.sdk.data.Constants.M_IS_LIMIT
 
 internal object DeviceInfo {
 
@@ -70,25 +74,36 @@ internal object DeviceInfo {
     }
 
     /**
-     * Retrieves the advertising ID and user preference for ad tracking.
+     * Retrieves the advertising ID and the user's preference for ad tracking.
      *
-     * @param context The application context.
-     * @return A pair containing the advertising ID (or null if unavailable) and a boolean indicating
-     *         whether ad tracking is allowed (true if tracking is enabled, false otherwise).
+     * Safe on API < 26 without core desugaring: the AdsIdentifier class is never loaded.
+     *
+     * @param context Application context used to access Google Play Services.
+     * @return A pair where:
+     *   - first = the advertising ID string (or null if unavailable),
+     *   - second = true if tracking is allowed, false otherwise.
      */
     private fun getAdvertisingIdInfo(context: Context): Pair<String?, Boolean> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null to false
+
         return try {
-            AdvertisingIdClient.getAdvertisingIdInfo(context).let {
-                it.id to !it.isLimitAdTrackingEnabled
-            }
-        } catch (e: Exception) {
-            error("getAdvertisingIdInfo", e)
-            Pair(null, false)
+            val client = Class.forName(CLS_ADS_ID_CLIENT)
+            val getInfo = client.getMethod(M_GET_INFO, Context::class.java)
+            val infoObj = getInfo.invoke(null, context)
+
+            val infoCls = Class.forName(CLS_ADS_ID_INFO)
+            val id = infoCls.getMethod(M_GET_ID).invoke(infoObj) as String?
+            val limit = infoCls.getMethod(M_IS_LIMIT).invoke(infoObj) as Boolean
+
+            id to !limit
+        } catch (t: Throwable) {
+            error("getAdvertisingIdInfo", t)
+            null to false
         }
     }
 
     /**
-     * Retrieves the time zone offset in the format "+hh_mm" or "-hh_mm".
+     * Retrieves the time zone offset in the format "+hhmm" or "-hhmm".
      *
      * @return A string representing the time zone offset in the specified format.
      *         Returns "+0000" in case of an error.
@@ -98,13 +113,32 @@ internal object DeviceInfo {
         return try {
             val timeZone: TimeZone = TimeZone.getDefault()
             val offsetInMillis: Int = timeZone.rawOffset
-            val hours = offsetInMillis / (1000 * 60 * 60)
-            val minutes = (offsetInMillis / (1000 * 60)) % 60
-            val sign = if (hours >= 0) "+" else "-"
-            String.format("%s%02d%02d", sign, abs(hours), abs(minutes))
+            val totalMinutes = offsetInMillis / (1000 * 60)
+            val hours = totalMinutes / 60
+            val minutes = abs(totalMinutes) % 60
+            val sign = if (totalMinutes >= 0) "+" else "-"
+            String.format("%s%02d%02d", sign, abs(hours), minutes)
         } catch (e: Exception) {
             error("getTimeZoneOffset", e)
             "+0000"
+        }
+    }
+
+    /**
+     * Returns mobile-event timezone offset in minutes as a signed integer.
+     *
+     * On error: returns 0.
+     */
+    fun getTimeZoneForMobEvent(): Int {
+        return try {
+            val timeZone: TimeZone = TimeZone.getDefault()
+            val offsetInMillis: Int = timeZone.rawOffset
+            val hours: Int = offsetInMillis / (1000 * 60 * 60)
+            val minutes: Int = (offsetInMillis / (1000 * 60)) % 60
+            -(hours * 60 + minutes)
+        } catch (e: Exception) {
+            error("getTimeZoneForMobEvent", e)
+            0
         }
     }
 }

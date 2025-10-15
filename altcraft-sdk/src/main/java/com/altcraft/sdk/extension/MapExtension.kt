@@ -5,7 +5,7 @@ package com.altcraft.sdk.extension
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import androidx.work.Data
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.*

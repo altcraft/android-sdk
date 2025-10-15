@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "963c1421cd09dac6aba247ebaf485950",
+    "identityHash": "2a6e6f216f49fc2ed096f241f988145d",
     "entities": [
       {
         "tableName": "configurationTable",
@@ -213,12 +213,122 @@
         },
         "indices": [],
         "foreignKeys": []
+      },
+      {
+        "tableName": "mobileEventTable",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `userTag` TEXT NOT NULL, `tz` INTEGER NOT NULL, `time` INTEGER NOT NULL, `sid` TEXT NOT NULL, `altcraftClientID` TEXT, `eventName` TEXT NOT NULL, `payload` TEXT, `matching` TEXT, `matchingType` TEXT, `profileFields` TEXT, `subscription` TEXT, `sendMessageId` TEXT, `utm` TEXT, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userTag",
+            "columnName": "userTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeZone",
+            "columnName": "tz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "time",
+            "columnName": "time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sid",
+            "columnName": "sid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altcraftClientID",
+            "columnName": "altcraftClientID",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "eventName",
+            "columnName": "eventName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "matching",
+            "columnName": "matching",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "matchingType",
+            "columnName": "matchingType",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "profileFields",
+            "columnName": "profileFields",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "subscription",
+            "columnName": "subscription",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "sendMessageId",
+            "columnName": "sendMessageId",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "utmTags",
+            "columnName": "utm",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxRetryCount",
+            "columnName": "maxRetryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '963c1421cd09dac6aba247ebaf485950')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a6e6f216f49fc2ed096f241f988145d')"
     ]
   }
 }

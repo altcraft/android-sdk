@@ -4,7 +4,7 @@ package com.altcraft.sdk.concurrency
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred

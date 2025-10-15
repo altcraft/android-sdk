@@ -4,6 +4,7 @@ package com.altcraft.sdk.json
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.Constants.CATS
 import com.altcraft.sdk.data.Constants.CATS_ACTIVE
 import com.altcraft.sdk.data.Constants.CATS_NAME
@@ -61,7 +62,7 @@ internal object JsonFactory {
             put(CATS, cats)
         }
 
-        put(TIME, data.time)
+        put(TIME, data.time / 1000)
         put(SUBSCRIPTION_ID, data.deviceToken)
         put(SUBSCRIPTION, subscription)
         put(PROFILE_FIELDS, data.profileFields ?: JsonNull)
@@ -78,7 +79,7 @@ internal object JsonFactory {
     fun createPushEventJson(
         data: DataClasses.PushEventRequestData
     ) = buildJsonObject {
-        put(TIME, data.time)
+        put(TIME, data.time / 1000)
         put(SMID, data.uid)
     }
 

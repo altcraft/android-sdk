@@ -15,10 +15,10 @@ import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Preferenses
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.data.room.SDKdb
-import com.altcraft.sdk.events.EventList.configIsNull
-import com.altcraft.sdk.events.EventList.invalidPushProvider
+import com.altcraft.sdk.sdk_events.EventList.configIsNull
+import com.altcraft.sdk.sdk_events.EventList.invalidPushProvider
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.interfaces.FCMInterface
 import com.altcraft.sdk.interfaces.HMSInterface

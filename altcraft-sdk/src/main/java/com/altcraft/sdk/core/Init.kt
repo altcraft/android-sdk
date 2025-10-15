@@ -9,11 +9,10 @@ import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.config.ConfigSetup.setConfig
-import com.altcraft.sdk.events.EventList.configIsNotSet
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
+import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
-import com.altcraft.sdk.push.Core.performPushModuleCheck
-import com.altcraft.sdk.push.Core.pushModuleIsActive
+import com.altcraft.sdk.core.Retry.performRetryOperations
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -29,8 +28,9 @@ object Init {
      * Initializes the SDK with the provided context and configuration.
      *
      * Thread-safe, run-once initialization. After the configuration is applied, this method
-     * calls `performPushModuleCheck(appCtx)`, which starts verification and processing of all
-     * pending push-related operations:
+     * calls `performRetryOperations(appCtx)`, which starts verification and processing of all
+     * pending operations:
+     * - sending mobile events;
      * - handling push subscriptions;
      * - verifying and updating the device push token;
      * - sending push events.
@@ -51,8 +51,7 @@ object Init {
             initMutex.withLock {
                 try {
                     setConfig(context, configuration) ?: exception(configIsNotSet)
-                    if (pushModuleIsActive(appCtx)) performPushModuleCheck(appCtx)
-
+                    performRetryOperations(appCtx)
                     InitBarrier.complete(reservedGate)
                     complete?.invoke(Result.success(Unit))
                 } catch (e: Exception) {

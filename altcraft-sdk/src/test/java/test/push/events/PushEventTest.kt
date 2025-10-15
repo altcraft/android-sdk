@@ -12,7 +12,7 @@ import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SDKdb
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.network.Request
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions

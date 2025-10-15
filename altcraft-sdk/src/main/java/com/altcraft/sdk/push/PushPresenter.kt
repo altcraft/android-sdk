@@ -10,17 +10,17 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.altcraft.sdk.additional.SubFunction.checkingNotificationPermission
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.EventList.permissionDenied
-import com.altcraft.sdk.events.EventList.pushDataIsNull
-import com.altcraft.sdk.events.EventList.pushIsPosted
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.permissionDenied
+import com.altcraft.sdk.sdk_events.EventList.pushDataIsNull
+import com.altcraft.sdk.sdk_events.EventList.pushIsPosted
+import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.extension.NotificationExtension.addActions
 import com.altcraft.sdk.extension.NotificationExtension.applyBigPictureStyle
 import com.altcraft.sdk.data.Repository.getNotificationData
-import com.altcraft.sdk.events.EventList.channelNotCreated
-import com.altcraft.sdk.events.EventList.notificationErr
+import com.altcraft.sdk.sdk_events.EventList.channelNotCreated
+import com.altcraft.sdk.sdk_events.EventList.notificationErr
 import com.altcraft.sdk.push.PushChannel.isChannelCreated
 import com.altcraft.sdk.push.PushChannel.selectAndCreateChannel
 import com.altcraft.sdk.push.PushChannel.versionsSupportChannels
@@ -31,11 +31,11 @@ import com.altcraft.sdk.push.PushChannel.versionsSupportChannels
 internal object PushPresenter {
 
     /**
-     * Creates and displays a push notification, configuring its appearance and behavior based on
-     * the provided `RemoteMessage`.
+     * Creates and displays a push notification, configuring its appearance and behavior
+     * based on the provided data map.
      *
      * @param context The context used to create and display the notification.
-     * @param push The `RemoteMessage` object containing the data for the notification.
+     * @param push A map of key-value pairs representing the push notification payload.
      */
     suspend fun showPush(context: Context, push: Map<String, String>) {
         try {
@@ -72,10 +72,10 @@ internal object PushPresenter {
                 setContentTitle(data.title)
                 setContentText(data.body)
                 setAutoCancel(true)
-                setContentIntent(data.pendingIntent)
-                addActions(context, data.buttons, data.uid)
-                setPriority(NotificationCompat.PRIORITY_MAX)
                 setColor(data.color)
+                setContentIntent(data.pendingIntent)
+                setPriority(NotificationCompat.PRIORITY_MAX)
+                addActions(context, data.messageId, data.buttons, data.uid)
             }.build()
         } catch (e: Exception) {
             error("createNotification", e)

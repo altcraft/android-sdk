@@ -20,10 +20,13 @@ import com.altcraft.sdk.data.Constants.ALTCRAFT_DB_NAME
     entities = [
         ConfigurationEntity::class,
         SubscribeEntity::class,
-        PushEventEntity::class
+        PushEventEntity::class,
+        MobileEventEntity::class
     ],
-    version = 1
+    version = 1,
+    exportSchema = true
 )
+
 @TypeConverters(Converter::class)
 internal abstract class SDKdb : RoomDatabase() {
 

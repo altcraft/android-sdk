@@ -13,10 +13,10 @@ import com.altcraft.sdk.data.Preferenses.getSavedToken
 import com.altcraft.sdk.data.Preferenses.setCurrentToken
 import com.altcraft.sdk.data.error
 import com.altcraft.sdk.data.retry
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.retry
-import com.altcraft.sdk.events.EventList.configIsNull
-import com.altcraft.sdk.events.EventList.currentTokenIsNull
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.retry
+import com.altcraft.sdk.sdk_events.EventList.configIsNull
+import com.altcraft.sdk.sdk_events.EventList.currentTokenIsNull
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.services.manager.ServiceManager.startUpdateWorker
 import com.altcraft.sdk.push.token.TokenManager.tokenLogShow

@@ -12,27 +12,30 @@ import android.app.NotificationManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.altcraft.sdk.data.Constants.AC_PUSH
 import com.altcraft.sdk.data.Constants.LOG_NULL
 import com.altcraft.sdk.data.Constants.LOG_TAG
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * `SubFunction` provides core SDK helpers for logging, notifications,
  * service checks, permissions, and asset handling.
  */
- internal object SubFunction {
+internal object SubFunction {
 
     /**
      * function outputs SDK logs with the altcraft_lib tag.
@@ -53,7 +56,7 @@ import java.io.IOException
 
         val values = input.values.filterNotNull()
 
-        return if (values.isEmpty()) return false else values.all { value ->
+        return if (values.isEmpty()) return false else values.any { value ->
             value !is String && value !is Number && value !is Boolean
         }
     }
@@ -159,16 +162,15 @@ import java.io.IOException
      * @return `true` if an active internet connection is available; `false` otherwise.
      */
     fun isOnline(context: Context): Boolean {
-        val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return when {
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
-            else -> false
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(network) ?: return false
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (e: Exception) {
+            error("isOnline", e)
+            false
         }
     }
 
@@ -189,5 +191,44 @@ import java.io.IOException
         if (this.isNullOrBlank()) return false
         val trimmed = this.trimStart()
         return trimmed.startsWith("{") || trimmed.startsWith("[")
+    }
+
+    /**
+     * Safely parses a hex color string into an Int color.
+     *
+     * @param value Color string.
+     * @return Parsed color or [Color.BLACK] if an error occurs.
+     */
+    fun getIconColor(value: String?) = try {
+        value?.toColorInt() ?: Color.BLACK
+    } catch (_: Exception) {
+        Color.BLACK
+    }
+
+    /**
+     * Returns true if the input contains an <html> (or </html>) tag.
+     * - Case-insensitive
+     * - Allows whitespace and attributes (e.g., <html lang="en">)
+     */
+    fun stringContainsHtml(input: String?): Boolean {
+        val htmlTag = Regex("""(?is)<\s*/?\s*html(?:\s[^>]*)?>""")
+        return htmlTag.containsMatchIn(input ?: return false)
+    }
+
+    /**
+     * Generates unique request codes for `PendingIntent`.
+     *
+     * Uses a combination of UID hash and atomic counter to minimize collisions
+     * and ensure thread-safe incrementation.
+     */
+    object UniqueCodeGenerator {
+        private val counter = AtomicInteger(0)
+
+        /**
+         * Produces a (mostly) unique, non-negative requestCode for PendingIntent.
+         * Combines uid hash with an ever-increasing counter to reduce collisions.
+         */
+        fun uniqueCode(uid: String) =
+            (uid.hashCode() xor (counter.getAndIncrement() * 31)).and(0x7FFFFFFF)
     }
 }

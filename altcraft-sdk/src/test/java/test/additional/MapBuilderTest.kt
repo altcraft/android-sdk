@@ -7,10 +7,15 @@ package test.additional
 import android.content.Context
 import com.altcraft.sdk.additional.MapBuilder
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.DataClasses.MobileEventRequestData
 import com.altcraft.sdk.data.DataClasses.PushEventRequestData
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.device.DeviceInfo
 import com.altcraft.sdk.interfaces.RequestData
+import com.altcraft.sdk.data.Constants.RESPONSE_WITH_HTTP_CODE
+import com.altcraft.sdk.data.Constants.UID
+import com.altcraft.sdk.data.Constants.TYPE
+import com.altcraft.sdk.data.Constants.NAME
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -27,14 +32,16 @@ import org.junit.Test
  *  - test_1: Valid PushEventRequestData → createEventValue includes generic key
  *            "response_with_http_code" and also specific keys "uid" and "type"
  *            with expected values.
+ *  - test_2: Valid MobileEventRequestData → createEventValue includes generic key
+ *            "response_with_http_code" and also specific key "name" with expected value.
  *  - test_3: unionMaps merges fields from three sources:
  *            (a) DeviceInfo (e.g., "_device"),
  *            (b) custom map (e.g., "custom"),
  *            (c) config.appInfo (→ "_app_id", "_app_iid", "_app_ver").
  *
  * Negative scenarios:
- *  - test_2: Generic RequestData (non-push event) → createEventValue still
- *            contains "response_with_http_code" but does NOT include "uid" or "type".
+ *  - test_4: Generic RequestData (non-push event) → createEventValue still
+ *            contains "response_with_http_code" but does NOT include "uid", "type" or "name".
  *
  * Notes:
  *  - android.util.Log is mocked in @Before to avoid "not mocked" issues in JVM tests.
@@ -42,9 +49,10 @@ import org.junit.Test
  */
 
 // ---------- Keys / test data ----------
-private const val KEY_HTTP_CODE = "response_with_http_code"
-private const val KEY_UID = "uid"
-private const val KEY_TYPE = "type"
+private const val KEY_HTTP_CODE = RESPONSE_WITH_HTTP_CODE
+private const val KEY_UID = UID
+private const val KEY_TYPE = TYPE
+private const val KEY_NAME = NAME
 private const val KEY_APP_ID = "_app_id"
 private const val KEY_APP_IID = "_app_iid"
 private const val KEY_APP_VER = "_app_ver"
@@ -52,6 +60,8 @@ private const val KEY_APP_VER = "_app_ver"
 private const val URL_EXAMPLE = "https://example.com"
 private const val UID_123 = "1234567890"
 private const val TYPE_DELIVERY = "delivery"
+private const val EVENT_NAME = "test_event"
+private const val SID_VALUE = "session123"
 private const val AUTH_BEARER = "Bearer token"
 private const val MATCHING_PUSH = "push"
 
@@ -66,8 +76,10 @@ private const val APP_VER = "1.0.0"
 private const val MSG_MUST_HAVE_HTTP_KEY = "Result must contain response_with_http_code key"
 private const val MSG_UID_PRESENT = "Result must contain uid for push event"
 private const val MSG_TYPE_PRESENT = "Result must contain type for push event"
+private const val MSG_NAME_PRESENT = "Result must contain name for mobile event"
 private const val MSG_UID_ABSENT = "Generic request must not contain uid"
 private const val MSG_TYPE_ABSENT = "Generic request must not contain type"
+private const val MSG_NAME_ABSENT = "Generic request must not contain name"
 private const val MSG_DEVICE_MERGED = "Device field must be merged"
 private const val MSG_CUSTOM_MERGED = "Custom field must be merged"
 private const val MSG_APP_INFO_ID = "_app_id must be filled from config.appInfo"
@@ -112,11 +124,33 @@ class MapBuilderTest {
         assertTrue(MSG_MUST_HAVE_HTTP_KEY, result.containsKey(KEY_HTTP_CODE))
         assertEquals(MSG_UID_PRESENT, UID_123, result[KEY_UID])
         assertEquals(MSG_TYPE_PRESENT, TYPE_DELIVERY, result[KEY_TYPE])
+        assertFalse(MSG_NAME_ABSENT, result.containsKey(KEY_NAME))
     }
 
-    /** createEventValue: with generic RequestData → does NOT include uid or type */
+    /** createEventValue: with MobileEventRequestData → includes name with expected value */
     @Test
-    fun `createEventValue with generic RequestData should not include uid or type`() {
+    fun `createEventValue with MobileEventRequestData should return map with name`() {
+        val code = 200
+        val response = DataClasses.Response(error = 0, errorText = "", profile = null)
+
+        val requestData = MobileEventRequestData(
+            url = URL_EXAMPLE,
+            sid = SID_VALUE,
+            name = EVENT_NAME,
+            authHeader = AUTH_BEARER
+        )
+
+        val result = MapBuilder.createEventValue(code, response, requestData)
+
+        assertTrue(MSG_MUST_HAVE_HTTP_KEY, result.containsKey(KEY_HTTP_CODE))
+        assertEquals(MSG_NAME_PRESENT, EVENT_NAME, result[KEY_NAME])
+        assertFalse(MSG_UID_ABSENT, result.containsKey(KEY_UID))
+        assertFalse(MSG_TYPE_ABSENT, result.containsKey(KEY_TYPE))
+    }
+
+    /** createEventValue: with generic RequestData → does NOT include uid, type or name */
+    @Test
+    fun `createEventValue with generic RequestData should not include uid type or name`() {
         val code = 200
         val response: DataClasses.Response? = null
         val requestData = mockk<RequestData>(relaxed = true)
@@ -126,6 +160,7 @@ class MapBuilderTest {
         assertTrue(MSG_MUST_HAVE_HTTP_KEY, result.containsKey(KEY_HTTP_CODE))
         assertFalse(MSG_UID_ABSENT, result.containsKey(KEY_UID))
         assertFalse(MSG_TYPE_ABSENT, result.containsKey(KEY_TYPE))
+        assertFalse(MSG_NAME_ABSENT, result.containsKey(KEY_NAME))
     }
 
     /** unionMaps: merges device fields, custom fields, and app info from config */

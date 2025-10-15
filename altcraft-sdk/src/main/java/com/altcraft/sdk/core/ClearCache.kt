@@ -13,9 +13,9 @@ import com.altcraft.sdk.data.Preferenses
 import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.services.manager.ServiceManager.stopService
 import com.altcraft.sdk.data.Preferenses.getPreferences
-import com.altcraft.sdk.events.EventList.sdkCleared
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.event
+import com.altcraft.sdk.sdk_events.EventList.sdkCleared
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.workers.coroutine.CancelWork.cancelCoroutineWorkersTask
 import com.altcraft.sdk.workers.periodical.CommonFunctions.cancelPeriodicalWorkersTask
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.altcraft.sdk.config.ConfigSetup.configuration
-import com.altcraft.sdk.push.Core.pushControl
+import com.altcraft.sdk.core.Retry.retryControl
 import com.altcraft.sdk.push.token.TokenManager.tokens
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,7 +49,7 @@ internal object ClearCache {
         try {
             CoroutineScope(Dispatchers.IO).launch {
                 configuration = null
-                pushControl = AtomicBoolean(false)
+                retryControl = AtomicBoolean(false)
                 tokens.clear()
 
                 // Get the instance of the SDK database
@@ -59,6 +59,7 @@ internal object ClearCache {
                 room.request().deleteConfig()
                 room.request().deleteAllSubscriptions()
                 room.request().deleteAllPushEvents()
+                room.request().deleteAllMobileEvents()
 
                 // Cancel any ongoing workers or tasks
                 suspendCoroutine { continuation ->

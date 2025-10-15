@@ -30,7 +30,6 @@ object PublicPushEventFunctions {
      * @param message optional push data
      * @param messageUID optional Altcraft notification UID; taken in message["_uid"]
      */
-    @Suppress("unused")
     fun deliveryEvent(
         context: Context,
         message: Map<String, String>? = null,
@@ -50,7 +49,6 @@ object PublicPushEventFunctions {
      * @param message optional push data
      * @param messageUID optional Altcraft notification UID; taken in message["_uid"]
      */
-    @Suppress("unused")
     fun openEvent(
         context: Context,
         message: Map<String, String>? = null,

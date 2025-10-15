@@ -9,16 +9,18 @@ package test.additional
 import com.altcraft.sdk.additional.PairBuilder
 import com.altcraft.sdk.data.Constants.DELIVERY
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.OPEN
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.STATUS_REQUEST
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
 import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
 import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
-import com.altcraft.sdk.interfaces.RequestData
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.DataClasses.MobileEventRequestData
 import com.altcraft.sdk.data.DataClasses.PushEventRequestData
 import com.altcraft.sdk.data.DataClasses.TokenData
+import com.altcraft.sdk.interfaces.RequestData
 import com.altcraft.sdk.network.Response
 import io.mockk.every
 import io.mockk.mockk
@@ -30,10 +32,20 @@ import org.junit.Test
  * Unit tests for PairBuilder.
  *
  * Verifies:
- * - getRequestMessages(): success code mapping per request type (SUBSCRIBE→230, UPDATE→231,
- *   PUSH_EVENT→232, UN_SUSPEND→233, STATUS→234) and error code mapping for 4xx/5xx.
- * - Message contents include request name, HTTP code, error fields, and for push events — event type.
- * - Unknown request mapping (5xx→539, else→439) and message prefix.
+ * - getRequestMessages():
+ *     Success code mapping:
+ *       SUBSCRIBE → 230, UPDATE → 231, UNSUSPEND → 232, STATUS → 233,
+ *       PUSH_EVENT → 234, MOBILE_EVENT → 235.
+ *     Error code mapping:
+ *       SUBSCRIBE 5xx→530 / 4xx→430,
+ *       UPDATE    5xx→531 / 4xx→431,
+ *       PUSH      5xx→534 / 4xx→434,
+ *       MOBILE    5xx→535 / 4xx→435,
+ *       UNSUSPEND → 432 (fixed),
+ *       STATUS    → 433 (fixed),
+ *       UNKNOWN   5xx→539 / else→439.
+ * - Message contents include request name, HTTP code, error fields;
+ *   for push events — event type; for mobile events — event name.
  * - createSetTokenEventPair(): returns non-negative code and message includes provider/token.
  */
 
@@ -44,12 +56,15 @@ private const val AUTH_BEARER = "Bearer token"
 private const val MATCHING_PUSH = "push"
 private const val UNKNOWN_REQUEST = "unknown request"
 private const val TOKEN_SAMPLE = "tkn123"
+private const val MOBILE_EVENT_NAME = "evt_name"
+private const val MOBILE_EVENT_SID = "sid123"
 
-// Message fragments
+// Message fragments (must match PairBuilder formatting)
 private const val FRAG_HTTP_CODE = "http code: "
 private const val FRAG_ERROR = "error: "
 private const val FRAG_ERROR_TEXT = "errorText: "
 private const val FRAG_TYPE = "type: "
+private const val FRAG_NAME = "name: "
 private const val FRAG_TOKEN = "token:"
 
 // Assertion messages
@@ -59,50 +74,13 @@ private const val MSG_ERROR_HAS_ERROR = "Error message must contain response err
 private const val MSG_ERROR_HAS_ERR_TEXT = "Error message must contain response errorText"
 private const val MSG_SUCCESS_PUSH_EVENT_HAS_TYPE = "Success message must contain event type"
 private const val MSG_ERROR_PUSH_EVENT_HAS_TYPE = "Error message must contain event type"
+private const val MSG_SUCCESS_MOBILE_EVENT_HAS_NAME = "Success message must contain mobile event name"
+private const val MSG_ERROR_MOBILE_EVENT_HAS_NAME = "Error message must contain mobile event name"
 private const val MSG_UNKNOWN_PREFIX = "Unknown request message must start with request name"
 private const val MSG_PAIR_CODE_NON_NEGATIVE = "Event code must be non-negative"
 private const val MSG_PAIR_MSG_HAS_PROVIDER = "Message must contain provider name"
 private const val MSG_PAIR_MSG_HAS_TOKEN = "Message must contain token"
-private const val MSG_SUBSCRIBE_ERR_5XX = "SUBSCRIBE_REQUEST: 5xx should map to 530"
-private const val MSG_SUBSCRIBE_ERR_4XX = "SUBSCRIBE_REQUEST: 4xx should map to 430"
-private const val MSG_UPDATE_ERR_5XX = "UPDATE_REQUEST: 5xx should map to 531"
-private const val MSG_UPDATE_ERR_4XX = "UPDATE_REQUEST: 4xx should map to 431"
-private const val MSG_PUSH_EVENT_ERR_5XX = "PUSH_EVENT_REQUEST: 5xx should map to 532"
-private const val MSG_PUSH_EVENT_ERR_4XX = "PUSH_EVENT_REQUEST: 4xx should map to 432"
-private const val MSG_UN_SUSPEND_ERR = "UN_SUSPEND_REQUEST must map to 433"
-private const val MSG_STATUS_ERR = "STATUS_REQUEST must map to 434"
-private const val MSG_UNKNOWN_5XX = "UNKNOWN: 5xx should map to 539"
-private const val MSG_UNKNOWN_4XX = "UNKNOWN: else should map to 439"
 
-/**
- * PairBuilderTest
- *
- * Positive scenarios:
- *  - test_1: SUBSCRIBE_REQUEST success → getRequestMessages returns success code 230 and
- *            success message contains request name; error pair echoes HTTP code.
- *  - test_2: UPDATE_REQUEST success → success code 231; message contains request name.
- *  - test_3: UN_SUSPEND_REQUEST success → success code 233; message contains request name.
- *  - test_4: STATUS_REQUEST success → success code 234; message contains request name.
- *  - test_5: PUSH_EVENT_REQUEST success → success code 232; message contains request name
- *            and includes event type (e.g., "open").
- *  - test_12: createSetTokenEventPair → returns non-negative code; message includes provider
- *             and token, and contains "token:" fragment.
- *
- * Negative scenarios:
- *  - test_6: SUBSCRIBE_REQUEST error mapping → 5xx→530, 4xx→430; error message includes
- *            "http code:", "error:", "errorText:" fragments.
- *  - test_7: UPDATE_REQUEST error mapping → 5xx→531, 4xx→431.
- *  - test_8: PUSH_EVENT_REQUEST error mapping → 5xx→532, 4xx→432; error message includes
- *            event type ("type: <value>").
- *  - test_9: UN_SUSPEND_REQUEST client error (e.g., 409) → maps to 433; message mentions "unsuspend".
- *  - test_10: STATUS_REQUEST client error (e.g., 400) → maps to 434; message mentions "status".
- *  - test_11: Unknown request mapping → 5xx→539, else→439; error message starts with the
- *             unknown request name as prefix.
- *
- * Notes:
- *  - Response.getRequestName(...) is mocked per test to emulate request type.
- *  - Constants for fragments/messages are defined above for consistency across assertions.
- */
 class PairBuilderTest {
 
     // ---------- Helpers ----------
@@ -118,13 +96,18 @@ class PairBuilderTest {
         matchingMode = MATCHING_PUSH
     )
 
+    private fun mobileEventRequest(name: String = MOBILE_EVENT_NAME) = MobileEventRequestData(
+        url = URL_EXAMPLE,
+        authHeader = AUTH_BEARER,
+        sid = MOBILE_EVENT_SID,
+        name = name
+    )
+
     private fun genericRequest(): RequestData = mockk(relaxed = true)
 
     // ---------- Success mappings ----------
 
-    /**
-     * Success: SUBSCRIBE_REQUEST → code 230; message contains request name; errorPair echoes HTTP code.
-     */
+    /** Success: SUBSCRIBE_REQUEST → code 230; message contains request name. */
     @Test
     fun `success for SUBSCRIBE_REQUEST code 230`() {
         mockkObject(Response)
@@ -138,9 +121,7 @@ class PairBuilderTest {
         assertTrue(MSG_ERROR_HAS_HTTP, errorPair.second.contains("${FRAG_HTTP_CODE}200"))
     }
 
-    /**
-     * Success: UPDATE_REQUEST → code 231; message contains request name.
-     */
+    /** Success: UPDATE_REQUEST → code 231; message contains request name. */
     @Test
     fun `success for UPDATE_REQUEST code 231`() {
         mockkObject(Response)
@@ -153,41 +134,35 @@ class PairBuilderTest {
         assertTrue(MSG_SUCCESS_HAS_REQ, successPair.second.contains(UPDATE_REQUEST))
     }
 
-    /**
-     * Success: UN_SUSPEND_REQUEST → code 233; message contains request name.
-     */
+    /** Success: UNSUSPEND_REQUEST → code 232; message contains request name. */
     @Test
-    fun `success for UNSUSPEND_REQUEST code 233`() {
+    fun `success for UNSUSPEND_REQUEST code 232`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns UNSUSPEND_REQUEST
 
         val (_, successPair) =
             PairBuilder.getRequestMessages(200, response(0, ""), genericRequest())
 
-        assertEquals(233, successPair.first)
+        assertEquals(232, successPair.first)
         assertTrue(MSG_SUCCESS_HAS_REQ, successPair.second.contains(UNSUSPEND_REQUEST))
     }
 
-    /**
-     * Success: STATUS_REQUEST → code 234; message contains request name.
-     */
+    /** Success: STATUS_REQUEST → code 233; message contains request name. */
     @Test
-    fun `success for STATUS_REQUEST code 234`() {
+    fun `success for STATUS_REQUEST code 233`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns STATUS_REQUEST
 
         val (_, successPair) =
             PairBuilder.getRequestMessages(200, response(0, ""), genericRequest())
 
-        assertEquals(234, successPair.first)
+        assertEquals(233, successPair.first)
         assertTrue(MSG_SUCCESS_HAS_REQ, successPair.second.contains(STATUS_REQUEST))
     }
 
-    /**
-     * Success: PUSH_EVENT_REQUEST → code 232; message contains request name and event type.
-     */
+    /** Success: PUSH_EVENT_REQUEST → code 234; message contains request name and event type. */
     @Test
-    fun `success for PUSH_EVENT_REQUEST code 232 and message contains event type`() {
+    fun `success for PUSH_EVENT_REQUEST code 234 and message contains event type`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns PUSH_EVENT_REQUEST
 
@@ -195,130 +170,136 @@ class PairBuilderTest {
         val (_, successPair) =
             PairBuilder.getRequestMessages(200, response(0, ""), request)
 
-        assertEquals(232, successPair.first)
+        assertEquals(234, successPair.first)
         assertTrue(MSG_SUCCESS_HAS_REQ, successPair.second.contains(PUSH_EVENT_REQUEST))
-        assertTrue(MSG_SUCCESS_PUSH_EVENT_HAS_TYPE, successPair.second.contains(OPEN))
+        assertTrue(MSG_SUCCESS_PUSH_EVENT_HAS_TYPE, successPair.second.contains("$FRAG_TYPE$OPEN"))
+    }
+
+    /** Success: MOBILE_EVENT_REQUEST → code 235; message contains request name and event name. */
+    @Test
+    fun `success for MOBILE_EVENT_REQUEST code 235 and message contains event name`() {
+        mockkObject(Response)
+        every { Response.getRequestName(any()) } returns MOBILE_EVENT_REQUEST
+
+        val request = mobileEventRequest()
+        val (_, successPair) =
+            PairBuilder.getRequestMessages(200, response(0, ""), request)
+
+        assertEquals(235, successPair.first)
+        assertTrue(MSG_SUCCESS_HAS_REQ, successPair.second.contains(MOBILE_EVENT_REQUEST))
+        assertTrue(MSG_SUCCESS_MOBILE_EVENT_HAS_NAME, successPair.second.contains("$FRAG_NAME$MOBILE_EVENT_NAME"))
     }
 
     // ---------- Error mappings ----------
 
-    /**
-     * Error mapping for SUBSCRIBE_REQUEST: 5xx → 530, 4xx → 430; message contains http/error fields.
-     */
+    /** Errors for SUBSCRIBE_REQUEST: 5xx → 530, 4xx → 430; message contains http/error fields. */
     @Test
-    fun `error mapping SUBSCRIBE_REQUEST  5xx to 530, 4xx to 430`() {
+    fun `error mapping SUBSCRIBE_REQUEST 5xx to 530 and 4xx to 430`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns SUBSCRIBE_REQUEST
 
         val (err5xx, _) = PairBuilder.getRequestMessages(
-            502,
-            response(123, "boom"),
-            genericRequest()
+            502, response(123, "boom"), genericRequest()
         )
-        assertEquals(MSG_SUBSCRIBE_ERR_5XX, 530, err5xx.first)
+        assertEquals(530, err5xx.first)
         assertTrue(MSG_ERROR_HAS_HTTP, err5xx.second.contains("${FRAG_HTTP_CODE}502"))
         assertTrue(MSG_ERROR_HAS_ERROR, err5xx.second.contains("${FRAG_ERROR}123"))
         assertTrue(MSG_ERROR_HAS_ERR_TEXT, err5xx.second.contains("${FRAG_ERROR_TEXT}boom"))
 
         val (err4xx, _) = PairBuilder.getRequestMessages(
-            400,
-            response(400, "bad"),
-            genericRequest()
+            400, response(400, "bad"), genericRequest()
         )
-        assertEquals(MSG_SUBSCRIBE_ERR_4XX, 430, err4xx.first)
+        assertEquals(430, err4xx.first)
         assertTrue(MSG_ERROR_HAS_HTTP, err4xx.second.contains("${FRAG_HTTP_CODE}400"))
     }
 
-    /**
-     * Error mapping for UPDATE_REQUEST: 5xx → 531, 4xx → 431.
-     */
+    /** Errors for UPDATE_REQUEST: 5xx → 531, 4xx → 431. */
     @Test
-    fun `error mapping UPDATE_REQUEST  5xx to 531, 4xx to 431`() {
+    fun `error mapping UPDATE_REQUEST 5xx to 531 and 4xx to 431`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns UPDATE_REQUEST
 
         val (err5xx, _) = PairBuilder.getRequestMessages(500, response(1, "srv"), genericRequest())
-        assertEquals(MSG_UPDATE_ERR_5XX, 531, err5xx.first)
+        assertEquals(531, err5xx.first)
 
         val (err4xx, _) = PairBuilder.getRequestMessages(404, response(404, "nf"), genericRequest())
-        assertEquals(MSG_UPDATE_ERR_4XX, 431, err4xx.first)
+        assertEquals(431, err4xx.first)
     }
 
-    /**
-     * Error mapping for PUSH_EVENT_REQUEST: 5xx → 532, 4xx → 432; message includes event type.
-     */
+    /** Errors for PUSH_EVENT_REQUEST: 5xx → 534, 4xx → 434; message includes event type. */
     @Test
-    fun `error mapping PUSH_EVENT_REQUEST 5xx to 532, 4xx to 432 and includes event type`() {
+    fun `error mapping PUSH_EVENT_REQUEST 5xx to 534 and 4xx to 434 and includes type`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns PUSH_EVENT_REQUEST
 
         val req = pushEventRequest(type = DELIVERY)
 
         val (err5xx, _) = PairBuilder.getRequestMessages(503, response(7, "srv"), req)
-        assertEquals(MSG_PUSH_EVENT_ERR_5XX, 532, err5xx.first)
-        assertTrue(MSG_ERROR_PUSH_EVENT_HAS_TYPE, err5xx.second.contains("${FRAG_TYPE}$DELIVERY"))
+        assertEquals(534, err5xx.first)
+        assertTrue(MSG_ERROR_PUSH_EVENT_HAS_TYPE, err5xx.second.contains("$FRAG_TYPE$DELIVERY"))
 
         val (err4xx, _) = PairBuilder.getRequestMessages(401, response(16, "unauth"), req)
-        assertEquals(MSG_PUSH_EVENT_ERR_4XX, 432, err4xx.first)
-        assertTrue(MSG_ERROR_PUSH_EVENT_HAS_TYPE, err4xx.second.contains("${FRAG_TYPE}$DELIVERY"))
+        assertEquals(434, err4xx.first)
+        assertTrue(MSG_ERROR_PUSH_EVENT_HAS_TYPE, err4xx.second.contains("$FRAG_TYPE$DELIVERY"))
     }
 
-    /**
-     * Error mapping for UN_SUSPEND_REQUEST: maps to 433 for client errors (e.g., 409).
-     */
+    /** Errors for MOBILE_EVENT_REQUEST: 5xx → 535, 4xx → 435; message includes event name. */
     @Test
-    fun `error mapping UNSUSPEND_REQUEST 433`() {
+    fun `error mapping MOBILE_EVENT_REQUEST 5xx to 535 and 4xx to 435 and includes name`() {
+        mockkObject(Response)
+        every { Response.getRequestName(any()) } returns MOBILE_EVENT_REQUEST
+
+        val req = mobileEventRequest(MOBILE_EVENT_NAME)
+
+        val (err5xx, _) = PairBuilder.getRequestMessages(503, response(7, "srv"), req)
+        assertEquals(535, err5xx.first)
+        assertTrue(MSG_ERROR_MOBILE_EVENT_HAS_NAME, err5xx.second.contains("$FRAG_NAME$MOBILE_EVENT_NAME"))
+
+        val (err4xx, _) = PairBuilder.getRequestMessages(409, response(9, "cl"), req)
+        assertEquals(435, err4xx.first)
+        assertTrue(MSG_ERROR_MOBILE_EVENT_HAS_NAME, err4xx.second.contains("$FRAG_NAME$MOBILE_EVENT_NAME"))
+    }
+
+    /** Errors for UNSUSPEND_REQUEST: fixed → 432 (e.g., for 409). */
+    @Test
+    fun `error mapping UNSUSPEND_REQUEST fixed 432`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns UNSUSPEND_REQUEST
 
-        val (err, _) = PairBuilder.getRequestMessages(
-            409,
-            response(10, "conflict"),
-            genericRequest()
-        )
-        assertEquals(MSG_UN_SUSPEND_ERR, 433, err.first)
+        val (err, _) = PairBuilder.getRequestMessages(409, response(10, "conflict"), genericRequest())
+        assertEquals(432, err.first)
         assertTrue(err.second.contains("unsuspend"))
     }
 
-    /**
-     * Error mapping for STATUS_REQUEST: maps to 434 for client errors (e.g., 400).
-     */
+    /** Errors for STATUS_REQUEST: fixed → 433 (e.g., for 400). */
     @Test
-    fun `error mapping STATUS_REQUEST 434`() {
+    fun `error mapping STATUS_REQUEST fixed 433`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns STATUS_REQUEST
 
         val (err, _) = PairBuilder.getRequestMessages(400, response(11, "bad"), genericRequest())
-        assertEquals(MSG_STATUS_ERR, 434, err.first)
+        assertEquals(433, err.first)
         assertTrue(err.second.contains("status"))
     }
 
-    /**
-     * Error mapping for unknown requests: 5xx → 539, else → 439 (prefix starts with request name).
-     */
+    /** Errors for unknown request: 5xx → 539, else → 439 (prefix starts with request name). */
     @Test
-    fun `error mapping UNKNOWN  539 for 5xx else 439`() {
+    fun `error mapping UNKNOWN 5xx to 539 else to 439`() {
         mockkObject(Response)
         every { Response.getRequestName(any()) } returns UNKNOWN_REQUEST
 
         val (err5xx, _) = PairBuilder.getRequestMessages(599, response(9, "x"), genericRequest())
-        assertEquals(MSG_UNKNOWN_5XX, 539, err5xx.first)
+        assertEquals(539, err5xx.first)
         assertTrue(MSG_UNKNOWN_PREFIX, err5xx.second.startsWith(UNKNOWN_REQUEST))
 
-        val (err4xx, _) = PairBuilder.getRequestMessages(
-            418,
-            response(9, "teapot"),
-            genericRequest()
-        )
-        assertEquals(MSG_UNKNOWN_4XX, 439, err4xx.first)
+        val (err4xx, _) = PairBuilder.getRequestMessages(418, response(9, "teapot"), genericRequest())
+        assertEquals(439, err4xx.first)
         assertTrue(MSG_UNKNOWN_PREFIX, err4xx.second.startsWith(UNKNOWN_REQUEST))
     }
 
-    /**
-     * createSetTokenEventPair(): returns non-negative code; message contains provider and token.
-     */
+    /** createSetTokenEventPair(): returns non-negative code; message contains provider and token. */
     @Test
-    fun `createSetTokenEventPair returns code and readable message with provider and token`() {
+    fun `createSetTokenEventPair returns non-negative code and contains provider and token`() {
         val data = TokenData(provider = FCM_PROVIDER, token = TOKEN_SAMPLE)
         val (code, msg) = PairBuilder.createSetTokenEventPair(data)
 

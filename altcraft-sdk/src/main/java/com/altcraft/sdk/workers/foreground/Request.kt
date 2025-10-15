@@ -8,10 +8,12 @@ import android.content.Context
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 
 /**
- * Provides methods to start foreground workers for processing push events and delivery.
+ * Provides methods to start foreground WorkManager tasks during which
+ * an internet connection is provided for downloading notification content
+ * and delivering the push delivery event to the server.
  *
  * Foreground workers are used to ensure reliable background execution with system priority
  * when handling push logic.

@@ -10,7 +10,7 @@ import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.*
 import org.junit.After
 import org.junit.Before

@@ -12,9 +12,8 @@ import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
 import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
 import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.EventList.bodyIsNotJson
-import com.altcraft.sdk.events.Events
 import com.altcraft.sdk.network.Response
+import com.altcraft.sdk.sdk_events.Events
 import io.mockk.*
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,13 +33,13 @@ import retrofit2.Response as RResponse
  *  - test_3: 4xx → ERROR → Events.error uses error pair/value.
  *  - test_4: getRequestName maps all RequestData types.
  *
- * Negative scenarios:
- *  - test_5: non-JSON error body → logs bodyIsNotJson and is ignored.
- *  - test_6: getResponseData==null → exception(responseDataIsNull) → retry("processResponse:: <name>").
+ * Negative/edge scenarios:
+ *  - test_5: non-JSON plain text body (e.g. "NOT_JSON") → parsed as Response(errorText=...), handled as ERROR.
+ *  - test_6: HTML body → parseResponse returns null → still handled via ERROR.
+ *  - test_7: getResponseData throws → retry("processResponse:: <name>").
  *
  * Notes:
  *  - Pure JVM tests (MockK). PairBuilder & MapBuilder stubbed to isolate Response.
- *  - isJsonString is an extension; we DON'T mock it — we pass bodies that naturally trigger it.
  */
 class ResponseTest {
 
@@ -184,46 +183,65 @@ class ResponseTest {
         assertEquals(STATUS_REQUEST, Response.getRequestName(statusReq()))
     }
 
-    /** Ensures non-JSON error body logs bodyIsNotJson and is ignored by parser. */
+    /**
+     * Non-JSON plain text body (e.g. "NOT_JSON") → parseResponse returns
+     * DataClasses.Response(errorText="NOT_JSON"), and further processing goes as ERROR.
+     */
     @Test
-    fun getResponseBody_nonJson_logsAndReturnsNull() {
-        // Not JSON on purpose → extension isJsonString() returns false (no mocking)
+    fun processResponse_nonJsonTextBody_treatedAsError() {
         val body = "NOT_JSON".toResponseBody(CT_JSON)
         val resp = RResponse.error<JsonElement>(400, body)
+        val req = subscribeReq()
 
-        every {
-            PairBuilder.getRequestMessages(
-                any(),
-                any(),
-                any()
-            )
-        } returns ((430 to "e") to (230 to "ok"))
-        every { MapBuilder.createEventValue(any(), any(), any()) } returns emptyMap()
+        val errorPair = 433 to "non-json"
+        val successPair = 233 to "ok"
+        val value = mapOf("code" to 400)
 
-        Response.processResponse(subscribeReq(), resp)
+        every { PairBuilder.getRequestMessages(400, any(), req) } returns (errorPair to successPair)
+        every { MapBuilder.createEventValue(400, any(), req) } returns value
 
-        verify {
-            Events.error(
-                eq("getResponseBody"),
-                eq(bodyIsNotJson),
-                match { it["body"] == "NOT_JSON" }
-            )
-        }
+        val out = Response.processResponse(req, resp)
+
+        assertTrue(out is DataClasses.Error)
+        assertEquals(FUNC, out.function)
+        assertEquals(433, out.eventCode)
+        assertEquals("non-json", out.eventMessage)
+        assertEquals(value, out.eventValue)
     }
 
-    /** When getResponseData returns null → retry("processResponse:: <name>"). */
+    /**
+     * HTML body → parseResponse returns null (filter by <html>),
+     * but the process remains valid — an ERROR is generated with pairs from PairBuilder.
+     */
+    @Test
+    fun processResponse_htmlBody_treatedAsNullButHandled() {
+        val body = "<html><body>Oops</body></html>".toResponseBody(CT_JSON)
+        val resp = RResponse.error<JsonElement>(400, body)
+        val req = updateReq()
+
+        val errorPair = 434 to "html-body"
+        val successPair = 234 to "ok"
+        val value = emptyMap<String, Any?>()
+
+        every { PairBuilder.getRequestMessages(400, any(), req) } returns (errorPair to successPair)
+        every { MapBuilder.createEventValue(400, any(), req) } returns value
+
+        val out = Response.processResponse(req, resp)
+
+        assertTrue(out is DataClasses.Error)
+        assertEquals(FUNC, out.function)
+        assertEquals(434, out.eventCode)
+        assertEquals("html-body", out.eventMessage)
+        assertEquals(value, out.eventValue)
+    }
+
+    /** When getResponseData throws → retry("processResponse:: <name>"). */
     @Test
     fun processResponse_whenDataNull_returnsRetryWithComposedName() {
         val body: JsonElement = buildJsonObject { put("x", 1) }
         val resp = RResponse.success(body)
 
-        every {
-            PairBuilder.getRequestMessages(
-                any(),
-                any(),
-                any()
-            )
-        } throws RuntimeException("boom")
+        every { PairBuilder.getRequestMessages(any(), any(), any()) } throws RuntimeException("boom")
         every { MapBuilder.createEventValue(any(), any(), any()) } returns emptyMap()
 
         every { Events.retry(any(), any(), any()) } answers {

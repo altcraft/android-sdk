@@ -6,12 +6,15 @@ package com.altcraft.sdk.workers.coroutine
 
 import android.content.Context
 import androidx.work.WorkManager
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -54,6 +57,16 @@ internal object CancelWork {
     }
 
     /**
+     * Cancels push event worker tasks and triggers a callback.
+     *
+     * @param context The application context.
+     * @param onComplete Callback when canceled.
+     */
+    fun cancelMobileEventWorkerTask(context: Context, onComplete: () -> Unit) {
+        cancelWorkerByTag(context, MOBILE_EVENT_C_WORK_TAG, onComplete)
+    }
+
+    /**
      * Cancels worker tasks by tag and triggers callback when done.
      *
      * @param context The application context.
@@ -81,16 +94,20 @@ internal object CancelWork {
         val workManager = WorkManager.getInstance(context)
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                listOf(
-                    workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result,
-                    workManager.cancelAllWorkByTag(UPDATE_C_WORK_TAG).result,
-                    workManager.cancelAllWorkByTag(PUSH_EVENT_C_WORK_TAG).result
-                ).forEach { it.get() }
+                val jobs = listOf(
+                    async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(UPDATE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(PUSH_EVENT_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(MOBILE_EVENT_C_WORK_TAG).result.get() }
+                )
+                jobs.awaitAll()
+            } catch (e: Exception) {
+                error("cancelCoroutineWorkersTask", e)
+            }
+            finally {
                 withContext(Dispatchers.Main) {
                     onComplete()
                 }
-            } catch (e: Exception) {
-                error("cancelCoroutineWorkersTask", e)
             }
         }
     }

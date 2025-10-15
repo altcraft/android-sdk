@@ -56,6 +56,14 @@ internal object Request {
         createWorkRequest<Worker.PushEventCoroutineWorker>(Constants.PUSH_EVENT_C_WORK_TAG)
 
     /**
+     * Creates mobile event worker request.
+     *
+     * @return Configured [OneTimeWorkRequest] with the proper tag.
+     */
+    fun mobileEventRequest(): OneTimeWorkRequest =
+        createWorkRequest<Worker.MobileEventCoroutineWorker>(Constants.MOBILE_EVENT_C_WORK_TAG)
+
+    /**
      *  Creates subscribe worker request.
      *
      * @return Configured [OneTimeWorkRequest] with the proper tag.

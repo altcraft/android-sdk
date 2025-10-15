@@ -19,26 +19,25 @@ Copyright © 2024 Altcraft LLC. All rights reserved.
 8. **COPYRIGHT NOTICE AND THIRD-PARTY COMPONENTS**:
    This Software may include components released under other licenses. A complete list of these components and their respective licenses is provided below:
 
-   **Apache License 2.0**
+**Apache License 2.0**  
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).  
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-    * [Kotlin](https://github.com/JetBrains/kotlin)
-    * [KotlinX Serialization](https://github.com/Kotlin/kotlinx.serialization)
-    * [KotlinX Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
-    * [Glide](https://github.com/bumptech/glide)
-    * [Retrofit](https://github.com/square/retrofit)
-    * [OkHttp](https://github.com/square/okhttp)
-    * [AndroidX Room](https://developer.android.com/jetpack/androidx/releases/room)
-    * [WorkManager](https://developer.android.com/jetpack/androidx/releases/work)
-    * [AndroidX Lifecycle](https://developer.android.com/jetpack/androidx/releases/lifecycle)
-    * [AndroidX Test](https://developer.android.com/testing)
-    * [Material Components for Android](https://github.com/material-components/material-components-android)
-    * [JUnit](https://junit.org/junit4/)
-    * [MockK](https://mockk.io/)
+* [Kotlin](https://github.com/JetBrains/kotlin)
+* [KotlinX Serialization](https://github.com/Kotlin/kotlinx.serialization)
+* [KotlinX Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
+* [Retrofit](https://github.com/square/retrofit)
+* [OkHttp](https://github.com/square/okhttp)
+* [AndroidX Room](https://developer.android.com/jetpack/androidx/releases/room)
+* [WorkManager](https://developer.android.com/jetpack/androidx/releases/work)
+* [AndroidX Lifecycle](https://developer.android.com/jetpack/androidx/releases/lifecycle)
+* [AndroidX Test](https://developer.android.com/testing)
+* [Material Components for Android](https://github.com/material-components/material-components-android)
+* [MockK](https://mockk.io/)
 
-    * [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient)
-
-   **Other licenses:**
-
-    * [Java JWT (Auth0)](https://github.com/auth0/java-jwt) — MIT
+**Other licenses:**
+* [Glide](https://github.com/bumptech/glide) — **BSD-2-Clause** 
+* [JUnit 4](https://junit.org/junit4/) — **EPL-1.0 (Eclipse Public License 1.0)**
+* [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
 
 USE OF THE SOFTWARE INDICATES YOUR ACCEPTANCE OF THE TERMS OF THIS LICENSE AGREEMENT.

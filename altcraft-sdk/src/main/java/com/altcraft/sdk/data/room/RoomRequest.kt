@@ -5,16 +5,19 @@ package com.altcraft.sdk.data.room
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.sdk.additional.StringBuilder.deletedMobileEventsMsg
 import com.altcraft.sdk.additional.StringBuilder.deletedPushEventsMsg
 import com.altcraft.sdk.additional.StringBuilder.errorEntityType
 import com.altcraft.sdk.additional.SubFunction.logger
+import com.altcraft.sdk.data.Constants.NAME
 import com.altcraft.sdk.data.Constants.UID
-import com.altcraft.sdk.events.EventList.unsupportedEntityType
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.Events.event
-import com.altcraft.sdk.events.Message.PUSH_EVENT_RETRY_LIMIT
-import com.altcraft.sdk.events.Message.SUBSCRIBE_RETRY_LIMIT
+import com.altcraft.sdk.sdk_events.EventList.unsupportedEntityType
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.Events.event
+import com.altcraft.sdk.sdk_events.Message.PUSH_EVENT_RETRY_LIMIT
+import com.altcraft.sdk.sdk_events.Message.SUBSCRIBE_RETRY_LIMIT
 import com.altcraft.sdk.extension.ExceptionExtension.exception
+import com.altcraft.sdk.sdk_events.Message.MOBILE_EVENT_RETRY_LIMIT
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -27,7 +30,8 @@ internal object RoomRequest {
     /**
      * Inserts the given entity into the database.
      *
-     * Supports both `SubscribeEntity` and `PushEventEntity`.
+     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
+     *
      * Determines the DAO insert method based on the entity type.
      *
      * @param context The application context used to get the database instance.
@@ -40,6 +44,7 @@ internal object RoomRequest {
             when (entity) {
                 is SubscribeEntity -> SDKdb.getDb(context).request().insertSubscribe(entity)
                 is PushEventEntity -> SDKdb.getDb(context).request().insertPushEvent(entity)
+                is MobileEventEntity -> SDKdb.getDb(context).request().insertMobileEvent(entity)
                 else -> error("entityInsert", errorEntityType(entity::class.simpleName))
             }
         } catch (e: Exception) {
@@ -50,7 +55,7 @@ internal object RoomRequest {
     /**
      * Deletes the given entity from the database.
      *
-     * Supports both `PushEventEntity` (by `uid`) and `SubscribeEntity` (by `id`).
+     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
      *
      * @param entity The entity to delete.
      * @param room The database access point.
@@ -60,6 +65,7 @@ internal object RoomRequest {
             when (entity) {
                 is SubscribeEntity -> room.request().deleteSubscribeByUid(entity.uid)
                 is PushEventEntity -> room.request().deletePushEventByUid(entity.uid)
+                is MobileEventEntity -> room.request().deleteMobileEventById(entity.id)
                 else -> error("entityDelete", errorEntityType(entity::class.simpleName))
             }
         } catch (e: Exception) {
@@ -70,7 +76,8 @@ internal object RoomRequest {
     /**
      * Increments the retry count for a supported entity.
      *
-     * This function handles both `PushEventEntity` and `SubscribeEntity` types.
+     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
+     *
      * For each, it updates the `retryCount` value in the database by incrementing it by 1.
      *
      * @param room The database instance.
@@ -87,6 +94,9 @@ internal object RoomRequest {
                 is SubscribeEntity -> room.request()
                     .increaseSubscribeRetryCount(entity.uid, entity.retryCount + 1)
 
+                is MobileEventEntity -> room.request()
+                    .increaseMobileEventRetryCount(entity.id, entity.retryCount + 1)
+
                 else -> error("increaseRetryCount", errorEntityType(entity::class.simpleName))
             }
         } catch (_: CancellationException) {
@@ -100,7 +110,7 @@ internal object RoomRequest {
      * If the limit is reached, logs and deletes the entity.
      * Otherwise, increments the retry count.
      *
-     * Supports both `SubscribeEntity` and `PushEventEntity`.
+     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
      *
      * @param room The database instance.
      * @param entity The entity to process.
@@ -111,19 +121,26 @@ internal object RoomRequest {
             val isLimit = when (entity) {
                 is SubscribeEntity -> entity.retryCount > entity.maxRetryCount
                 is PushEventEntity -> entity.retryCount > entity.maxRetryCount
+                is MobileEventEntity -> entity.retryCount > entity.maxRetryCount
                 else -> exception(unsupportedEntityType)
             }
             if (isLimit) {
                 when (entity) {
                     is SubscribeEntity -> event(
                         "isRetryLimit",
-                        420 to SUBSCRIBE_RETRY_LIMIT + entity.uid
+                        480 to SUBSCRIBE_RETRY_LIMIT + entity.uid
                     )
 
                     is PushEventEntity -> event(
                         "isRetryLimit",
-                        421 to PUSH_EVENT_RETRY_LIMIT + entity.uid,
+                        484 to PUSH_EVENT_RETRY_LIMIT + entity.uid,
                         mapOf(UID to entity.uid)
+                    )
+
+                    is MobileEventEntity -> event(
+                        "isRetryLimit",
+                        485 to MOBILE_EVENT_RETRY_LIMIT + entity.eventName,
+                        mapOf(NAME to entity.eventName)
                     )
                 }
                 entityDelete(room, entity)
@@ -156,34 +173,20 @@ internal object RoomRequest {
     }
 
     /**
-     * Returns `true` if a subscription with the given tag exists in the local database.
-     * Returns `false` on error or if not found.
+     * Cleans up old push events if count exceeds limit.
      *
-     * @param context application context
-     * @param userTag subscription tag
+     * @param room Local database instance.
      */
-    suspend fun existSubscriptions(context: Context, userTag: String): Boolean {
-        return try {
-            SDKdb.getDb(context).request().subscriptionsExistsByTag(userTag)
+    suspend fun clearOldMobileEventsFromRoom(room: SDKdb) {
+        try {
+            room.request().apply {
+                if (getMobileEventCount() > 500) {
+                    deleteMobileEvents(getOldestMobileEvents(100))
+                    logger(deletedMobileEventsMsg(getMobileEventCount()))
+                }
+            }
         } catch (e: Exception) {
-            error("existSubscription", e)
-            false
-        }
-    }
-
-
-    /**
-     * Returns `true` if `pushEventTable` contains at least one row.
-     * Returns `false` on error or if empty.
-     *
-     * @param context application context
-     */
-    suspend fun existPushEvents(context: Context): Boolean {
-        return try {
-            SDKdb.getDb(context).request().pushEventsExists()
-        } catch (e: Exception) {
-            error("existPushEvents", e)
-            false
+            error("clearOldMobileEventsFromRoom", e)
         }
     }
 }

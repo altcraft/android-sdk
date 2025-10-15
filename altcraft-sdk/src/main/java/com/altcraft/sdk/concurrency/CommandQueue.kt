@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 
 /**
  * CommandQueue — central mechanism for sequential execution of SDK tasks.
@@ -30,7 +30,7 @@ internal object CommandQueue {
      */
      object InitCommandQueue {
         private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
-        private const val FUNC = "InitCommandQueue - init()"
+        private const val FUNC = "InitCommandQueue - init"
 
         init {
             CoroutineScope(Dispatchers.IO).launch {
@@ -59,7 +59,36 @@ internal object CommandQueue {
      */
      object SubscribeCommandQueue {
         private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
-        private const val FUNC = "SubscribeCommandQueue - init()"
+        private const val FUNC = "SubscribeCommandQueue - init"
+
+        init {
+            CoroutineScope(Dispatchers.IO).launch {
+                for (command in channel) {
+                    runCatching { command() }.onFailure {
+                        error(FUNC, it)
+                    }
+                }
+            }
+        }
+
+        /**
+         * Enqueues a suspendable init command to be executed on the main thread (FIFO).
+         *
+         * @param block The suspend function to run.
+         */
+        fun submit(block: suspend () -> Unit) {
+            channel.trySend(block)
+        }
+    }
+
+    /**
+     * Serializes execution of suspend commands in a single coroutine on the IO dispatcher.
+     *
+     * Tasks submitted via [submit] are executed one-by-one in the order of arrival.
+     */
+    object MobileEventCommandQueue {
+        private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+        private const val FUNC = "MobileEventCommandQueue - init"
 
         init {
             CoroutineScope(Dispatchers.IO).launch {

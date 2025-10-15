@@ -6,14 +6,14 @@ package test.extension
 
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
+import android.content.Intent as AndroidIntent
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.extension.NotificationExtension.addActions
 import com.altcraft.sdk.extension.NotificationExtension.applyBigPictureStyle
-import com.altcraft.sdk.push.action.PushAction
+import com.altcraft.sdk.push.action.Intent.getIntent
 import io.mockk.every
 import io.mockk.mockkObject
 import org.junit.Assert.*
@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
  *
  * Notes:
  *  - Runs on Android (instrumented).
- *  - PushAction.getIntent is mocked to return a non-null PendingIntent.
+ *  - Intent.getIntent is mocked to return a non-null PendingIntent.
  */
 @RunWith(AndroidJUnit4::class)
 class NotificationExtensionInstrumentedTest {
@@ -47,26 +47,29 @@ class NotificationExtensionInstrumentedTest {
         ctx = ApplicationProvider.getApplicationContext()
         builder = NotificationCompat.Builder(ctx, "test-channel")
 
-
-        val intent = Intent(ctx, javaClass)
+        // Prepare dummy PendingIntent
+        val intent = AndroidIntent(ctx, javaClass)
         pendingIntent = PendingIntent.getActivity(
-            ctx, 0, intent,
+            ctx,
+            0,
+            intent,
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        mockkObject(PushAction)
-        every { PushAction.getIntent(any(), any(), any()) } returns pendingIntent
+        // Mock Intent.getIntent
+        mockkObject(com.altcraft.sdk.push.action.Intent)
+        every { getIntent(any(), any(), any(), any()) } returns pendingIntent
     }
 
     /** test_1: addActions attaches buttons */
     @Test
-    fun addActions_addsButtons() {
+    fun test_1_addActions_addsButtons() {
         val buttons = listOf(
             DataClasses.ButtonStructure("label1", "link1"),
             DataClasses.ButtonStructure("label2", "link2")
         )
 
-        builder.addActions(ctx, buttons, "uid1")
+        builder.addActions(ctx, 1, buttons, "uid1")
         val notification = builder.build()
 
         assertEquals(2, notification.actions.size)
@@ -77,7 +80,7 @@ class NotificationExtensionInstrumentedTest {
 
     /** test_2: applyBigPictureStyle with image */
     @Test
-    fun applyBigPictureStyle_withImage() {
+    fun test_2_applyBigPictureStyle_withImage() {
         val bmp = android.graphics.Bitmap.createBitmap(10, 10, android.graphics.Bitmap.Config.ARGB_8888)
         val data = DataClasses.NotificationData(
             uid = "u",
@@ -100,7 +103,7 @@ class NotificationExtensionInstrumentedTest {
 
     /** test_3: applyBigPictureStyle with null image → no crash */
     @Test
-    fun applyBigPictureStyle_withNullImage() {
+    fun test_3_applyBigPictureStyle_withNullImage() {
         val data = DataClasses.NotificationData(
             uid = "u",
             title = "t",

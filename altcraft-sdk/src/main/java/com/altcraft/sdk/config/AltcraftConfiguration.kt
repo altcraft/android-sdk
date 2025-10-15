@@ -8,7 +8,7 @@ import androidx.annotation.Keep
 import com.altcraft.sdk.additional.StringBuilder.invalidConfigMsg
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.events.Events.error
+import com.altcraft.sdk.sdk_events.Events.error
 
 /**
  * Altcraft SDK configuration initialization class.

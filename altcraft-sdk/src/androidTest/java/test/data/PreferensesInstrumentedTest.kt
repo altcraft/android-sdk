@@ -1,7 +1,6 @@
 package test.data
 
 //  Created by Andrey Pogodin.
-//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
@@ -20,19 +19,15 @@ import org.junit.runner.RunWith
  * Positive scenarios:
  *  - test_1: setPushToken saves JSON; getManualToken retrieves the same TokenData.
  *  - test_2: setCurrentToken saves JSON; getSavedToken retrieves the same TokenData.
- *  - test_3: getMessageId increments sequentially and persists across calls.
- *  - test_4: clear() removes all stored values; getters return null/defaults.
+ *  - test_3: getMessageId returns 1 on first call and increments sequentially.
+ *  - test_4: clear() removes all stored values; getters return null/defaults; getMessageId restarts from 1.
  *  - test_5: manual JSON round-trip works with TokenData.
  *
  * Negative scenarios:
  *  - test_6: getManualToken returns null if stored JSON is malformed.
  *  - test_7: getSavedToken returns null if stored JSON is malformed.
- *  - test_8: setCurrentToken(null) does not clear value (documents current behavior).
+ *  - test_8: setCurrentToken(null) does not clear existing value (documents current behavior).
  *
- * Notes:
- *  - Instrumented Android tests (androidTest).
- *  - Run with real SharedPreferences from Application context.
- *  - Events.error is not mocked; real logging may appear in logs.
  */
 @RunWith(AndroidJUnit4::class)
 class PreferensesInstrumentedTest {
@@ -50,7 +45,7 @@ class PreferensesInstrumentedTest {
         Preferenses.getPreferences(context).edit().clear().commit()
     }
 
-    /** Checks setPushToken + getManualToken round-trip. */
+    /** setPushToken + getManualToken round-trip. */
     @Test
     fun setPushToken_and_getManualToken_roundTrip_ok() {
         val td = TokenData("android-firebase", "tok-123")
@@ -62,7 +57,7 @@ class PreferensesInstrumentedTest {
         Assert.assertEquals(td.token, loaded.token)
     }
 
-    /** Checks that malformed JSON leads to null in getManualToken. */
+    /** getManualToken returns null for malformed JSON. */
     @Test
     fun getManualToken_malformedJson_returnsNull() {
         val key = getPrivateField("MANUAL_TOKEN_KEY")
@@ -70,7 +65,7 @@ class PreferensesInstrumentedTest {
         Assert.assertNull(Preferenses.getManualToken(context))
     }
 
-    /** Checks setCurrentToken + getSavedToken round-trip. */
+    /** setCurrentToken + getSavedToken round-trip. */
     @Test
     fun setCurrentToken_and_getSavedToken_roundTrip_ok() {
         val td = TokenData("android-huawei", "abc-456")
@@ -82,7 +77,7 @@ class PreferensesInstrumentedTest {
         Assert.assertEquals(td.token, saved.token)
     }
 
-    /** Documents current behavior: setCurrentToken(null) does not clear existing value. */
+    /** Current behavior: setCurrentToken(null) does not clear existing value. */
     @Test
     fun setCurrentToken_null_doesNotClear_existingValue() {
         val first = TokenData("android-rustore", "777")
@@ -95,7 +90,7 @@ class PreferensesInstrumentedTest {
         Assert.assertEquals(first.token, after!!.token)
     }
 
-    /** Checks that malformed JSON leads to null in getSavedToken. */
+    /** getSavedToken returns null for malformed JSON. */
     @Test
     fun getSavedToken_malformedJson_returnsNull() {
         val key = getPrivateField("TOKEN_KEY")
@@ -103,21 +98,21 @@ class PreferensesInstrumentedTest {
         Assert.assertNull(Preferenses.getSavedToken(context))
     }
 
-    /** Checks that getMessageId increments and persists across calls. */
+    /** getMessageId returns 1 first, then increments sequentially. */
     @Test
-    fun getMessageId_increments_and_persists() {
-        val id1 = Preferenses.getMessageId(context)
+    fun getMessageId_increments_fromOne() {
+        val id1 = Preferenses.getMessageId(context) // first call after clean state
         val id2 = Preferenses.getMessageId(context)
         val id3 = Preferenses.getMessageId(context)
 
-        Assert.assertEquals(5, id1)
-        Assert.assertEquals(6, id2)
-        Assert.assertEquals(7, id3)
+        Assert.assertEquals(1, id1)
+        Assert.assertEquals(2, id2)
+        Assert.assertEquals(3, id3)
     }
 
-    /** Checks that clear() resets stored values. */
+    /** clear() resets all values; getMessageId restarts from 1. */
     @Test
-    fun clear_storage_resets_values() {
+    fun clear_storage_resets_values_and_messageId() {
         val m = TokenData("android-firebase", "tok-x")
         val c = TokenData("android-huawei", "tok-y")
         Preferenses.setPushToken(context, m.provider, m.token)
@@ -130,10 +125,14 @@ class PreferensesInstrumentedTest {
 
         Assert.assertNull(Preferenses.getManualToken(context))
         Assert.assertNull(Preferenses.getSavedToken(context))
-        Assert.assertEquals(5, Preferenses.getMessageId(context))
+        Assert.assertEquals(
+            "After clear, first messageId should restart from 1",
+            1,
+            Preferenses.getMessageId(context)
+        )
     }
 
-    /** Checks manual JSON round-trip of TokenData via preferences. */
+    /** Manual JSON round-trip for TokenData via preferences. */
     @Test
     fun tokenData_manual_json_roundTrip_ok() {
         val td = TokenData("android-firebase", "tok-json")
@@ -148,7 +147,7 @@ class PreferensesInstrumentedTest {
         Assert.assertEquals(td.token, loaded.token)
     }
 
-    // Helper to access private constants in Preferenses
+    // Helper to access private constants in Preferenses via reflection.
     private fun getPrivateField(fieldName: String): String {
         val field = Preferenses::class.java.getDeclaredField(fieldName)
         field.isAccessible = true

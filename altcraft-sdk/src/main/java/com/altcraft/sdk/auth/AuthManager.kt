@@ -7,18 +7,25 @@ package com.altcraft.sdk.auth
 import com.altcraft.sdk.additional.StringBuilder.bearerJwtToken
 import com.altcraft.sdk.additional.StringBuilder.bearerRToken
 import com.altcraft.sdk.data.Constants.MATCHING
-import com.altcraft.sdk.data.Constants.R_TOKEN_MATCHING
+import com.altcraft.sdk.data.Constants.PUSH_SUB_MATCHING
 import com.altcraft.sdk.data.Constants.SHA256
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.events.Events.error
-import com.altcraft.sdk.events.EventList.jwtIsNull
-import com.altcraft.sdk.events.EventList.matchingIdIsNull
-import com.altcraft.sdk.events.EventList.matchingIsNull
+import com.altcraft.sdk.sdk_events.Events.error
+import com.altcraft.sdk.sdk_events.EventList.jwtIsNull
+import com.altcraft.sdk.sdk_events.EventList.matchingIdIsNull
+import com.altcraft.sdk.sdk_events.EventList.matchingIsNull
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.json.Converter.json
-import com.auth0.jwt.JWT
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import android.util.Base64
+import com.altcraft.sdk.sdk_events.EventList.jwtTooLarge
+import com.altcraft.sdk.sdk_events.EventList.payloadIsMissing
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Manages authentication-related operations, including retrieving user tags,
@@ -42,16 +49,68 @@ internal object AuthManager {
     }
 
     /**
-     * Retrieves the raw "matching" claim from a JWT token with keys ordered deterministically.
+     * Checks that a Base64URL-encoded JWT payload fits the 16 KiB decoded limit.
      *
-     * @param jwt The JWT token string (nullable).
-     * @return A JSON string with ordered keys or `null` on failure.
+     * The function estimates decoded size without allocating:
+     * it adds Base64 padding to a multiple of 4, then applies the (len * 3 / 4) rule.
+     *
+     * @param b64 Base64URL (no padding) encoded JWT payload (the middle part of JWT).
+     * @return `true` if the estimated decoded size ≤ 16 KiB, otherwise `false`.
+     */
+    private fun jwtSizeExceeded(
+        b64: String
+    ): Boolean = (((b64.length + ((4 - (b64.length % 4)) % 4)) * 3) / 4) >= 16 * 1024
+
+    /**
+     * Decodes the payload part of a JWT string.
+     *
+     * Splits the token into its Base64URL-encoded parts, decodes the payload,
+     * and returns it as a UTF-8 JSON string.
+     *
+     * @param jwt The full JWT token string (header.payload.signature).
+     * @return The decoded payload JSON as a string, or `null` if decoding fails.
+     */
+    private fun decodeJwtPayload(jwt: String): String? {
+        return try {
+            val body = jwt.split('.').getOrNull(1) ?: exception(payloadIsMissing)
+
+            if (jwtSizeExceeded(body)) exception(jwtTooLarge)
+
+            val pad = (4 - (body.length % 4)) % 4
+
+            String(
+                Base64.decode(body + "=".repeat(pad), Base64.URL_SAFE or Base64.NO_WRAP),
+                StandardCharsets.UTF_8
+            )
+        } catch (e: Exception) {
+            error("decodeJwtPayload", e)
+            null
+        }
+    }
+
+    /**
+     * Extracts and parses the "matching" claim from a JWT token.
+     *
+     * Supports both JSON objects and JSON encoded as a string inside the claim.
+     *
+     * @param jwt The JWT token string, may be `null`.
+     * @return A deserialized [DataClasses.JWTMatching] object, or `null` if parsing fails.
      */
     private fun getMatchingDataFromJWT(jwt: String?): DataClasses.JWTMatching? {
         return try {
-            JWT.decode(jwt ?: exception(jwtIsNull)).getClaim(MATCHING).let {
-                json.decodeFromString(it.asString())
+            val payload = decodeJwtPayload(jwt ?: exception(jwtIsNull)) ?: return null
+
+            val root = json.parseToJsonElement(payload).jsonObject
+            val raw = root[MATCHING] ?: return null
+            val matchingObj = when {
+                raw is JsonObject -> raw
+                raw is JsonPrimitive && raw.isString ->
+                    json.parseToJsonElement(raw.content).jsonObject
+
+                else -> return null
             }
+
+            json.decodeFromJsonElement<DataClasses.JWTMatching>(matchingObj)
         } catch (e: Exception) {
             error("getMatchingDataFromJWT", e)
             null
@@ -96,7 +155,7 @@ internal object AuthManager {
                 getMatchingDataFromJWT(jwtToken)?.matching ?: exception(matchingIsNull)
             }
             when {
-                !rToken.isNullOrEmpty() -> bearerRToken(rToken) to R_TOKEN_MATCHING
+                !rToken.isNullOrEmpty() -> bearerRToken(rToken) to PUSH_SUB_MATCHING
                 matchingMode.isNotEmpty() -> bearerJwtToken(jwtToken) to matchingMode
                 else -> null
             }

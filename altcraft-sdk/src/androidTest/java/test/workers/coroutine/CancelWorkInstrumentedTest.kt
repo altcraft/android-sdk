@@ -23,8 +23,9 @@ import java.util.concurrent.TimeUnit
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.workers.coroutine.CancelWork
 import com.altcraft.sdk.workers.coroutine.Request
 
@@ -35,8 +36,8 @@ import com.altcraft.sdk.workers.coroutine.Request
  *  - test_1: cancelSubscribeWorkerTask() cancels jobs with SUBSCRIBE_C_WORK_TAG and calls onComplete.
  *  - test_2: cancelUpdateWorkerTask() cancels jobs with UPDATE_C_WORK_TAG and calls onComplete.
  *  - test_3: cancelPushEventWorkerTask() cancels jobs with PUSH_EVENT_C_WORK_TAG and calls onComplete.
- *  - test_4: cancelCoroutineWorkersTask() cancels all three tags and calls onComplete.
- *
+ *  - test_4: cancelMobileEventWorkerTask() cancels jobs with MOBILE_EVENT_C_WORK_TAG and calls onComplete.
+ *  - test_5: cancelCoroutineWorkersTask() cancels all four tags and calls onComplete.
  */
 @RunWith(AndroidJUnit4::class)
 class CancelWorkInstrumentedTest {
@@ -76,6 +77,7 @@ class CancelWorkInstrumentedTest {
     private fun enqueueSubscribe() { wm.enqueue(Request.subscribeRequest()).result.get() }
     private fun enqueueUpdate() { wm.enqueue(Request.updateRequest()).result.get() }
     private fun enqueuePushEvent() { wm.enqueue(Request.pushEventRequest()).result.get() }
+    private fun enqueueMobileEvent() { wm.enqueue(Request.mobileEventRequest()).result.get() }
 
     private fun assertAllCancelled(tag: String) {
         val infos = wm.getWorkInfosByTag(tag).get()
@@ -88,9 +90,7 @@ class CancelWorkInstrumentedTest {
     // Positive tests
     // ---------------------------
 
-    /**
-     * cancelSubscribeWorkerTask() cancels jobs with SUBSCRIBE_C_WORK_TAG and calls onComplete
-     */
+    /** cancelSubscribeWorkerTask() cancels jobs with SUBSCRIBE_C_WORK_TAG and calls onComplete */
     @Test
     fun cancelSubscribeWorkerTask_cancels_and_calls_onComplete() {
         enqueueSubscribe()
@@ -103,9 +103,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(SUBSCRIBE_C_WORK_TAG)
     }
 
-    /**
-     * cancelUpdateWorkerTask() cancels jobs with UPDATE_C_WORK_TAG and calls onComplete
-     */
+    /** cancelUpdateWorkerTask() cancels jobs with UPDATE_C_WORK_TAG and calls onComplete */
     @Test
     fun cancelUpdateWorkerTask_cancels_and_calls_onComplete() {
         enqueueUpdate()
@@ -118,9 +116,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(UPDATE_C_WORK_TAG)
     }
 
-    /**
-     * cancelPushEventWorkerTask() cancels jobs with PUSH_EVENT_C_WORK_TAG and calls onComplete
-     */
+    /** cancelPushEventWorkerTask() cancels jobs with PUSH_EVENT_C_WORK_TAG and calls onComplete */
     @Test
     fun cancelPushEventWorkerTask_cancels_and_calls_onComplete() {
         enqueuePushEvent()
@@ -133,14 +129,26 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(PUSH_EVENT_C_WORK_TAG)
     }
 
-    /**
-     * cancelCoroutineWorkersTask() cancels all three tags and calls onComplete
-     */
+    /** cancelMobileEventWorkerTask() cancels jobs with MOBILE_EVENT_C_WORK_TAG and calls onComplete */
+    @Test
+    fun cancelMobileEventWorkerTask_cancels_and_calls_onComplete() {
+        enqueueMobileEvent()
+
+        val latch = CountDownLatch(1)
+        CancelWork.cancelMobileEventWorkerTask(context) { latch.countDown() }
+
+        val completed = latch.await(2, TimeUnit.SECONDS)
+        assertThat(completed, `is`(true))
+        assertAllCancelled(MOBILE_EVENT_C_WORK_TAG)
+    }
+
+    /** cancelCoroutineWorkersTask() cancels all four tags and calls onComplete */
     @Test
     fun cancelCoroutineWorkersTask_cancels_all_and_calls_onComplete() {
         enqueueSubscribe()
         enqueueUpdate()
         enqueuePushEvent()
+        enqueueMobileEvent()
 
         val latch = CountDownLatch(1)
         CancelWork.cancelCoroutineWorkersTask(context) { latch.countDown() }
@@ -151,5 +159,6 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(SUBSCRIBE_C_WORK_TAG)
         assertAllCancelled(UPDATE_C_WORK_TAG)
         assertAllCancelled(PUSH_EVENT_C_WORK_TAG)
+        assertAllCancelled(MOBILE_EVENT_C_WORK_TAG)
     }
 }

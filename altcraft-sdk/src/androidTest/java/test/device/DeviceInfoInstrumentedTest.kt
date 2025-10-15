@@ -18,24 +18,18 @@ import org.junit.runner.RunWith
 /**
  * DeviceInfoInstrumentedTest
  *
- * Positive scenarios:
- *  - test_1: getDeviceFields returns non-empty map with mandatory keys.
- *  - test_2: getDeviceFields includes device/OS information from Build and Locale.
- *  - test_3: getTimeZoneOffset returns a string in expected "+hhmm" format.
- *
- * Negative scenarios:
- *  - test_4: getAdvertisingIdInfo fails gracefully (returns null/false if not available).
- *
- * Notes:
- *  - Runs on Android (instrumented test).
- *  - AdvertisingId may be unavailable on emulators; in this case only basic fields are checked.
+ * test_1: getDeviceFields → карта не пустая, содержит обязательные ключи и валидные базовые значения.
+ * test_2: getDeviceFields → модель устройства и версия ОС не пустые.
+ * test_3: _os_tz в формате «+hhmm» или «-hhmm».
+ * test_4: Advertising ID опционален — при наличии не пустой; _ad_track присутствует всегда.
+ * test_5: getTimeZoneForMobEvent согласован с _os_tz (возвращает противоположный по знаку offset в минутах).
  */
 @RunWith(AndroidJUnit4::class)
 class DeviceInfoInstrumentedTest {
 
     private val ctx: Context = ApplicationProvider.getApplicationContext()
 
-    /** test_1: getDeviceFields returns non-empty map with mandatory keys */
+    /** test_1 */
     @Test
     fun getDeviceFields_containsMandatoryKeys() {
         val map = DeviceInfo.getDeviceFields(ctx)
@@ -48,16 +42,17 @@ class DeviceInfoInstrumentedTest {
         assertTrue(map.containsKey("_device_model"))
         assertTrue(map.containsKey("_device_name"))
         assertTrue(map.containsKey("_os_ver"))
+        assertTrue(map.containsKey("_ad_track"))
 
         assertEquals(Constants.ANDROID_OS, map["_os"])
         assertEquals(Constants.DEVICE_TYPE, map["_device_type"])
+        assertTrue("ad_track must be Boolean", map["_ad_track"] is Boolean)
     }
 
-    /** test_2: getDeviceFields includes device/OS information */
+    /** test_2 */
     @Test
     fun getDeviceFields_includesDeviceInfo() {
         val map = DeviceInfo.getDeviceFields(ctx)
-
         val model = map["_device_model"] as String
         val osVer = map["_os_ver"] as String
 
@@ -65,23 +60,41 @@ class DeviceInfoInstrumentedTest {
         assertTrue("OS version must not be blank", osVer.isNotBlank())
     }
 
-    /** test_3: getTimeZoneOffset returns "+hhmm" or "-hhmm" */
+    /** test_3 */
     @Test
     fun getTimeZoneOffset_formatIsCorrect() {
         val tz = DeviceInfo.getDeviceFields(ctx)["_os_tz"] as String
         assertTrue("Timezone must match format", tz.matches(Regex("[+-][0-9]{4}")))
     }
 
-    /** test_4: Advertising ID is optional but must not crash */
+    /** test_4 */
     @Test
     fun getDeviceFields_handlesAdIdGracefully() {
         val map = DeviceInfo.getDeviceFields(ctx)
-        // ad_id may be absent, but if present must be non-blank string
         if (map.containsKey("_ad_id")) {
             val adId = map["_ad_id"] as String
             assertTrue("Ad ID must not be blank", adId.isNotBlank())
         }
-        // _ad_track always present, but may be true/false
         assertTrue(map.containsKey("_ad_track"))
+    }
+
+    /** test_5 */
+    @Test
+    fun timeZoneForMobEvent_isConsistentWith_os_tz() {
+        val map = DeviceInfo.getDeviceFields(ctx)
+        val tzStr = map["_os_tz"] as String
+        assertTrue("Timezone must match format", tzStr.matches(Regex("[+-][0-9]{4}")))
+
+        val sign = if (tzStr[0] == '-') -1 else 1
+        val hours = tzStr.substring(1, 3).toInt()
+        val minutes = tzStr.substring(3, 5).toInt()
+        val tzMinutes = sign * (hours * 60 + minutes)
+
+        val mobEventMinutes = DeviceInfo.getTimeZoneForMobEvent()
+        assertEquals(
+            "getTimeZoneForMobEvent must be -_os_tz(in minutes)",
+            -tzMinutes,
+            mobEventMinutes
+        )
     }
 }

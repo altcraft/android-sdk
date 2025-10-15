@@ -18,6 +18,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
+import com.altcraft.sdk.sdk_events.Events.error
 
 /**
  * ForegroundGate — detects when the app enters foreground.
@@ -49,7 +50,8 @@ object ForegroundGate {
                 withContext(Dispatchers.Main.immediate) {
                     try {
                         callback(ok)
-                    } catch (_: Throwable) {
+                    } catch (e: Exception) {
+                        error("foregroundCallback", e)
                     }
                 }
             } finally {

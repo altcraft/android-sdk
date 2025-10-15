@@ -7,30 +7,9 @@ package com.altcraft.altcraftmobile.data
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
-import com.altcraft.sdk.config.AltcraftConfiguration
-import org.json.JSONObject
 import androidx.core.content.edit
-import com.altcraft.altcraftmobile.data.AppConstants.API_URL
-import com.altcraft.altcraftmobile.data.AppConstants.APP_ID
-import com.altcraft.altcraftmobile.data.AppConstants.APP_IID
-import com.altcraft.altcraftmobile.data.AppConstants.APP_VER
-import com.altcraft.altcraftmobile.data.AppConstants.CATS
-import com.altcraft.altcraftmobile.data.AppConstants.CUSTOM_FIELDS
-import com.altcraft.altcraftmobile.data.AppConstants.ICON
-import com.altcraft.altcraftmobile.data.AppConstants.PROFILE_FIELDS
-import com.altcraft.altcraftmobile.data.AppConstants.PROVIDER_PRIORITY_LIST
-import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_DESCRIPTION
-import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_NAME
-import com.altcraft.altcraftmobile.data.AppConstants.PUSH_RECEIVER_MODULES
-import com.altcraft.altcraftmobile.data.AppConstants.REPLACE
-import com.altcraft.altcraftmobile.data.AppConstants.RTOKEN
-import com.altcraft.altcraftmobile.data.AppConstants.SERVICE_MESSAGE
-import com.altcraft.altcraftmobile.data.AppConstants.SKIP_TRIGGERS
-import com.altcraft.altcraftmobile.data.AppConstants.SYNC
-import com.altcraft.altcraftmobile.data.AppConstants.USING_SERVICE
-import com.altcraft.sdk.data.DataClasses
-import com.google.gson.Gson
-import org.json.JSONArray
+import com.altcraft.altcraftmobile.data.json.Converter.fromStringJson
+import com.altcraft.altcraftmobile.data.json.Converter.toStringJson
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -135,64 +114,17 @@ object AppPreferenses {
      */
 
     @SuppressLint("ApplySharedPref")
-    fun setConfig(context: Context, config: AltcraftConfiguration) {
-        val json = JSONObject().apply {
-            put(API_URL, config.getApiUrl())
-            put(ICON, config.getIcon())
-            put(RTOKEN, config.getRToken())
-            put(USING_SERVICE, config.getUsingService())
-            put(SERVICE_MESSAGE, config.getServiceMessage())
-
-            put(
-                PROVIDER_PRIORITY_LIST, JSONArray(
-                    config.getProviderPriorityList() ?: emptyList<String>()
-                )
-            )
-            put(
-                PUSH_RECEIVER_MODULES, JSONArray(
-                    config.getPushReceiverModules() ?: emptyList<String>()
-                )
-            )
-        }
-
+    fun setConfig(context: Context, config: AppDataClasses.ConfigData) {
         getPreferences(context).edit(commit = true) {
-            putString(CONFIG_KEY, json.toString())
+            putString(CONFIG_KEY, config.toStringJson("setConfig"))
         }
     }
 
-    fun getConfig(context: Context): AltcraftConfiguration? {
+    fun getConfig(context: Context): AppDataClasses.ConfigData? {
         val jsonString = getPreferences(context).getString(CONFIG_KEY, null)
-        if (jsonString == null) return null else return try {
 
-            val json = JSONObject(jsonString)
-
-            val apiUrl = json.optString(API_URL)
-            val rToken = json.optString(RTOKEN).ifEmpty { null }
-            val icon = if (json.has(ICON)) json.getInt(ICON) else null
-            val usingService = json.optBoolean(USING_SERVICE, false)
-            val serviceMessage = json.optString(SERVICE_MESSAGE).ifEmpty { null }
-
-            val providerPriorityList: List<String>? = runCatching {
-                json.optJSONArray(PROVIDER_PRIORITY_LIST)?.let { array ->
-                    List(array.length()) { i -> array.getString(i) }
-                }
-            }.getOrNull()
-
-            if (apiUrl.isBlank() || icon == null) return null
-
-            AltcraftConfiguration.Builder(
-                apiUrl = apiUrl,
-                icon = icon,
-                rToken = rToken,
-                usingService = usingService,
-                serviceMessage = serviceMessage,
-                providerPriorityList = providerPriorityList,
-                pushChannelName = PUSH_CHANNEL_NAME,
-                pushChannelDescription = PUSH_CHANNEL_DESCRIPTION,
-                appInfo = DataClasses.AppInfo(
-                    appID = APP_ID, appIID = APP_IID, appVer = APP_VER
-                )
-            ).build()
+        return if (jsonString == null) null else try {
+            jsonString.fromStringJson<AppDataClasses.ConfigData>("getConfig")
         } catch (_: Exception) {
             null
         }
@@ -214,19 +146,8 @@ object AppPreferenses {
         context: Context,
         settings: AppDataClasses.SubscribeSettings
     ) {
-        val gson = Gson()
-
-        val json = JSONObject().apply {
-            put(SYNC, settings.sync)
-            put(REPLACE, settings.replace)
-            put(SKIP_TRIGGERS, settings.skipTriggers)
-            put(CUSTOM_FIELDS, JSONObject(settings.customFields))
-            put(PROFILE_FIELDS, JSONObject(settings.profileFields))
-            put(CATS, JSONArray(gson.toJson(settings.cats)))
-        }
-
         getPreferences(context).edit(commit = true) {
-            putString(SUB_SETTINGS_KEY, json.toString())
+            putString(SUB_SETTINGS_KEY, settings.toStringJson("setSubscribeSettings"))
         }
     }
 
@@ -234,7 +155,7 @@ object AppPreferenses {
         return try {
             val setting = getPreferences(context).getString(SUB_SETTINGS_KEY, null)
 
-            AppDataClasses.SubscribeSettings.from(setting ?: return null)
+            setting.fromStringJson<AppDataClasses.SubscribeSettings>("getSubscribeSettings")
         } catch (_: Exception) {
             null
         }

@@ -15,10 +15,10 @@ import com.altcraft.sdk.AltcraftSDK
 
 val icon = R.drawable.ic_altcraft_label
 
-//set the JWT value for the anonymous user as anonJWT or in the application interface (config)
+//set the JWT value for the anonymous user as anonJWT or in the application IU interface (config)
 internal val anonJWT: String? = null
 
-//set the JWT value for the registered user as regJWT or in the application interface (config)
+//set the JWT value for the registered user as regJWT or in the application IU interface (config)
 internal val regJWT: String? = null
 
 class App : Application() {
@@ -55,7 +55,7 @@ class App : Application() {
          */
 
         //Initialize the Rustore client by specifying your ProjectID
-        //RuStorePushClient.init(this, "")
+        //RuStorePushClient.init(this, "your_rustore_project_id")
 
         EventReceiver.init(this)
         AltcraftSDK.setJWTProvider(JWTProvider(this))

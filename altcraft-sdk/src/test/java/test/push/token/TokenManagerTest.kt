@@ -23,7 +23,7 @@ import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.DataClasses.TokenData
 import com.altcraft.sdk.config.ConfigSetup
 import com.altcraft.sdk.data.Preferenses
-import com.altcraft.sdk.events.Events
+import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.push.token.TokenManager
 import com.altcraft.sdk.interfaces.FCMInterface
 import com.altcraft.sdk.interfaces.HMSInterface
