@@ -41,13 +41,11 @@ import org.junit.Test
  *  - test_8: actionField() returns a non-null builder
  *
  * Negative scenarios:
- *  - test_9: getStatusOfLatestSubscriptionForProvider() with invalid provider returns null and does not call statusRequest
+ *  - test_9: getStatusOfLatestSubscriptionForProvider() with invalid provider returns null and does
+ *  not call statusRequest
  *  - test_10: unSuspendPushSubscription() returns null on exception
  *  - test_11: getStatusOfLatestSubscription() returns null on exception
  *  - test_12: getStatusForCurrentSubscription() returns null on exception
- *
- * Notes:
- *  - android.util.Log is statically mocked to avoid "Method d in android.util.Log not mocked" at unit runtime.
  */
 class PublicPushSubscriptionFunctionsTest {
 
@@ -63,7 +61,6 @@ class PublicPushSubscriptionFunctionsTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
-        // Mock android.util.Log to prevent "not mocked" runtime errors in unit tests.
         mockkStatic(Log::class)
         every { Log.d(any(), any<String>()) } returns 0
         every { Log.i(any(), any<String>()) } returns 0
@@ -73,15 +70,12 @@ class PublicPushSubscriptionFunctionsTest {
         every { Log.println(any(), any(), any()) } returns 0
         every { Log.wtf(any(), any<String>()) } returns 0
 
-        // Mock singletons/objects used by PublicPushSubscriptionFunctions.
         mockkObject(PushSubscribe)
         mockkObject(Request)
 
-        // Default stubs for Request.* suspend functions to return an event with RESPONSE_WITH_HTTP_CODE.
         coEvery { Request.unSuspendRequest(any()) } returns dummyEventWithResponse()
         coEvery { Request.statusRequest(any(), any(), any()) } returns dummyEventWithResponse()
 
-        // Default stub for PushSubscribe.pushSubscribe()
         every {
             PushSubscribe.pushSubscribe(
                 context = any(),
@@ -99,11 +93,8 @@ class PublicPushSubscriptionFunctionsTest {
     @After
     fun tearDown() {
         unmockkAll()
-        // Ensure Log static is unmocked explicitly (safe even after unmockkAll()).
         unmockkStatic(Log::class)
     }
-
-    // region Helpers
 
     /** Builds Event with eventValue[RESPONSE_WITH_HTTP_CODE] = mocked ResponseWithHttpCode. */
     private fun dummyEventWithResponse(): DataClasses.Event {
@@ -112,11 +103,7 @@ class PublicPushSubscriptionFunctionsTest {
         return DataClasses.Event(DUMMY_FUNCTION, null, null, value)
     }
 
-    // endregion
-
-    // region pushSubscribe wrappers
-
-    /** test_1 */
+    /** - test_1: pushSubscribe routes internally with SUBSCRIBED and sync=1. */
     @Test
     fun test_pushSubscribe_routesToInternal_withSubscribed_andSyncOne() {
         val profile = mapOf("name" to "Alice")
@@ -150,7 +137,7 @@ class PublicPushSubscriptionFunctionsTest {
         confirmVerified(PushSubscribe)
     }
 
-    /** test_2 */
+    /** - test_2: pushSuspend routes internally with SUSPENDED and sync=0. */
     @Test
     fun test_pushSuspend_routesToInternal_withSuspended_andSyncZero() {
         val profile = mapOf("age" to 30)
@@ -181,7 +168,7 @@ class PublicPushSubscriptionFunctionsTest {
         confirmVerified(PushSubscribe)
     }
 
-    /** test_3 */
+    /** - test_3: pushUnSubscribe routes internally with UNSUBSCRIBED and sync=1. */
     @Test
     fun test_pushUnSubscribe_routesToInternal_withUnsubscribed_andSyncOne() {
         PublicPushSubscriptionFunctions.pushUnSubscribe(
@@ -209,18 +196,14 @@ class PublicPushSubscriptionFunctionsTest {
         confirmVerified(PushSubscribe)
     }
 
-    // endregion
-
-    // region unSuspend & status APIs
-
-    /** test_4 */
+    /** - test_4: unSuspendPushSubscription returns ResponseWithHttpCode on success. */
     @Test
     fun test_unSuspendPushSubscription_returnsResponseOnSuccess() = runBlocking {
         val res = PublicPushSubscriptionFunctions.unSuspendPushSubscription(ctx)
         assertNotNull(res)
     }
 
-    /** test_10 */
+    /** - test_10: unSuspendPushSubscription returns null on exception. */
     @Test
     fun test_unSuspendPushSubscription_returnsNullOnException() = runBlocking {
         coEvery { Request.unSuspendRequest(any()) } throws RuntimeException("boom")
@@ -229,7 +212,7 @@ class PublicPushSubscriptionFunctionsTest {
         assertNull(res)
     }
 
-    /** test_5 */
+    /** - test_5: getStatusOfLatestSubscription returns ResponseWithHttpCode on success. */
     @Test
     fun test_getStatusOfLatestSubscription_returnsResponse() = runBlocking {
         val res = PublicPushSubscriptionFunctions.getStatusOfLatestSubscription(ctx)
@@ -238,7 +221,7 @@ class PublicPushSubscriptionFunctionsTest {
         coVerify(exactly = 1) { Request.statusRequest(ctx, mode = LATEST_SUBSCRIPTION) }
     }
 
-    /** test_11 */
+    /** - test_11: getStatusOfLatestSubscription returns null on exception. */
     @Test
     fun test_getStatusOfLatestSubscription_returnsNullOnException() = runBlocking {
         coEvery { Request.statusRequest(any(), any(), any()) } throws IllegalStateException("err")
@@ -247,7 +230,7 @@ class PublicPushSubscriptionFunctionsTest {
         assertNull(res)
     }
 
-    /** test_6 */
+    /** - test_6: getStatusOfLatestSubscriptionForProvider returns ResponseWithHttpCode for a valid provider. */
     @Test
     fun test_getStatusOfLatestSubscriptionForProvider_validProvider_returnsResponse() = runBlocking {
         val res = PublicPushSubscriptionFunctions.getStatusOfLatestSubscriptionForProvider(
@@ -265,7 +248,7 @@ class PublicPushSubscriptionFunctionsTest {
         }
     }
 
-    /** test_9 */
+    /** - test_9: getStatusOfLatestSubscriptionForProvider with invalid provider returns null and does not call statusRequest. */
     @Test
     fun test_getStatusOfLatestSubscriptionForProvider_invalidProvider_returnsNull_andNoRequest() = runBlocking {
         val res = PublicPushSubscriptionFunctions.getStatusOfLatestSubscriptionForProvider(
@@ -277,7 +260,7 @@ class PublicPushSubscriptionFunctionsTest {
         coVerify(exactly = 0) { Request.statusRequest(any(), any(), any()) }
     }
 
-    /** test_7 */
+    /** - test_7: getStatusForCurrentSubscription returns ResponseWithHttpCode on success. */
     @Test
     fun test_getStatusForCurrentSubscription_returnsResponse() = runBlocking {
         val res = PublicPushSubscriptionFunctions.getStatusForCurrentSubscription(ctx)
@@ -286,7 +269,7 @@ class PublicPushSubscriptionFunctionsTest {
         coVerify(exactly = 1) { Request.statusRequest(ctx, mode = MATCH_CURRENT_CONTEXT) }
     }
 
-    /** test_12 */
+    /** - test_12: getStatusForCurrentSubscription returns null on exception. */
     @Test
     fun test_getStatusForCurrentSubscription_returnsNullOnException() = runBlocking {
         coEvery { Request.statusRequest(any(), any(), any()) } throws RuntimeException("fail")
@@ -295,16 +278,10 @@ class PublicPushSubscriptionFunctionsTest {
         assertNull(res)
     }
 
-    // endregion
-
-    // region actionField()
-
-    /** test_8 */
+    /** - test_8: actionField returns a non-null builder. */
     @Test
     fun test_actionField_returnsBuilder() {
         val builder = PublicPushSubscriptionFunctions.actionField("Inc")
         assertNotNull(builder)
     }
-
-    // endregion
 }

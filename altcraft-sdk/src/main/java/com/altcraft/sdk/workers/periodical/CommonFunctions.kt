@@ -41,8 +41,8 @@ object CommonFunctions {
         .build()
 
     /**
-     *Checks the status of periodic work manager tasks responsible for sending requests related to
-     *  push notifications. if the task is canceled or not activated, it activates the task.
+     * Checks the status of periodic WorkManager tasks responsible for push-related requests.
+     * If a task is cancelled or inactive, it is (re)started.
      *
      * @param context Application context.
      */
@@ -59,8 +59,7 @@ object CommonFunctions {
     }
 
     /**
-     * Checks the status of the periodic work manager task responsible for sending mobile event requests.
-     * If the task is canceled or not activated, it activates the task.
+     * Checks mobile event worker status and restarts it if inactive.
      *
      * @param context Application context.
      */
@@ -102,7 +101,7 @@ object CommonFunctions {
     }
 
     /**
-     * Returns the current state of all periodic workers.
+     * Returns the current state of push-related periodic workers.
      *
      * @param context Application context.
      * @return WorkersState containing individual work states or null on failure.

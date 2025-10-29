@@ -19,6 +19,7 @@ import com.altcraft.sdk.data.Constants.M_GET_ID
 import com.altcraft.sdk.data.Constants.M_GET_INFO
 import com.altcraft.sdk.data.Constants.M_IS_LIMIT
 
+/** Collects device information and system attributes. */
 internal object DeviceInfo {
 
     /**

@@ -7,7 +7,7 @@ package com.altcraft.sdk.push.token
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.config.ConfigSetup.getConfig
-import com.altcraft.sdk.network.Request.updateRequest
+import com.altcraft.sdk.network.Request.tokenUpdateRequest
 import com.altcraft.sdk.push.token.TokenManager.getCurrentToken
 import com.altcraft.sdk.data.Preferenses.getSavedToken
 import com.altcraft.sdk.data.Preferenses.setCurrentToken
@@ -83,7 +83,7 @@ internal object TokenUpdate {
             updateProcessMutex.withLock {
                 val token = getCurrentToken(context) ?: exception(currentTokenIsNull)
 
-                val response = updateRequest(context, requestID)
+                val response = tokenUpdateRequest(context, requestID)
 
                 if (response !is error) setCurrentToken(context, token)
 

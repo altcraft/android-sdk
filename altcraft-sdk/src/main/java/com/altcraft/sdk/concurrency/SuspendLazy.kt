@@ -15,8 +15,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Thread-safe lazy initializer that swallows errors
- * and resets state on failure.
+ * Thread-safe lazy initializer.
  */
 internal class SuspendLazy<T>(
     private val initializer: suspend () -> T,

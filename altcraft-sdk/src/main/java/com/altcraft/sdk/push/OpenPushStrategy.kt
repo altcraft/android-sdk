@@ -22,9 +22,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * `OpenPushStrategy` selects the appropriate way to handle push messages and delivery events
- * based on API level, app state, and push provider. Uses foreground workers when needed
- * to establish a network connection while the app is in the background.
+ * Selects the appropriate way to handle push messages and delivery events based on API level,
+ * app state, and push provider. Uses foreground workers when needed to establish a network
+ * connection while the app is in the background.
  */
 internal object OpenPushStrategy {
 
@@ -35,8 +35,8 @@ internal object OpenPushStrategy {
      * Prepares WorkManager [Data] based on push message and runtime conditions.
      *
      * Returns `null` if the app is currently in the foreground, or if the push originates from FCM
-     * and the device runs Android 12 (API 31) or higher. In such cases, using WorkManager may lead to
-     * a `ForegroundServiceStartNotAllowedException`, particularly when handling FCM notifications
+     * and the device runs Android 12 (API 31) or higher. In such cases, using WorkManager may lead
+     * to a `ForegroundServiceStartNotAllowedException`, particularly when handling FCM notifications
      * with default (medium) priority.
      *
      * @param message The raw push message as a key-value map.

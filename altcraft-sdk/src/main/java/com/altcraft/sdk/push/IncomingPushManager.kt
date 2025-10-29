@@ -24,11 +24,22 @@ import kotlinx.coroutines.launch
  * Contains the functions necessary to receive incoming push notifications.
  */
 internal object IncomingPushManager {
+
     /**
-     * Sends a push message to all found `PushReceiver` implementations.
+     * Handles an incoming push payload: logs reception, optionally triggers delivery flow,
+     * and broadcasts the message to all Altcraft push receivers.
      *
-     * @param context Used to access receivers.
-     * @param message The push data map to send.
+     * Flow:
+     * 1) Detects whether the message is an Altcraft push (`altcraftPush(message)`).
+     * 2) Emits an event named "takePush" with either `altcraftPush` or `notAltcraftPush`.
+     * 3) If the message is not from Altcraft, returns without dispatching to receivers.
+     * 4) For Altcraft pushes, runs `deliveryEventStrategy(context, message)`,
+     *    then dispatches to all available receivers via `sendToAllRecipients(...)`.
+     *
+     * Execution runs on a background coroutine (Dispatchers.IO).
+     *
+     * @param context Used to access configuration and receivers.
+     * @param message Push data map.
      */
     fun handlePush(context: Context, message: Map<String, String>) {
         CoroutineScope(Dispatchers.IO).launch {

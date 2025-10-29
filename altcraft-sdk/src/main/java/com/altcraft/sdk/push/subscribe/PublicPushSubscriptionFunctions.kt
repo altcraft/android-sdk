@@ -22,13 +22,17 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 
 /**
- * The Subscribe object contains the functions required to subscribe to push notifications.
+ * Public facade for push-subscription operations: subscribe, suspend, unsubscribe,
+ * and retrieval of latest/current subscription statuses. Also provides helpers for
+ * building action fields for profile updates.
  */
 @Keep
 object PublicPushSubscriptionFunctions {
 
     /**
      * Initiates a push subscription request.
+     *
+     *  status = SUBSCRIBED
      *
      * @param context The application context for the subscription request.
      * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
@@ -63,6 +67,8 @@ object PublicPushSubscriptionFunctions {
      * Initiates a request to suspend push notifications for the current profile.
      * Unlike unsubscription, this temporarily pauses delivery without removing the subscription.
      *
+     * status = SUSPENDED
+     *
      * @param context The application context for the suspend request.
      * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
      * @param profileFields Optional profile fields to include in the request.
@@ -95,6 +101,8 @@ object PublicPushSubscriptionFunctions {
     /**
      * Initiates a push unsubscription request, notifying the server
      * to stop sending push notifications for the current profile.
+     *
+     *status = UNSUBSCRIBED
      *
      * @param context The application context for the unsubscription request.
      * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
@@ -213,7 +221,6 @@ object PublicPushSubscriptionFunctions {
      * @param key The key under which the action-value pair will be placed.
      * @return A builder for specifying the desired action (set, incr, etc.) and value.
      */
-    @Keep
     fun actionField(key: String) = ActionFieldBuilder(key)
 
     /**

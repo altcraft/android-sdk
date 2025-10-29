@@ -68,7 +68,7 @@ class DaoInstrumentedTest {
         db.close()
     }
 
-    /** Verifies insert/get/updateProviderPriorityList/delete for configurationTable. */
+    /** - test_1: Insert/get/update provider list and delete from configuration table. */
     @Test
     fun config_insert_get_updateProviderList_and_delete() = runBlocking {
         val cfg = ConfigurationEntity(
@@ -109,7 +109,7 @@ class DaoInstrumentedTest {
         Assert.assertNull(dao.getConfig())
     }
 
-    /** Verifies insert/orderBy ASC for subscribeTable. */
+    /** - test_2: Insert and verify ASC ordering for subscribe table by time. */
     @Test
     fun subscribe_insert_query_order_and_exists() = runBlocking {
         val now = System.currentTimeMillis() / 1000
@@ -138,7 +138,7 @@ class DaoInstrumentedTest {
         Assert.assertEquals(listOf("sub-1", "sub-2", "sub-3"), list.map { it.uid })
     }
 
-    /** Verifies increaseSubscribeRetryCount and deleteSubscribeByUid. */
+    /** - test_3: Increase retry count and delete by UID for subscribe table. */
     @Test
     fun subscribe_increaseRetry_and_deleteByUid() = runBlocking {
         val e = SubscribeEntity(
@@ -165,7 +165,7 @@ class DaoInstrumentedTest {
         Assert.assertEquals(1, del)
     }
 
-    /** Verifies deleteAllSubscriptions clears subscribeTable. */
+    /** - test_4: Delete all subscriptions from subscribe table. */
     @Test
     fun subscribe_deleteAll() = runBlocking {
         dao.insertSubscribe(
@@ -181,7 +181,7 @@ class DaoInstrumentedTest {
         Assert.assertTrue(dao.allSubscriptionsByTag("t").isEmpty())
     }
 
-    /** Verifies insert/getAll DESC/count for pushEventTable. */
+    /** - test_5: Insert push events, verify DESC order and count. */
     @Test
     fun push_insert_query_order_desc_and_exists_count() = runBlocking {
         val now = System.currentTimeMillis() / 1000
@@ -199,7 +199,7 @@ class DaoInstrumentedTest {
         Assert.assertEquals(3, dao.getPushEventCount())
     }
 
-    /** Verifies increasePushEventRetryCount/getOldest(limit)/delete operations. */
+    /** - test_6: Increase retry, get oldest(limit), and delete for push events. */
     @Test
     fun push_increaseRetry_getOldest_limit_and_delete() = runBlocking {
         val base = System.currentTimeMillis() / 1000
@@ -228,7 +228,7 @@ class DaoInstrumentedTest {
         Assert.assertEquals(listOf("pd"), remaining)
     }
 
-    /** Verifies deleteAllPushEvents clears pushEventTable. */
+    /** - test_7: Delete all push events from table. */
     @Test
     fun push_deleteAll() = runBlocking {
         dao.insertPushEvent(PushEventEntity("u1", "opened"))
@@ -242,7 +242,7 @@ class DaoInstrumentedTest {
     // MobileEvent tests
     // ----------------------
 
-    /** Verifies insert and count for mobileEventTable (with explicit userTag). */
+    /** - test_8: Insert mobile events and verify count (by explicit userTag). */
     @Test
     fun mobile_insert_and_count() = runBlocking {
         val tag = "tagM"
@@ -280,10 +280,13 @@ class DaoInstrumentedTest {
         val listByTag = dao.allMobileEventsByTag(tag)
         Assert.assertTrue(listByTag.size >= 2)
         Assert.assertEquals(2, dao.getMobileEventCount())
-        Assert.assertTrue(listByTag.any { it.eventName == "evt-a" } && listByTag.any { it.eventName == "evt-b" })
+        Assert.assertTrue(
+            listByTag.any { it.eventName == "evt-a" } &&
+                    listByTag.any { it.eventName == "evt-b" }
+        )
     }
 
-    /** Verifies increaseMobileEventRetryCount and delete by id (query by tag). */
+    /** - test_9: Increase retry count and delete by id (queried by tag). */
     @Test
     fun mobile_increaseRetry_and_deleteById() = runBlocking {
         val tag = "tagX"
@@ -319,10 +322,9 @@ class DaoInstrumentedTest {
         Assert.assertEquals(1, del)
     }
 
-    /** Verifies getOldestMobileEvents(limit) and batch delete across all tags. */
+    /** - test_10: Get oldest(limit) across tags and batch delete. */
     @Test
     fun mobile_getOldest_limit_and_batchDelete() = runBlocking {
-        // Insert several rows with increasing time
         val base = System.currentTimeMillis()
         repeat(3) { idx ->
             dao.insertMobileEvent(
@@ -362,7 +364,7 @@ class DaoInstrumentedTest {
         Assert.assertTrue(remainingByTag.none { it.id in removedIds })
     }
 
-    /** Verifies deleteAllMobileEvents clears table. */
+    /** - test_11: Delete all mobile events from table. */
     @Test
     fun mobile_deleteAll() = runBlocking {
         repeat(2) {

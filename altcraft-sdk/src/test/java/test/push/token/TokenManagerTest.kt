@@ -45,23 +45,16 @@ import com.altcraft.sdk.data.room.ConfigurationEntity
  * Negative scenarios:
  *  - test_8: allProvidersValid() returns false if list contains unknown provider.
  *  - test_9: getCurrentToken() returns null when all providers fail (no event logged).
- *
- * Notes:
- *  - Pure JVM unit tests; Context is a relaxed mock.
- *  - Avoid recursive stubbing: ConfigSetup.getConfig() always returns a prebuilt ConfigurationEntity.
- *  - Events.* are stubbed to return DataClasses objects (not Unit) to avoid ClassCastException.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TokenManagerTest {
 
     private lateinit var context: Context
 
-    // Providers
     private lateinit var fcm: FCMInterface
     private lateinit var hms: HMSInterface
     private lateinit var rus: RustoreInterface
 
-    // Helper: build a base config without calling the real DB
     private fun cfg(priority: List<String>? = null) = ConfigurationEntity(
         id = 0,
         icon = null,
@@ -82,28 +75,22 @@ class TokenManagerTest {
 
         MockKAnnotations.init(this, relaxUnitFun = true)
 
-        // Mock singletons used inside TokenManager
         mockkObject(ConfigSetup)
         mockkObject(Preferenses)
         mockkObject(Events)
 
-        // Provider mocks
         fcm = mockk(relaxed = true)
         hms = mockk(relaxed = true)
         rus = mockk(relaxed = true)
 
-        // Inject providers into TokenManager
         TokenManager.fcmProvider = fcm
         TokenManager.hmsProvider = hms
         TokenManager.rustoreProvider = rus
 
-        // Default config (no priority list) — IMPORTANT: return a prebuilt instance
         coEvery { ConfigSetup.getConfig(any()) } returns cfg()
 
-        // Default: no manual token
         every { Preferenses.getManualToken(any()) } returns null
 
-        // Events.* return DataClasses objects (not Unit)
         coEvery { Events.error(any(), any()) } answers { DataClasses.Error(function = firstArg()) }
         coEvery {
             Events.event(
@@ -113,7 +100,6 @@ class TokenManagerTest {
             )
         } answers { DataClasses.Event(function = firstArg()) }
 
-        // Reset token logging state for each test
         TokenManager.tokenLogShow = AtomicBoolean(false)
         TokenManager.tokens.clear()
     }
@@ -127,8 +113,6 @@ class TokenManagerTest {
         TokenManager.tokens.clear()
         unmockkAll()
     }
-
-    // region allProvidersValid
 
     /** Null/empty lists are considered valid. */
     @Test
@@ -151,10 +135,6 @@ class TokenManagerTest {
         assertThat(TokenManager.allProvidersValid(bad), `is`(false))
     }
 
-    // endregion
-
-    // region getCurrentToken: manual token
-
     /** Manual token short-circuits: no provider calls, no event. */
     @Test
     fun getCurrentToken_returns_manual_token_and_does_not_log_event() = runTest {
@@ -169,10 +149,6 @@ class TokenManagerTest {
         coVerify(exactly = 0) { hms.getToken(any()) }
         coVerify(exactly = 0) { rus.getToken() }
     }
-
-    // endregion
-
-    // region getCurrentToken: priority list
 
     /** Respects priority: first provider that returns a non-empty token wins. */
     @Test
@@ -193,18 +169,11 @@ class TokenManagerTest {
         coVerify(exactly = 0) { fcm.getToken() }
     }
 
-    // endregion
-
-    // region getCurrentToken: default order (FCM → HMS → RuStore)
-
     /** Without priority list, tries FCM then HMS then RuStore. */
     @Test
     fun getCurrentToken_uses_default_order_when_no_priority() = runTest {
         coEvery { ConfigSetup.getConfig(any()) } returns cfg(priority = null)
-
-        // FCM returns "", "", null across internal retries (3 attempts)
         coEvery { fcm.getToken() } returnsMany listOf("", "", null)
-        // HMS succeeds
         coEvery { hms.getToken(context) } returns "HMS-XYZ"
 
         val result = TokenManager.getCurrentToken(context)
@@ -214,10 +183,6 @@ class TokenManagerTest {
         coVerify(exactly = 1) { hms.getToken(context) }
         coVerify(exactly = 0) { rus.getToken() }
     }
-
-    // endregion
-
-    // region tokenEvent logging behavior
 
     /** Logs the set-token event only once per session for the same token. */
     @Test
@@ -232,7 +197,6 @@ class TokenManagerTest {
 
         assertThat(r1, `is`(TokenData(Constants.FCM_PROVIDER, "FCM-111")))
         assertThat(r2, `is`(TokenData(Constants.FCM_PROVIDER, "FCM-111")))
-        // Logged only once
         coVerify(exactly = 1) {
             Events.event(
                 eq("tokenEvent"),
@@ -249,7 +213,6 @@ class TokenManagerTest {
         TokenManager.tokens.clear()
         coEvery { ConfigSetup.getConfig(any()) } returns cfg(priority = null)
 
-        // First token = "A"
         coEvery { fcm.getToken() } returns "A"
         val r1 = TokenManager.getCurrentToken(context)
         assertThat(r1, `is`(TokenData(Constants.FCM_PROVIDER, "A")))
@@ -260,7 +223,6 @@ class TokenManagerTest {
                 match { it["token"] == "A" })
         }
 
-        // Reset "session" flag and change token
         TokenManager.tokenLogShow = AtomicBoolean(false)
         coEvery { fcm.getToken() } returns "B"
 
@@ -274,19 +236,12 @@ class TokenManagerTest {
         }
     }
 
-    // endregion
-
-    // region retries & fallbacks
-
     /** When current provider throws/returns empty, falls back to next; errors are logged. */
     @Test
     fun getCurrentToken_retries_on_empty_and_handles_exceptions_then_uses_next_provider() =
         runTest {
             coEvery { ConfigSetup.getConfig(any()) } returns cfg(priority = null)
-
-            // FCM: throw once, then "", then null (3 attempts inside getNonEmptyToken)
             coEvery { fcm.getToken() } throws RuntimeException("boom") andThen "" andThen null
-            // HMS succeeds
             coEvery { hms.getToken(context) } returns "HMS-OK"
 
             val result = TokenManager.getCurrentToken(context)
@@ -294,10 +249,6 @@ class TokenManagerTest {
             assertThat(result, `is`(TokenData(Constants.HMS_PROVIDER, "HMS-OK")))
             coVerify(atLeast = 1) { Events.error(eq("getNonEmptyToken"), any()) }
         }
-
-    // endregion
-
-    // region all providers fail → null
 
     /** All providers return empty/null → result is null and no event logged. */
     @Test
@@ -313,6 +264,4 @@ class TokenManagerTest {
         assertThat(result, `is`(null as TokenData?))
         coVerify(exactly = 0) { Events.event(eq("tokenEvent"), any(), any()) }
     }
-
-    // endregion
 }

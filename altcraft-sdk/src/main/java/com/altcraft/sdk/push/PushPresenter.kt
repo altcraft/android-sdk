@@ -26,7 +26,7 @@ import com.altcraft.sdk.push.PushChannel.selectAndCreateChannel
 import com.altcraft.sdk.push.PushChannel.versionsSupportChannels
 
 /**
- * Manages push notifications and channels within the application.
+ * Manages creation and display of push notifications.
  */
 internal object PushPresenter {
 
@@ -52,11 +52,11 @@ internal object PushPresenter {
     }
 
     /**
-     * Creates a notification for push using the provided message data.
+     * Creates a notification for a push message using structured notification data.
      *
-     * @param context The application context used to create the notification.
-     * @param data The data map containing notification details.
-     * @return A `Notification` object or `null` if an error occurs.
+     * @param context The application context used to build the notification.
+     * @param data Structured notification data (already parsed and validated).
+     * @return A [Notification] instance, or `null` if building fails.
      */
     private fun createNotification(
         context: Context,
@@ -84,13 +84,13 @@ internal object PushPresenter {
     }
 
     /**
-     * Creates a notification for foreground services and workers using ForegroundInfo.
+     * Creates a notification for foreground services/workers.
      *
      * @param context The context used to build the notification.
-     * @param channelId The ID of the notification channel.
+     * @param channelId The ID of the notification channel to post on.
      * @param body The text content of the notification.
      * @param icon The resource ID of the small icon to display.
-     * @return A constructed [Notification] instance.
+     * @return A [Notification] instance, or `null` if building fails.
      */
     internal fun createNotification(
         context: Context,

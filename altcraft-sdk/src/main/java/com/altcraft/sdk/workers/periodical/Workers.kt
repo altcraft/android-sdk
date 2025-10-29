@@ -23,9 +23,9 @@ import com.altcraft.sdk.workers.coroutine.CancelWork.cancelUpdateWorkerTask
 import com.altcraft.sdk.workers.periodical.CommonFunctions.awaitCancel
 
 /**
- * Defines periodic WorkManager workers for push delivery, subscription retries, and FCM token checks.
+ * Defines periodic WorkManager workers for retrying push events, mobile events, subscriptions,
+ * and token updates.
  *
- * Each worker executes background-safe logic when the app is not in the foreground.
  */
 internal object Workers {
 
@@ -64,9 +64,9 @@ internal object Workers {
     /**
      * A periodic worker for performing retry operations on mobile events.
      *
-     * @constructor Creates a new instance of `RetryPushEventWorker`.
+     * @constructor Creates a new instance of `RetryMobileEventWorker`.
      * @param appContext The application context.
-     * @param workerParams Parameters to setup the worker.
+     * @param workerParams Parameters to set up the worker.
      */
     class RetryMobileEventWorker(appContext: Context, workerParams: WorkerParameters) :
         CoroutineWorker(appContext, workerParams) {
@@ -125,11 +125,11 @@ internal object Workers {
     }
 
     /**
-     * A worker manager who performs checks and updates the push token.
+     * A periodic worker that checks and updates the push token.
      *
      * @constructor Creates a new instance of `RetryUpdateWorker`.
      * @param appContext The application context.
-     * @param workerParams Parameters to setup the worker.
+     * @param workerParams Parameters to set up the worker.
      */
     class RetryUpdateWorker(appContext: Context, workerParams: WorkerParameters) :
         CoroutineWorker(appContext, workerParams) {

@@ -21,10 +21,10 @@ internal object StringBuilder {
     fun subscribeUrl(apiUrl: String) = "$apiUrl/subscription/push/subscribe/"
 
     /**
-     * Generates the URL for updating push notification subscriptions.
+     * Generates a URL for updating the push token of subscriptions.
      *
-     * @param apiUrl The base API URL.
-     * @return The complete URL for updating push subscriptions.
+     * @param apiUrl Returns the base API URL.
+     * @returns the complete URL for updating push subscriptions.
      */
     fun updateUrl(apiUrl: String) = "$apiUrl/subscription/push/update/"
 
@@ -88,7 +88,7 @@ internal object StringBuilder {
         "Deleted 100 oldest push events. Total count before: $totalCount"
 
     /**
-     * Generates a message about deleted push events.
+     * Generates a message about deleted mobile events.
      *
      * @param totalCount The total number of events before deletion.
      * @return A summary message indicating deletion count.

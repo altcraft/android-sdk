@@ -13,10 +13,10 @@ import com.altcraft.sdk.json.Converter.json
 import kotlinx.serialization.encodeToString
 
 /**
- * The `Constants` object manages keys and functions for setting and retrieving `SharedPreferences`
- * values.
- * It is designed to store and retrieve data in persistent storage on the device, specifically for
- * SDK settings and states.
+ * Stores and retrieves SDK-related data in persistent device storage using `SharedPreferences`.
+ *
+ * Used for saving tokens, counters, and other small state values required by the SDK
+ * between application launches.
  */
 internal object Preferenses {
     private const val TAG = "Altcraft_SDK"
@@ -47,11 +47,13 @@ internal object Preferenses {
      * @param token The raw token string received from the provider.
      */
     @SuppressLint("ApplySharedPref")
-    fun setPushToken(context: Context, provider: String, token: String) {
+    fun setPushToken(context: Context, provider: String?, token: String?) {
         try {
-            val json = json.encodeToString(DataClasses.TokenData(provider, token))
+            val data = if (provider.isNullOrEmpty() || token.isNullOrEmpty()) null
+            else json.encodeToString(DataClasses.TokenData(provider, token))
+
             getPreferences(context).edit(commit = true) {
-                putString(MANUAL_TOKEN_KEY, json)
+                putString(MANUAL_TOKEN_KEY, data)
             }
         } catch (e: Exception) {
             error("setPushToken", e)
@@ -120,14 +122,13 @@ internal object Preferenses {
     }
 
     /**
-     * Retrieves the current notification message ID and increments it for the next usage.
+     * Increments and returns the notification message ID.
      *
-     * This method fetches the current message ID from the shared preferences.
-     * It then increments the ID by 1, updates the shared preferences with the new value,
-     * and returns the original ID.
+     * Reads the current value, increments it by 1, stores the new value,
+     * and returns the incremented value.
      *
-     * @param context The application context used to access shared preferences.
-     * @return The current notification message ID.
+     * @param context Application context.
+     * @return The next notification message ID (starting from 1).
      */
     fun getMessageId(context: Context): Int {
         return try {

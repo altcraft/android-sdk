@@ -43,10 +43,14 @@ internal object Response {
     enum class ResponseStatus { SUCCESS, RETRY, ERROR }
 
     /**
-     * Parses a JSON response into an [DataClasses.Response] object.
+     * Parses a server response body into a [DataClasses.Response].
      *
-     * @param response The server response containing the status code and body data.
-     * @return An `AsyncSubscribeResponse` object if parsing is successful, otherwise `null`.
+     * Uses the success body when available;
+     * otherwise falls back to the error body.
+     * Returns `null` for empty/HTML bodies or on parsing failure.
+     *
+     * @param response The HTTP response carrying status and body.
+     * @return A parsed [DataClasses.Response], or `null` if unavailable.
      */
     private fun parseResponse(response: Response<JsonElement>): DataClasses.Response? {
         return try {
@@ -55,7 +59,7 @@ internal object Response {
             when {
                 body.isNullOrEmpty() || stringContainsHtml(body)-> null
                 body.isJsonString() -> json.decodeFromString<DataClasses.Response>(body)
-                else -> DataClasses.Response(error = null, errorText = body, null)
+                else -> DataClasses.Response(error = null, errorText = body, profile = null)
             }
         } catch (e: Exception) {
             error("parseResponse", e)
@@ -67,6 +71,8 @@ internal object Response {
      * Extracts the status code and response data from the server response.
      *
      * @param response The server response containing the status code and body data.
+     * @param request The request data.
+     *
      * @return Processed response data or null on failure.
      */
     private fun getResponseData(
@@ -111,7 +117,7 @@ internal object Response {
     /**
      * Analyzes the server response and generates a corresponding event based on the result.
      *
-     * @param requestData The original request metadata used to determine context and build the event.
+     * @param requestData The request data used to determine context and build the event.
      * @param response The raw HTTP response containing the status code and response body.
      * @return A typed [DataClasses.Event]: success, retry, or error.
      */
@@ -133,10 +139,10 @@ internal object Response {
     }
 
     /**
-     * Determines the function identifier pair based on the request type.
+     * Determines the request name based on the request type.
      *
      * @param requestData The request object to inspect.
-     * @return A pair of strings representing the function code and short label.
+     * @return A request name string.
      */
     fun getRequestName(requestData: RequestData): String {
         return when (requestData) {

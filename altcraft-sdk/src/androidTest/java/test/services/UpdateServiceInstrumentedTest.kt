@@ -26,12 +26,14 @@ import java.util.concurrent.TimeUnit
  * UpdateServiceInstrumentedTest
  *
  * Positive:
- *  - test_1: onCreate(): calls ServiceManager.checkStartForeground(); when false — the service stops itself
- *  - test_2: onStartCommand() with non-STOP action: starts startUpdateCoroutineWorker() and calls closedServiceHandler()
+ *  - test_1: onCreate(): calls ServiceManager.checkStartForeground(); when false —
+ *  the service stops itself
+ *  - test_2: onStartCommand() with non-STOP action: starts startUpdateCoroutineWorker()
+ *  and calls closedServiceHandler()
  *
  * Edge:
- *  - test_3: onStartCommand() with STOP_SERVICE_ACTION: does not start worker, but calls closedServiceHandler()
- *
+ *  - test_3: onStartCommand() with STOP_SERVICE_ACTION: does not start worker,
+ *  but calls closedServiceHandler()
  */
 @RunWith(AndroidJUnit4::class)
 class UpdateServiceInstrumentedTest {

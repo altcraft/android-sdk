@@ -50,15 +50,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * ClearCacheInstrumentedTest
  *
  * Positive scenario:
- *  - clear() wipes real in-memory Room tables (config/subscribe/pushEvents/mobileEvents),
- *    removes SDK SharedPreferences keys, resets in-memory flags/state,
- *    calls stopService/cancelWorkers, and emits sdkCleared to the subscriber.
- *
- * Notes:
- *  - Uses ApplicationProvider context, real in-memory Room (TestRoom) with production entities.
- *  - SDKdb.getDb(context) is mocked to return a wrapper exposing the REAL DAO.
- *  - External functions stopService/cancel*Workers are mocked.
- *  - Events are NOT mocked; we subscribe using a probe to capture real emissions.
+ * - test_1: clear() wipes real Room tables, removes SDK SharedPreferences keys,
+ * resets in-memory state, stops services, cancels workers, and emits sdkCleared to subscriber.
  */
 @RunWith(AndroidJUnit4::class)
 class ClearCacheInstrumentedTest {
@@ -84,20 +77,16 @@ class ClearCacheInstrumentedTest {
     @Before
     fun setUp() {
         appContext = ApplicationProvider.getApplicationContext()
-
-        // Real in-memory Room instance using production entities
         db = Room.inMemoryDatabaseBuilder(appContext, TestRoom::class.java)
             .allowMainThreadQueries()
             .build()
         dao = db.request()
 
-        // Mock SDKdb.getDb(context) -> wrapper.request() -> REAL DAO
         mockkObject(SDKdb)
         val sdkDBWrapper = mockk<SDKdb>(relaxed = true)
         every { SDKdb.getDb(any()) } returns sdkDBWrapper
         every { sdkDBWrapper.request() } returns dao
 
-        // Mock external side-effects
         mockkObject(ServiceManager)
         every { ServiceManager.stopService(any(), any()) } just Runs
 
@@ -110,7 +99,6 @@ class ClearCacheInstrumentedTest {
         mockkObject(CommonFunctions)
         every { CommonFunctions.cancelPeriodicalWorkersTask(any()) } just Runs
 
-        // Real preferences prefill
         prefs = getPreferences(appContext)
         prefs.edit(commit = true) {
             putString(Preferenses.TOKEN_KEY, "tkn")
@@ -118,9 +106,7 @@ class ClearCacheInstrumentedTest {
             putString(Preferenses.MESSAGE_ID_KEY, "msg")
         }
 
-        // Preload DB with sample rows
         runBlocking {
-            // Config row
             dao.insertConfig(
                 ConfigurationEntity(
                     id = 1,
@@ -136,7 +122,6 @@ class ClearCacheInstrumentedTest {
                     pushChannelDescription = "desc"
                 )
             )
-            // Subscribe row
             dao.insertSubscribe(
                 SubscribeEntity(
                     userTag = "tag",
@@ -153,14 +138,12 @@ class ClearCacheInstrumentedTest {
                     maxRetryCount = 5
                 )
             )
-            // Push event row
             dao.insertPushEvent(
                 com.altcraft.sdk.data.room.PushEventEntity(
                     uid = UUID.randomUUID().toString(),
                     type = "test"
                 )
             )
-            // Mobile event row (must satisfy new entity fields)
             dao.insertMobileEvent(
                 MobileEventEntity(
                     id = 0L,
@@ -183,7 +166,6 @@ class ClearCacheInstrumentedTest {
             )
         }
 
-        // Preload in-memory state
         configuration = ConfigurationEntity(
             id = 999, icon = null, apiUrl = "https://cached", rToken = "cached",
             appInfo = null, usingService = false, serviceMessage = null,
@@ -193,7 +175,6 @@ class ClearCacheInstrumentedTest {
         retryControl = AtomicBoolean(true)
         tokens.add("123")
 
-        // Subscribe to real events
         Events.subscribe(probe)
         probe.clear()
     }
@@ -205,41 +186,33 @@ class ClearCacheInstrumentedTest {
         db.close()
     }
 
+    /** - test_1: clear() wipes DB, clears prefs, resets flags, stops services, cancels workers,
+     * and emits sdkCleared.
+     * */
     @Test
     fun clear_wipesDbPrefsWorkersAndEmitsEvent() = runBlocking {
-        // Latch for async callback
         val latch = CountDownLatch(1)
-
-        // Act
         ClearCache.clear(appContext) { latch.countDown() }
-
-        // Wait for callback
         assertTrue(MSG_CALLBACK_FIRED, latch.await(5, TimeUnit.SECONDS))
 
-        // DB assertions
         assertNull(MSG_DB_CONFIG_EMPTY, dao.getConfig())
         assertTrue(MSG_DB_SUB_EMPTY, dao.allSubscriptionsByTag("tag").isEmpty())
         assertEquals(MSG_DB_EVENTS_EMPTY, 0, dao.getPushEventCount())
-        // Mobile events are deleted via deleteAllMobileEvents()
         assertEquals(MSG_DB_M_EVENTS_EMPTY, 0, dao.getMobileEventCount())
 
-        // Preferences cleared
         assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.TOKEN_KEY, null))
         assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.MANUAL_TOKEN_KEY, null))
         assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.MESSAGE_ID_KEY, null))
 
-        // In-memory flags/state reset
         assertNull(MSG_FLAGS_RESET, configuration)
         assertFalse(MSG_FLAGS_RESET, retryControl.get())
         assertTrue(MSG_FLAGS_RESET, tokens.isEmpty())
 
-        // External calls occurred
         io.mockk.verify(exactly = 1) { ServiceManager.stopService(appContext, SUBSCRIBE_SERVICE) }
         io.mockk.verify(exactly = 1) { ServiceManager.stopService(appContext, UPDATE_SERVICE) }
         io.mockk.verify(exactly = 1) { CancelWork.cancelCoroutineWorkersTask(appContext, any()) }
         io.mockk.verify(exactly = 1) { CommonFunctions.cancelPeriodicalWorkersTask(appContext) }
 
-        // Event emitted
         val events = probe.snapshot()
         assertTrue(MSG_EVENT_CAPTURED, events.isNotEmpty())
         val last = events.last()

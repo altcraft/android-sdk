@@ -36,11 +36,13 @@ internal object PushEvent {
     private val sendAllPushEventMutex = Mutex()
 
     /**
-     * Saves the push event and runs the work manager to send the event data to the server.
+     * Attempts to send the given push event to the server.
+     * If the request cannot be completed (e.g., due to network or server issues),
+     * the event is stored locally and WorkManager is triggered to retry later.
      *
-     * @param context App context.
+     * @param context Application context.
      * @param type Event type ("delivery" or "open").
-     * @param messageUID Event ID.
+     * @param messageUID Unique event identifier. Must not be null or empty.
      */
     suspend fun sendPushEvent(
         context: Context,
@@ -100,11 +102,7 @@ internal object PushEvent {
      * @param room The local SDK database instance.
      * @param events A list of push events to process.
      */
-    suspend fun sendAllPushEvents(
-        context: Context,
-        room: SDKdb,
-        events: List<PushEventEntity>
-    ) {
+    suspend fun sendAllPushEvents(context: Context, room: SDKdb, events: List<PushEventEntity>) {
         coroutineScope {
             events.map { event ->
                 async<Unit> {

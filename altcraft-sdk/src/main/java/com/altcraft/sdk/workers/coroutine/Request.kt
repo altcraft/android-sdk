@@ -31,8 +31,8 @@ internal object Request {
     /**
      * Builds a [OneTimeWorkRequest] for the given [ListenableWorker] with backoff and constraints.
      *
-     * @param inputData Optional input [Data].
      * @param tag Work tag identifier.
+     * @param inputData Optional input [Data].
      * @return Configured [OneTimeWorkRequest].
      */
     private inline fun <reified W : ListenableWorker> createWorkRequest(

@@ -25,18 +25,19 @@ import com.altcraft.sdk.workers.periodical.CommonFunctions.createWorker
 internal object LaunchFunctions {
 
     /**
-     * Lazily initialized `PeriodicWorkRequest` for the subscription + update worker.
+     * Lazily initialized `PeriodicWorkRequest` for the **update** worker.
      *
-     * This request schedules a periodic task using `RetryUpdateAndSubWorker`.
+     * Schedules periodic token update retries using `RetryUpdateWorker`.
      */
     private val updateRequest by lazy {
         createRequest(Workers.RetryUpdateWorker::class.java)
     }
 
+
     /**
-     * Lazily initialized `PeriodicWorkRequest` for the subscription worker.
+     * Lazily initialized `PeriodicWorkRequest` for the **subscription** worker.
      *
-     * This request schedules a periodic task using `RetrySubscribeWorker`.
+     * Schedules periodic subscription retries using `RetrySubscribeWorker`.
      */
     private val subscribeRequest by lazy {
         createRequest(Workers.RetrySubscribeWorker::class.java)
@@ -45,16 +46,16 @@ internal object LaunchFunctions {
     /**
      * Lazily initialized `PeriodicWorkRequest` for the push event worker.
      *
-     * This request schedules a periodic task using `RetryPushEventWorker`.
+     * Schedules periodic push event retries using `RetryPushEventWorker`.
      */
     private val pushEventRequest by lazy {
         createRequest(Workers.RetryPushEventWorker::class.java)
     }
 
     /**
-     * Lazily initialized `PeriodicWorkRequest` for the push event worker.
+     * Lazily initialized `PeriodicWorkRequest` for the mobile event worker.
      *
-     * This request schedules a periodic task using `RetryPushEventWorker`.
+     * Schedules periodic mobile event retries using `RetryMobileEventWorker`.
      */
     private val mobileEventRequest by lazy {
         createRequest(Workers.RetryMobileEventWorker::class.java)

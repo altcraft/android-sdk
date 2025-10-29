@@ -11,8 +11,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.modules.SerializersModule
 
 /**
- * Converter – utility for safe JSON serialization and deserialization
- * using Kotlinx Serialization with predefined Json configuration.
+ * Provides safe JSON serialization and deserialization
+ * using a predefined kotlinx.serialization configuration.
  *
  * Handles errors gracefully and logs them with function context.
  */

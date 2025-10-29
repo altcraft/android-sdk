@@ -25,21 +25,18 @@ import org.junit.Test
 import retrofit2.Response as RResponse
 
 /**
- * ResponseUnitTest
+ * ResponseTest
  *
  * Positive scenarios:
- *  - test_1: 2xx → SUCCESS → Events.event uses success pair/value.
- *  - test_2: 5xx → RETRY → Events.retry uses error pair/value.
- *  - test_3: 4xx → ERROR → Events.error uses error pair/value.
- *  - test_4: getRequestName maps all RequestData types.
+ *  - test_1: 2xx → SUCCESS → Events.event uses success pair/value
+ *  - test_2: 5xx → RETRY → Events.retry uses error pair/value
+ *  - test_3: 4xx → ERROR → Events.error uses error pair/value
+ *  - test_4: getRequestName maps all RequestData types
  *
  * Negative/edge scenarios:
- *  - test_5: non-JSON plain text body (e.g. "NOT_JSON") → parsed as Response(errorText=...), handled as ERROR.
- *  - test_6: HTML body → parseResponse returns null → still handled via ERROR.
- *  - test_7: getResponseData throws → retry("processResponse:: <name>").
- *
- * Notes:
- *  - Pure JVM tests (MockK). PairBuilder & MapBuilder stubbed to isolate Response.
+ *  - test_5: non-JSON plain text body → treated as ERROR with error pair/value
+ *  - test_6: HTML body → parsed as null but handled via ERROR
+ *  - test_7: getResponseData throws → retry with composed name "processResponse:: <name>"
  */
 class ResponseTest {
 
@@ -54,7 +51,6 @@ class ResponseTest {
     fun setUp() {
         mockkObject(Events, PairBuilder, MapBuilder)
 
-        // Events stubs return concrete DataClasses.* for assertions
         every { Events.event(any(), any(), any()) } answers {
             val f = firstArg<String>()
             val p = secondArg<Pair<Int, String>>()
@@ -78,8 +74,6 @@ class ResponseTest {
 
     @After
     fun tearDown() = unmockkAll()
-
-    // ---- Helpers: fake RequestData instances ----
 
     private fun subscribeReq() = DataClasses.SubscribeRequestData(
         url = URL, time = 1L, rToken = null, uid = "u1", authHeader = AUTH,
@@ -105,10 +99,10 @@ class ResponseTest {
         url = URL, uid = "u4", authHeader = AUTH, matchingMode = "m", provider = "p", token = "t"
     )
 
-    /** Verifies SUCCESS path: 2xx → Events.event with success pair/value. */
+    /** - test_1: 2xx → SUCCESS → Events.event uses success pair/value. */
     @Test
     fun processResponse_success_2xx_callsEvent() {
-        val body: JsonElement = buildJsonObject { put("ok", true) } // valid JSON
+        val body: JsonElement = buildJsonObject { put("ok", true) }
         val resp = RResponse.success(body)
         val req = subscribeReq()
 
@@ -127,10 +121,10 @@ class ResponseTest {
         assertEquals(value, out.eventValue)
     }
 
-    /** Verifies RETRY path: 5xx → Events.retry with error pair/value. */
+    /** - test_2: 5xx → RETRY → Events.retry uses error pair/value. */
     @Test
     fun processResponse_retry_5xx_callsRetry() {
-        val errBody = """{"error":500}""".toResponseBody(CT_JSON) // valid JSON
+        val errBody = """{"error":500}""".toResponseBody(CT_JSON)
         val resp = RResponse.error<JsonElement>(500, errBody)
         val req = updateReq()
 
@@ -150,7 +144,7 @@ class ResponseTest {
         assertEquals(value, out.eventValue)
     }
 
-    /** Verifies ERROR path: 4xx → Events.error with error pair/value. */
+    /** - test_3: 4xx → ERROR → Events.error uses error pair/value. */
     @Test
     fun processResponse_error_4xx_callsError() {
         val errBody = """{"error":400,"errorText":"bad"}""".toResponseBody(CT_JSON)
@@ -173,7 +167,7 @@ class ResponseTest {
         assertEquals(value, out.eventValue)
     }
 
-    /** Verifies getRequestName returns the right constant for each RequestData type. */
+    /** - test_4: getRequestName maps all RequestData types. */
     @Test
     fun getRequestName_mapsAllTypes() {
         assertEquals(SUBSCRIBE_REQUEST, Response.getRequestName(subscribeReq()))
@@ -183,10 +177,7 @@ class ResponseTest {
         assertEquals(STATUS_REQUEST, Response.getRequestName(statusReq()))
     }
 
-    /**
-     * Non-JSON plain text body (e.g. "NOT_JSON") → parseResponse returns
-     * DataClasses.Response(errorText="NOT_JSON"), and further processing goes as ERROR.
-     */
+    /** - test_5: non-JSON plain text body → treated as ERROR with error pair/value. */
     @Test
     fun processResponse_nonJsonTextBody_treatedAsError() {
         val body = "NOT_JSON".toResponseBody(CT_JSON)
@@ -209,10 +200,7 @@ class ResponseTest {
         assertEquals(value, out.eventValue)
     }
 
-    /**
-     * HTML body → parseResponse returns null (filter by <html>),
-     * but the process remains valid — an ERROR is generated with pairs from PairBuilder.
-     */
+    /** - test_6: HTML body → parsed as null but handled via ERROR. */
     @Test
     fun processResponse_htmlBody_treatedAsNullButHandled() {
         val body = "<html><body>Oops</body></html>".toResponseBody(CT_JSON)
@@ -235,7 +223,7 @@ class ResponseTest {
         assertEquals(value, out.eventValue)
     }
 
-    /** When getResponseData throws → retry("processResponse:: <name>"). */
+    /** - test_7: getResponseData throws → retry with composed name "processResponse:: <name>". */
     @Test
     fun processResponse_whenDataNull_returnsRetryWithComposedName() {
         val body: JsonElement = buildJsonObject { put("x", 1) }

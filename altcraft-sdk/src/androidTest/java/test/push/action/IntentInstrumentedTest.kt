@@ -38,13 +38,11 @@ class IntentInstrumentedTest {
 
     @Before
     fun setUp() {
-        // Use targetContext (the app under test), not the test APK context
         ctx = InstrumentationRegistry.getInstrumentation().targetContext
     }
 
     @After
     fun tearDown() {
-        // No-op
     }
 
     /** test_1: PendingIntent launches the target activity and carries extras */
@@ -53,8 +51,8 @@ class IntentInstrumentedTest {
         val instr = InstrumentationRegistry.getInstrumentation()
         val monitor = instr.addMonitor(
             AltcraftPushActionActivity::class.java.name,
-            /* result */ null,
-            /* block */ false
+            null,
+            false
         )
 
         val messageId = 101
@@ -65,28 +63,23 @@ class IntentInstrumentedTest {
             com.altcraft.sdk.push.action.Intent.getIntent(ctx, messageId, url, uid)
         assertNotNull(pi)
 
-        // Trigger PendingIntent to launch Activity
         pi.send()
 
-        // Wait for Activity to start (more generous timeout for real devices)
         val started = instr.waitForMonitorWithTimeout(monitor, /* ms */ 5000L)
         assertNotNull("AltcraftPushActionActivity wasn't launched", started)
 
         val activity = started!!
         val intent = activity.intent
 
-        // Target component is correct
         assertEquals(
             ComponentName(ctx, AltcraftPushActionActivity::class.java),
             intent.component
         )
 
-        // Extras are preserved
         assertEquals(messageId, intent.extras?.getInt(MESSAGE_ID))
         assertEquals(url, intent.extras?.getString(URL))
         assertEquals(uid, intent.extras?.getString(UID))
 
-        // Finish and cleanup
         instr.runOnMainSync { activity.finish() }
         instr.waitForIdleSync()
         instr.removeMonitor(monitor)
@@ -99,9 +92,7 @@ class IntentInstrumentedTest {
         val pi1 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 1, url, "uid-A")
         val pi2 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 2, url, "uid-B")
 
-        // Must differ: UniqueCodeGenerator should produce distinct requestCodes
         assertNotEquals(pi1, pi2)
-        // Optional extra guard
         assertNotEquals(pi1.hashCode(), pi2.hashCode())
     }
 }

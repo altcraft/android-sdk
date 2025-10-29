@@ -27,23 +27,18 @@ import org.junit.*
 import org.junit.runner.RunWith
 
 /**
- * PushPresenterTest (instrumented)
+ * PushPresenterTest
  *
- * Positive:
- *  - test_4: showPush(): permission granted + channel ready -> publishes notification and emits SDK event
+ * Positive scenarios:
+ * - test_4: showPush() — permission granted and channel ready → publishes notification and emits SDK event.
  *
- * Negative:
- *  - test_1: showPush(): permission denied -> no notify, logged error
- *  - test_2: showPush(): getNotificationData() == null -> no notify, logged error
- *  - test_3: showPush(): channel not created -> no notify, tries to create channel, logged error
+ * Negative scenarios:
+ * - test_1: showPush() — permission denied → no notify, error logged.
+ * - test_2: showPush() — getNotificationData() == null → no notify, error logged.
+ * - test_3: showPush() — channel not created → tries to create channel, no notify, error logged.
  *
  * Utility:
- *  - test_5: createNotification(context, channelId, body, icon) returns a Notification
- *
- * Notes:
- *  - Android instrumented tests (androidTest).
- *  - Mock static APIs: android.util.Log and NotificationManagerCompat.from(context).
- *  - Mock singletons: SubFunction, Repository, PushChannel, Events.
+ * - test_5: createNotification(context, channelId, body, icon) returns a Notification instance.
  */
 @RunWith(AndroidJUnit4::class)
 class PushPresenterTest {
@@ -54,7 +49,6 @@ class PushPresenterTest {
     fun setUp() {
         ctx = ApplicationProvider.getApplicationContext()
 
-        // Mock android.util.Log to avoid issues
         mockkStatic(Log::class)
         every { Log.d(any(), any<String>()) } returns 0
         every { Log.i(any(), any<String>()) } returns 0
@@ -64,10 +58,7 @@ class PushPresenterTest {
         every { Log.println(any(), any(), any()) } returns 0
         every { Log.wtf(any(), any<String>()) } returns 0
 
-        // Static NotificationManagerCompat.from(context)
         mockkStatic(NotificationManagerCompat::class)
-
-        // SDK singletons
         mockkObject(SubFunction)
         mockkObject(Repository)
         mockkObject(PushChannel)
@@ -78,8 +69,6 @@ class PushPresenterTest {
     fun tearDown() {
         unmockkAll()
     }
-
-    // region helpers
 
     private fun sampleNotificationData(
         messageId: Int = 42,
@@ -107,16 +96,11 @@ class PushPresenterTest {
         )
     }
 
-    // endregion
-
-    /** test_1: showPush(): permission denied -> no notify, error logged */
+    /** - test_1: showPush() permission denied → no notify, error logged. */
     @Test
     fun test_1_showPush_permissionDenied_noNotify() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns false
-
-        // ВАЖНО: error(...) возвращает DataClasses.Error, поэтому — returns, а не just Runs
         every { Events.error(any(), any()) } returns DataClasses.Error("showPush")
-
         val nm = mockk<NotificationManagerCompat>(relaxed = true)
         every { NotificationManagerCompat.from(ctx) } returns nm
 
@@ -126,14 +110,12 @@ class PushPresenterTest {
         verify(atLeast = 1) { Events.error(eq("showPush"), any()) }
     }
 
-    /** test_2: showPush(): getNotificationData() == null -> no notify, error logged */
+    /** - test_2: showPush() returns no notify and logs error when getNotificationData() == null. */
     @Test
     fun test_2_showPush_dataNull_noNotify() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
         coEvery { Repository.getNotificationData(ctx, any()) } returns null
-
         every { Events.error(any(), any()) } returns DataClasses.Error("showPush")
-
         val nm = mockk<NotificationManagerCompat>(relaxed = true)
         every { NotificationManagerCompat.from(ctx) } returns nm
 
@@ -143,19 +125,16 @@ class PushPresenterTest {
         verify(atLeast = 1) { Events.error(eq("showPush"), any()) }
     }
 
-    /** test_3: showPush(): channel not created -> no notify, tries to create channel, error logged */
+    /** - test_3: showPush() attempts channel create but no notify when channel not created; logs error. */
     @Test
     fun test_3_showPush_channelNotCreated_noNotify() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
         val data = sampleNotificationData()
         coEvery { Repository.getNotificationData(ctx, any()) } returns data
-
         every { PushChannel.versionsSupportChannels } returns true
         every { PushChannel.selectAndCreateChannel(ctx, data.channelInfo) } just Runs
         every { PushChannel.isChannelCreated(ctx, data.channelInfo) } returns false
-
         every { Events.error(any(), any()) } returns DataClasses.Error("showPush")
-
         val nm = mockk<NotificationManagerCompat>(relaxed = true)
         every { NotificationManagerCompat.from(ctx) } returns nm
 
@@ -166,20 +145,17 @@ class PushPresenterTest {
         verify(atLeast = 1) { Events.error(eq("showPush"), any()) }
     }
 
-    /** test_4: happy-path -> notify() called and SDK event emitted */
+    /** - test_4: showPush() notifies and emits SDK event when permission granted and channel ready. */
     @Test
     fun test_4_showPush_success_notifies_and_emitsEvent() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
         val data = sampleNotificationData(messageId = 777)
         coEvery { Repository.getNotificationData(ctx, any()) } returns data
-
         every { PushChannel.versionsSupportChannels } returns true
         every { PushChannel.selectAndCreateChannel(ctx, data.channelInfo) } just Runs
         every { PushChannel.isChannelCreated(ctx, data.channelInfo) } returns true
-
         val nm = mockk<NotificationManagerCompat>(relaxed = true)
         every { NotificationManagerCompat.from(ctx) } returns nm
-
         every { Events.event(any(), any(), any()) } returns DataClasses.Event("showPush")
 
         PushPresenter.showPush(ctx, mapOf("k" to "v"))
@@ -188,7 +164,7 @@ class PushPresenterTest {
         verify(exactly = 1) { Events.event(eq("showPush"), eq(pushIsPosted), any()) }
     }
 
-    /** test_5: createNotification(context, channelId, body, icon) returns non-null */
+    /** - test_5: createNotification(...) returns non-null Notification instance. */
     @Test
     fun test_5_createNotification_foregroundHelper_notNull() {
         val n = PushPresenter.createNotification(

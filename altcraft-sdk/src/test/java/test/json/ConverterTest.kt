@@ -29,10 +29,6 @@ import org.junit.Test
  *  - test_3: fromStringJson on malformed JSON -> null + Events.error.
  *  - test_4: toStringJson on non-serializable -> null + Events.error.
  *  - test_5: fromStringJson on empty string -> null + error; null input -> null w/o error.
- *
- * Notes:
- *  - Pure JVM unit tests. Uses real kotlinx.serialization.
- *  - Events.error is mocked for verification and to avoid side effects.
  */
 class ConverterTest {
 

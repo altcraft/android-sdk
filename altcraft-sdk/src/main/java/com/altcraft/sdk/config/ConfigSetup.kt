@@ -51,13 +51,11 @@ internal object ConfigSetup {
     }
 
     /**
-     * Clears pending push subscription requests if the rToken has changed.
+     * Clears pending push subscription requests and all mobile events  when the rToken changes.
      *
-     * Used to prevent retrying outdated subscription requests tied to a previous rToken.
-     *
-     * @param newConfig The new configuration with the current rToken.
-     * @param oldConfig The previous configuration with the old rToken.
-     * @param dao Data access object used to clear pending subscription requests.
+     * @param newConfig The new configuration containing the current rToken.
+     * @param oldConfig The previous configuration containing the old rToken.
+     * @param dao Data access object used to clear pending subscription requests and mobile events.
      */
     private suspend fun rTokenChange(
         newConfig: ConfigurationEntity?,

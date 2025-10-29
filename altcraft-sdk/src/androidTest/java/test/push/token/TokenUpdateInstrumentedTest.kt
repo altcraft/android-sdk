@@ -37,9 +37,12 @@ import com.altcraft.sdk.data.room.ConfigurationEntity
  * TokenUpdateInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: tokenUpdate when app is foregrounded and token changed enqueues UpdateCoroutineWorker (UPDATE_C_WORK_TAG).
- *  - test_2: isRetry returns true when Request.updateRequest returns RetryError and setCurrentToken is NOT called.
- *  - test_3: isRetry returns false when Request.updateRequest returns success Event and setCurrentToken is called.
+ *  - test_1: tokenUpdate when app is foregrounded and token changed enqueues
+ *  UpdateCoroutineWorker (UPDATE_C_WORK_TAG).
+ *  - test_2: isRetry returns true when Request.updateRequest returns
+ *  RetryError and setCurrentToken is NOT called.
+ *  - test_3: isRetry returns false when Request.updateRequest returns success
+ *  Event and setCurrentToken is called.
  *
  * Negative scenario:
  *  - test_4: tokenUpdate does nothing (no work enqueued) when saved token equals current token.
@@ -59,7 +62,6 @@ class TokenUpdateInstrumentedTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
 
-        // WorkManager test env (uses a single-thread executor for determinism)
         val wmConfig = WMConfiguration.Builder()
             .setMinimumLoggingLevel(Log.DEBUG)
             .setExecutor(Executors.newSingleThreadExecutor())
@@ -69,7 +71,6 @@ class TokenUpdateInstrumentedTest {
 
         MockKAnnotations.init(this, relaxUnitFun = true)
 
-        // --- ConfigSetup.getConfig: usingService=false -> LaunchFunctions.startUpdateCoroutineWorker path
         mockkObject(ConfigSetup)
         coEvery { ConfigSetup.getConfig(any()) } returns ConfigurationEntity(
             id = 0,
@@ -77,7 +78,7 @@ class TokenUpdateInstrumentedTest {
             apiUrl = "https://api.example.com",
             rToken = "user-tag-123",
             appInfo = null,
-            usingService = false, // force CoroutineWorker instead of foreground Service
+            usingService = false,
             serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = null,
@@ -85,15 +86,12 @@ class TokenUpdateInstrumentedTest {
             pushChannelDescription = null
         )
 
-        // --- Foreground/background switch
         mockkObject(SubFunction)
-        every { SubFunction.isAppInForegrounded() } returns true // override per-test
+        every { SubFunction.isAppInForegrounded() } returns true
 
-        // --- Token APIs & preferences
         mockkObject(TokenManager)
         mockkObject(Preferenses)
 
-        // Defaults (overridden per-test)
         coEvery { TokenManager.getCurrentToken(any()) } returns TokenData(
             provider = Constants.FCM_PROVIDER, token = "tok-NEW"
         )
@@ -102,7 +100,6 @@ class TokenUpdateInstrumentedTest {
         )
         every { Preferenses.setCurrentToken(any(), any()) } just Runs
 
-        // --- Events: return proper DataClasses objects, not Unit
         mockkObject(Events)
         coEvery { Events.error(any(), any()) } answers { DataClasses.Error(function = firstArg()) }
         coEvery {
@@ -134,10 +131,9 @@ class TokenUpdateInstrumentedTest {
             )
         } answers { DataClasses.Event(function = firstArg()) }
 
-        // --- Network: by default "success"
         mockkObject(Request)
         coEvery {
-            Request.updateRequest(
+            Request.tokenUpdateRequest(
                 any(),
                 any()
             )
@@ -151,12 +147,10 @@ class TokenUpdateInstrumentedTest {
     }
 
     /**
-     * test_1
-     * Foreground + changed token -> tokenUpdate should enqueue a work with UPDATE_C_WORK_TAG.
+     * test_1 Foreground + changed token -> tokenUpdate should enqueue a work with UPDATE_C_WORK_TAG.
      */
     @Test
     fun tokenUpdate_foreground_enqueues_update_work() = runTest {
-        // Arrange
         every { SubFunction.isAppInForegrounded() } returns true
         every { Preferenses.getSavedToken(any()) } returns TokenData(
             Constants.FCM_PROVIDER,
@@ -167,10 +161,8 @@ class TokenUpdateInstrumentedTest {
             "tok-NEW"
         )
 
-        // Act
         TokenUpdate.tokenUpdate(context)
 
-        // Assert
         val infos = WorkManager.getInstance(context)
             .getWorkInfosByTag(Constants.UPDATE_C_WORK_TAG)
             .get()
@@ -179,31 +171,27 @@ class TokenUpdateInstrumentedTest {
     }
 
     /**
-     * test_2
-     * isRetry -> RetryError => returns true and DOES NOT set current token.
+     * test_2 isRetry -> RetryError => returns true and DOES NOT set current token.
      */
     @Test
     fun isRetry_retry_event_returns_true_and_does_not_set_token() = runTest {
-        // Arrange
         coEvery { TokenManager.getCurrentToken(any()) } returns TokenData(
             Constants.FCM_PROVIDER,
             "tok-NEW"
         )
-        coEvery { Request.updateRequest(any(), any()) } returns com.altcraft.sdk.data.retry(
+        coEvery { Request.tokenUpdateRequest(any(), any()) } returns com.altcraft.sdk.data.retry(
             function = "updateRequest"
         )
 
-        // Act
         val shouldRetry = TokenUpdate.isRetry(context, "req-1")
 
-        // Assert
         assertThat(shouldRetry, `is`(true))
         verify(exactly = 0) { Preferenses.setCurrentToken(any(), any()) }
     }
 
     /**
-     * test_3
-     * isRetry -> success Event => returns false and sets current token with the same TokenData.
+     * test_3 isRetry -> success Event => returns false and sets current token with the same
+     * TokenData.
      */
     @Test
     fun isRetry_success_event_returns_false_and_sets_token() = runTest {
@@ -211,13 +199,12 @@ class TokenUpdateInstrumentedTest {
         val tok = TokenData(Constants.FCM_PROVIDER, "tok-NEW")
         coEvery { TokenManager.getCurrentToken(any()) } returns tok
         coEvery {
-            Request.updateRequest(
+            Request.tokenUpdateRequest(
                 any(),
                 any()
             )
         } returns DataClasses.Event(function = "updateRequest")
 
-        // Act
         val shouldRetry = TokenUpdate.isRetry(context, "req-2")
 
         // Assert
@@ -226,21 +213,18 @@ class TokenUpdateInstrumentedTest {
     }
 
     /**
-     * test_4 (negative)
-     * saved token equals current token -> tokenUpdate exits early; no update work enqueued.
+     * test_4 (negative) saved token equals current token ->
+     * tokenUpdate exits early; no update work enqueued.
      */
     @Test
     fun tokenUpdate_same_token_does_not_enqueue_work() = runTest {
-        // Arrange
         every { SubFunction.isAppInForegrounded() } returns true
         val same = TokenData(Constants.FCM_PROVIDER, "tok-SAME")
         coEvery { TokenManager.getCurrentToken(any()) } returns same
         every { Preferenses.getSavedToken(any()) } returns same
 
-        // Act
         TokenUpdate.tokenUpdate(context)
 
-        // Assert
         val infos = WorkManager.getInstance(context)
             .getWorkInfosByTag(Constants.UPDATE_C_WORK_TAG)
             .get()

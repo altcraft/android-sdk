@@ -51,10 +51,6 @@ class LaunchFunctionsInstrumentedTest {
     private lateinit var workManager: WorkManager
     private var testDriver: TestDriver? = null
 
-    /**
-     * Initializes WorkManager with a synchronous executor and stubs collaborators.
-     * Ensures background delay is skipped and workers default to the success path.
-     */
     @Before
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -88,9 +84,6 @@ class LaunchFunctionsInstrumentedTest {
         Worker.retryUpdate = 0
     }
 
-    /**
-     * Releases mocks after each test.
-     */
     @After
     fun tearDown() {
         unmockkObject(

@@ -4,6 +4,7 @@ package com.altcraft.altcraftmobile.providers.rustore
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.sdk.interfaces.RustoreInterface
 import kotlinx.coroutines.CompletableDeferred
 import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
@@ -55,7 +56,7 @@ class RuStoreProvider : RustoreInterface {
                 .addOnFailureListener {
                     complete(false)
                 }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             complete(false)
         }
     }

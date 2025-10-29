@@ -19,10 +19,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Provides suspend-based cancellation utilities for coroutine-based workers.
+ * Provides coroutine-backed utilities for canceling WorkManager tasks by tag.
  *
- * Used to cancel WorkManager tasks identified by specific tags such as
- * [SUBSCRIBE_C_WORK_TAG], [UPDATE_C_WORK_TAG], and [PUSH_EVENT_C_WORK_TAG].
+ * Used to cancel tasks identified by tags such as
+ * SUBSCRIBE_C_WORK_TAG, UPDATE_C_WORK_TAG, PUSH_EVENT_C_WORK_TAG, MOBILE_EVENT_C_WORK_TAG.
  */
 internal object CancelWork {
 
@@ -57,7 +57,7 @@ internal object CancelWork {
     }
 
     /**
-     * Cancels push event worker tasks and triggers a callback.
+     * Cancels mobile event worker tasks and triggers a callback.
      *
      * @param context The application context.
      * @param onComplete Callback when canceled.
@@ -67,11 +67,12 @@ internal object CancelWork {
     }
 
     /**
-     * Cancels worker tasks by tag and triggers callback when done.
+     * Cancels worker tasks by tag and invokes the callback on the main thread if cancellation
+     * succeeds.
      *
      * @param context The application context.
      * @param tag The worker tag.
-     * @param onComplete Callback when canceled.
+     * @param onComplete Callback invoked after successful cancellation.
      */
     private fun cancelWorkerByTag(context: Context, tag: String, onComplete: () -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -85,7 +86,7 @@ internal object CancelWork {
     }
 
     /**
-     * Cancels all worker tasks and triggers a callback when done.
+     * Cancels all worker tasks (in parallel) and invokes the callback on the main thread when done.
      *
      * @param context The application context.
      * @param onComplete Callback when all tasks are canceled.
@@ -95,16 +96,15 @@ internal object CancelWork {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val jobs = listOf(
-                    async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(UPDATE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(PUSH_EVENT_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(MOBILE_EVENT_C_WORK_TAG).result.get() }
                 )
                 jobs.awaitAll()
             } catch (e: Exception) {
                 error("cancelCoroutineWorkersTask", e)
-            }
-            finally {
+            } finally {
                 withContext(Dispatchers.Main) {
                     onComplete()
                 }

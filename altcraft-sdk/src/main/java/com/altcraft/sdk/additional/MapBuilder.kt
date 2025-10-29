@@ -22,19 +22,23 @@ import com.altcraft.sdk.interfaces.RequestData
 internal object MapBuilder {
 
     /**
-     * Builds a map with push event details for logging or analytics.
+     * Builds a map containing API request data added to SDK events.
      *
-     * The map can contain the following entries:
-     * - "code": HTTP status code
+     * The map may include:
+     * - "code": HTTP response code
      * - "data": Full response object
-     * - "uid": Cleaned UID without "delivery"/"open"
-     * - "type": Event type extracted from UID
+     *
+     * If the request represents a push event, the map additionally includes:
+     * - "uid": Unique notification identifier
+     * - "type": Event type ("delivery" or "open")
+     *
+     * If the request represents a mobile event, the map additionally includes:
      * - "name": Name of the mobile event
      *
      * @param code HTTP response code
      * @param response Response data
-     * @param requestData Original request (should be PushEventRequestData)
-     * @return Map with non-null fields: "uid", "type", "code", "data"
+     * @param requestData request object
+     * @return A map containing non-null fields relevant to the event type
      */
     fun createEventValue(
         code: Int,
@@ -55,8 +59,6 @@ internal object MapBuilder {
 
     /**
      * Merges device, app, and custom fields into a single map.
-     *
-     * Later values override earlier ones by key.
      *
      * @param context Used to fetch device-specific fields.
      * @param config Provides app-related metadata.

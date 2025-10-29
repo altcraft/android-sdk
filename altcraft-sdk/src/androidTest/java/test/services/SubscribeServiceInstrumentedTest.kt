@@ -26,11 +26,14 @@ import java.util.concurrent.TimeUnit
  * SubscribeServiceInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: onCreate(): invokes ServiceManager.checkStartForeground(); when returns false — service requests stop
- *  - test_2: onStartCommand() with non-STOP action: starts coroutine worker + calls closedServiceHandler
+ *  - test_1: onCreate() invokes ServiceManager.checkStartForeground(); when it
+ *    returns false — the service requests stop.
+ *  - test_2: onStartCommand() with a non-STOP action: starts the coroutine
+ *    worker and calls closedServiceHandler.
  *
  * Edge:
- *  - test_3: onStartCommand() with STOP_SERVICE_ACTION: does NOT start worker; still calls closedServiceHandler
+ *  - test_3: onStartCommand() with STOP_SERVICE_ACTION: does NOT start the
+ *    worker; still calls closedServiceHandler.
  */
 @RunWith(AndroidJUnit4::class)
 class SubscribeServiceInstrumentedTest {
@@ -45,7 +48,6 @@ class SubscribeServiceInstrumentedTest {
         mockkObject(ServiceManager)
         mockkObject(LaunchFunctions)
 
-        // safe defaults
         coEvery { ServiceManager.checkStartForeground(any()) } returns true
         every { ServiceManager.closedServiceHandler(any(), any()) } just Runs
         every { LaunchFunctions.startSubscribeCoroutineWorker(any()) } just Runs

@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.additional
 
 //  Created by Andrey Pogodin.
@@ -29,68 +31,56 @@ import org.junit.Test
  * MapBuilderTest
  *
  * Positive scenarios:
- *  - test_1: Valid PushEventRequestData → createEventValue includes generic key
- *            "response_with_http_code" and also specific keys "uid" and "type"
- *            with expected values.
- *  - test_2: Valid MobileEventRequestData → createEventValue includes generic key
- *            "response_with_http_code" and also specific key "name" with expected value.
- *  - test_3: unionMaps merges fields from three sources:
- *            (a) DeviceInfo (e.g., "_device"),
- *            (b) custom map (e.g., "custom"),
- *            (c) config.appInfo (→ "_app_id", "_app_iid", "_app_ver").
+ *  - test_1: createEventValue(PushEventRequestData) → contains "response_with_http_code", "uid", "type".
+ *  - test_2: createEventValue(MobileEventRequestData) → contains "response_with_http_code", "name".
+ *  - test_4: unionMaps() merges device, custom fields, and appInfo into a single map.
  *
  * Negative scenarios:
- *  - test_4: Generic RequestData (non-push event) → createEventValue still
- *            contains "response_with_http_code" but does NOT include "uid", "type" or "name".
- *
- * Notes:
- *  - android.util.Log is mocked in @Before to avoid "not mocked" issues in JVM tests.
- *  - Assertion messages and keys are defined as constants above for consistency.
+ *  - test_3: createEventValue(generic RequestData) → contains "response_with_http_code" only
+ *  (no "uid"/"type"/"name").
  */
-
-// ---------- Keys / test data ----------
-private const val KEY_HTTP_CODE = RESPONSE_WITH_HTTP_CODE
-private const val KEY_UID = UID
-private const val KEY_TYPE = TYPE
-private const val KEY_NAME = NAME
-private const val KEY_APP_ID = "_app_id"
-private const val KEY_APP_IID = "_app_iid"
-private const val KEY_APP_VER = "_app_ver"
-
-private const val URL_EXAMPLE = "https://example.com"
-private const val UID_123 = "1234567890"
-private const val TYPE_DELIVERY = "delivery"
-private const val EVENT_NAME = "test_event"
-private const val SID_VALUE = "session123"
-private const val AUTH_BEARER = "Bearer token"
-private const val MATCHING_PUSH = "push"
-
-private const val DEVICE_KEY = "_device"
-private const val DEVICE_VAL = "Pixel"
-
-private const val APP_ID = "id123"
-private const val APP_IID = "iid456"
-private const val APP_VER = "1.0.0"
-
-// ---------- Assertion messages ----------
-private const val MSG_MUST_HAVE_HTTP_KEY = "Result must contain response_with_http_code key"
-private const val MSG_UID_PRESENT = "Result must contain uid for push event"
-private const val MSG_TYPE_PRESENT = "Result must contain type for push event"
-private const val MSG_NAME_PRESENT = "Result must contain name for mobile event"
-private const val MSG_UID_ABSENT = "Generic request must not contain uid"
-private const val MSG_TYPE_ABSENT = "Generic request must not contain type"
-private const val MSG_NAME_ABSENT = "Generic request must not contain name"
-private const val MSG_DEVICE_MERGED = "Device field must be merged"
-private const val MSG_CUSTOM_MERGED = "Custom field must be merged"
-private const val MSG_APP_INFO_ID = "_app_id must be filled from config.appInfo"
-private const val MSG_APP_INFO_IID = "_app_iid must be filled from config.appInfo"
-private const val MSG_APP_INFO_VER = "_app_ver must be filled from config.appInfo"
-
 class MapBuilderTest {
+
+    private companion object {
+        private const val KEY_HTTP_CODE = RESPONSE_WITH_HTTP_CODE
+        private const val KEY_UID = UID
+        private const val KEY_TYPE = TYPE
+        private const val KEY_NAME = NAME
+        private const val KEY_APP_ID = "_app_id"
+        private const val KEY_APP_IID = "_app_iid"
+        private const val KEY_APP_VER = "_app_ver"
+
+        private const val URL_EXAMPLE = "https://example.com"
+        private const val UID_123 = "1234567890"
+        private const val TYPE_DELIVERY = "delivery"
+        private const val EVENT_NAME = "test_event"
+        private const val SID_VALUE = "session123"
+        private const val AUTH_BEARER = "Bearer token"
+        private const val MATCHING_PUSH = "push"
+
+        private const val DEVICE_KEY = "_device"
+        private const val DEVICE_VAL = "Pixel"
+
+        private const val APP_ID = "id123"
+        private const val APP_IID = "iid456"
+        private const val APP_VER = "1.0.0"
+
+        private const val MSG_MUST_HAVE_HTTP_KEY = "Result must contain response_with_http_code key"
+        private const val MSG_UID_PRESENT = "Result must contain uid for push event"
+        private const val MSG_TYPE_PRESENT = "Result must contain type for push event"
+        private const val MSG_NAME_PRESENT = "Result must contain name for mobile event"
+        private const val MSG_UID_ABSENT = "Generic request must not contain uid"
+        private const val MSG_TYPE_ABSENT = "Generic request must not contain type"
+        private const val MSG_NAME_ABSENT = "Generic request must not contain name"
+        private const val MSG_DEVICE_MERGED = "Device field must be merged"
+        private const val MSG_CUSTOM_MERGED = "Custom field must be merged"
+        private const val MSG_APP_INFO_ID = "_app_id must be filled from config.appInfo"
+        private const val MSG_APP_INFO_IID = "_app_iid must be filled from config.appInfo"
+        private const val MSG_APP_INFO_VER = "_app_ver must be filled from config.appInfo"
+    }
 
     @Before
     fun setUp() {
-        // Silence android.util.Log in JVM tests to avoid "not mocked" crashes
         io.mockk.mockkStatic(android.util.Log::class)
         every { android.util.Log.d(any<String>(), any<String>()) } returns 0
         every { android.util.Log.i(any<String>(), any<String>()) } returns 0
@@ -104,12 +94,11 @@ class MapBuilderTest {
     @After
     fun tearDown() = unmockkAll()
 
-    /** createEventValue: with PushEventRequestData → includes uid & type with expected values */
+    /** - test_1: createEventValue(PushEventRequestData) includes "uid" and "type". */
     @Test
     fun `createEventValue with PushEventRequestData should return map with uid and type`() {
         val code = 200
         val response = DataClasses.Response(error = 0, errorText = "", profile = null)
-
         val requestData = PushEventRequestData(
             url = URL_EXAMPLE,
             time = System.currentTimeMillis(),
@@ -127,12 +116,11 @@ class MapBuilderTest {
         assertFalse(MSG_NAME_ABSENT, result.containsKey(KEY_NAME))
     }
 
-    /** createEventValue: with MobileEventRequestData → includes name with expected value */
+    /** - test_2: createEventValue(MobileEventRequestData) includes "name". */
     @Test
     fun `createEventValue with MobileEventRequestData should return map with name`() {
         val code = 200
         val response = DataClasses.Response(error = 0, errorText = "", profile = null)
-
         val requestData = MobileEventRequestData(
             url = URL_EXAMPLE,
             sid = SID_VALUE,
@@ -148,7 +136,7 @@ class MapBuilderTest {
         assertFalse(MSG_TYPE_ABSENT, result.containsKey(KEY_TYPE))
     }
 
-    /** createEventValue: with generic RequestData → does NOT include uid, type or name */
+    /** - test_3: createEventValue(generic RequestData) has no "uid"/"type"/"name". */
     @Test
     fun `createEventValue with generic RequestData should not include uid type or name`() {
         val code = 200
@@ -163,15 +151,13 @@ class MapBuilderTest {
         assertFalse(MSG_NAME_ABSENT, result.containsKey(KEY_NAME))
     }
 
-    /** unionMaps: merges device fields, custom fields, and app info from config */
+    /** - test_4: unionMaps() merges device, custom fields and appInfo. */
     @Test
     fun `unionMaps merges all fields correctly`() {
         val context = mockk<Context>()
-
         val deviceFields = mapOf(DEVICE_KEY to DEVICE_VAL)
         val customFields = mapOf("custom" to true)
         val appInfo = DataClasses.AppInfo(APP_ID, APP_IID, APP_VER)
-
         val config = ConfigurationEntity(
             id = 1,
             icon = null,

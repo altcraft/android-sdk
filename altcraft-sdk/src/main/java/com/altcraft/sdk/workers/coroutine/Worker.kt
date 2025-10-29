@@ -20,8 +20,8 @@ import kotlinx.coroutines.delay
 import java.util.UUID
 
 /**
- * Contains WorkManager classes for executing requests to send push events, subscribe,
- * and update the push token
+ * Contains WorkManager classes for executing requests to send push events, send mobile events,
+ * subscribe, and update the push token.
  */
 internal object Worker {
 
@@ -48,11 +48,9 @@ internal object Worker {
         appContext: Context,
         workerParams: WorkerParameters
     ) : CoroutineWorker(appContext, workerParams) {
+
         /**
-         * Executes the background task.
-         * Returns success, retry, or failure based on internal logic.
-         *
-         * @return Result of the background task.
+         * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
 
@@ -76,11 +74,9 @@ internal object Worker {
         appContext: Context,
         workerParams: WorkerParameters
     ) : CoroutineWorker(appContext, workerParams) {
+
         /**
-         * Executes the background task.
-         * Returns success, retry, or failure based on internal logic.
-         *
-         * @return Result of the background task.
+         * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
 
@@ -106,10 +102,7 @@ internal object Worker {
     ) : CoroutineWorker(appContext, workerParams) {
 
         /**
-         * Executes the background task.
-         * Returns success, retry, or failure based on internal logic.
-         *
-         * @return Result of the background task.
+         * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
 
@@ -146,10 +139,7 @@ internal object Worker {
         val uid = UUID.randomUUID().toString()
 
         /**
-         * Executes the background task.
-         * Returns success, retry, or failure based on internal logic.
-         *
-         * @return Result of the background task.
+         * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
 
@@ -161,7 +151,7 @@ internal object Worker {
                 checkServiceClosed(
                     applicationContext,
                     TOKEN_UPDATE_SERVICE,
-                    ++retrySubscribe
+                    ++retryUpdate
                 )
                 Result.retry()
             } else {

@@ -19,7 +19,8 @@ import retrofit2.http.Url
 import retrofit2.http.*
 
 /**
- * Interface for server API calls related to push subscriptions.
+ * Interface for SDK server API calls:
+ * subscriptions, updates, push/mobile events, and profile requests.
  */
 internal interface Api {
     /**
@@ -52,7 +53,7 @@ internal interface Api {
      * @param url Target endpoint.
      * @param authHeader Authorization token.
      * @param requestId Unique request ID.
-     * @param matchingMode Optional matching mode.
+     * @param matchingMode matching mode.
      * @param requestBody Event data in JSON.
      * @return Server response.
      */
@@ -111,12 +112,12 @@ internal interface Api {
     ): Response<JsonElement>
 
     /**
-     * Subscribes a device for push notifications.
+     * Retrieves profile information/status for a given subscription.
      *
      * @param url Target endpoint.
      * @param authHeader Authorization token.
      * @param requestId Unique request ID.
-     * @param matchingMode Optional user matching mode.
+     * @param matchingMode matching mode.
      * @param deviceToken save device token.
      * @return Server response.
      */

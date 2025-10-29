@@ -34,25 +34,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 /**
- * JsonFactoryUnitTest
+ * JsonFactoryTest
  *
- * Positive:
+ * Positive scenarios:
  *  - test_1: createSubscribeJson builds full payload (fields, cats, booleans).
- *  - test_2: createPushEventJson builds minimal payload (time + smid).
+ *  - test_2: createPushEventJson builds minimal payload (TIME + SMID).
  *  - test_3: createUpdateJson includes old/new token/provider.
  *  - test_4: createUnSuspendJson wraps subscription and sets replace=true.
  *
- * Edge:
+ * Edge scenarios:
  *  - test_5: createSubscribeJson handles null profile/fields and empty cats.
  *  - test_6: createUpdateJson handles null oldToken/oldProvider (new* must be non-null).
- *
- * Notes:
- *  - Pure JVM unit tests (no Android runtime).
- *  - Uses kotlinx.serialization JsonObject.
  */
 class JsonFactoryTest {
-
-    // ---------- Helpers ----------
 
     private fun subscribeReq(
         provider: String = "android-firebase",
@@ -62,7 +56,7 @@ class JsonFactoryTest {
         profileFields: JsonElement? = null,
         fields: JsonElement? = null,
         cats: List<CategoryData>? = listOf(
-            CategoryData(name = "news", title = "News",   steady = true,  active = true),
+            CategoryData(name = "news", title = "News", steady = true, active = true),
             CategoryData(name = "sports", title = "Sports", steady = false, active = true),
         ),
         replace: Boolean? = true,
@@ -133,9 +127,7 @@ class JsonFactoryTest {
         matchingMode = matching
     )
 
-    // ---------- Tests ----------
-
-    /** Verifies subscribe JSON structure with fields/cats/booleans */
+    /** - test_1: createSubscribeJson builds full payload (fields, cats, booleans). */
     @Test
     fun createSubscribeJson_buildsFullPayload() {
         val pf = buildJsonObject { put("age", JsonPrimitive(25)) }
@@ -158,17 +150,17 @@ class JsonFactoryTest {
         val cats = sub[CATS]?.jsonArray!!
         assertEquals(2, cats.size)
         val c0 = cats[0].jsonObject
-        assertEquals("news",  c0[CATS_NAME]?.jsonPrimitive?.content)
-        assertEquals("News",  c0[CATS_TITLE]?.jsonPrimitive?.content)
-        assertEquals(true,    c0[CATS_STEADY]?.jsonPrimitive?.boolean)
-        assertEquals(true,    c0[CATS_ACTIVE]?.jsonPrimitive?.boolean)
+        assertEquals("news", c0[CATS_NAME]?.jsonPrimitive?.content)
+        assertEquals("News", c0[CATS_TITLE]?.jsonPrimitive?.content)
+        assertEquals(true, c0[CATS_STEADY]?.jsonPrimitive?.boolean)
+        assertEquals(true, c0[CATS_ACTIVE]?.jsonPrimitive?.boolean)
 
         assertEquals(25, obj[PROFILE_FIELDS]?.jsonObject?.get("age")?.jsonPrimitive?.int)
-        assertEquals(true,  obj[REPLACE]?.jsonPrimitive?.boolean)
+        assertEquals(true, obj[REPLACE]?.jsonPrimitive?.boolean)
         assertEquals(false, obj[SKIP_TRIGGERS]?.jsonPrimitive?.boolean)
     }
 
-    /** Verifies minimal push event JSON (TIME + SMID) */
+    /** - test_2: createPushEventJson builds minimal payload (TIME + SMID). */
     @Test
     fun createPushEventJson_minimalPayload() {
         val json = JsonFactory.createPushEventJson(pushReq(uid = "E123", time = 999L))
@@ -179,7 +171,7 @@ class JsonFactoryTest {
         assertEquals(2, obj.size)
     }
 
-    /** Verifies update JSON contains old/new token/provider */
+    /** - test_3: createUpdateJson includes old/new token/provider. */
     @Test
     fun createUpdateJson_includesOldNewValues() {
         val json = JsonFactory.createUpdateJson(
@@ -193,7 +185,7 @@ class JsonFactoryTest {
         assertEquals("android-huawei", obj[NEW_PROVIDER]?.jsonPrimitive?.content)
     }
 
-    /** Verifies unSuspend JSON wraps subscription and sets replace=true */
+    /** - test_4: createUnSuspendJson wraps subscription and sets replace=true. */
     @Test
     fun createUnSuspendJson_wrapsSubscription_andSetsReplaceTrue() {
         val json = JsonFactory.createUnSuspendJson(unSuspendReq(provider = "android-firebase", token = "TT"))
@@ -206,7 +198,7 @@ class JsonFactoryTest {
         assertEquals(true, obj[REPLACE]?.jsonPrimitive?.boolean)
     }
 
-    /** Verifies subscribe JSON with null profile/fields and empty cats */
+    /** - test_5: createSubscribeJson handles null profile/fields and empty cats. */
     @Test
     fun createSubscribeJson_handlesNullsAndEmptyCats() {
         val json = JsonFactory.createSubscribeJson(
@@ -232,7 +224,7 @@ class JsonFactoryTest {
         assertEquals(false, obj[SKIP_TRIGGERS]?.jsonPrimitive?.boolean)
     }
 
-    /** Verifies update JSON handles nullable oldToken/oldProvider (new* must be non-null by model) */
+    /** - test_6: createUpdateJson handles null oldToken/oldProvider (new* must be non-null). */
     @Test
     fun createUpdateJson_handlesNullOldFields() {
         val json = JsonFactory.createUpdateJson(
@@ -240,7 +232,7 @@ class JsonFactoryTest {
         )
         val obj = json.jsonObject
 
-        assertTrue(obj[OLD_TOKEN]    is JsonNull)
+        assertTrue(obj[OLD_TOKEN] is JsonNull)
         assertTrue(obj[OLD_PROVIDER] is JsonNull)
         assertEquals("nt", obj[NEW_TOKEN]?.jsonPrimitive?.content)
         assertEquals("android-huawei", obj[NEW_PROVIDER]?.jsonPrimitive?.content)

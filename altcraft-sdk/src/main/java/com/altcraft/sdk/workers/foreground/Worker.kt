@@ -106,6 +106,7 @@ internal object Worker {
      * the appropriate [ForegroundInfo] based on API level.
      *
      * @param context Application context used to access system services.
+     * @param id Notification ID used for the foreground service.
      * @return A configured [ForegroundInfo], or `null` if creation fails.
      */
     private suspend fun createForegroundInfo(context: Context, id: Int): ForegroundInfo? {

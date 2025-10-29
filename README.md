@@ -15,12 +15,13 @@ The SDK automates push notification delivery, event submission, request retries,
 
 ## Features
 
+* [x] Works with anonymous and registered users; supports multiple profiles on one device (JWT).
 * [x] Push subscription management: `pushSubscribe()`, `pushSuspend()`, `pushUnSubscribe()`.
 * [x] Automatic display of platform-configured push notifications with access to all `data` keys.
 * [x] Automatic push token update when it changes.
-* [x] Automatic reporting of delivery and open events.
-* [x] Works with anonymous and registered users; supports multiple profiles on one device (JWT).
-* [x] Automatic retries for failed requests.
+* [x] Automatic transmission of notification delivery and open events.
+* [x] Mobile events registration.
+* [x] Automatic retry of failed requests.
 * [x] Support for push providers: Firebase, Huawei, RuStore.
 * [x] Request security via JWT and flexible ID matching.
 * [x] `rToken` support for simple subscription scenarios.
@@ -69,18 +70,10 @@ Profile lookup is limited to the push token identifier.
 
 ---
 
-## Documentations
+## Installation Guides
 
-Detailed information on SDK setup, functionality, and usage is available on the Altcraft documentation portal. You can navigate to the required section using the links below:
-
-- [**Quick Start**](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/quick-start/)
-- [**SDK Functionality**](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/functionality)
-- [**SDK Configuration**](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/setup)
-- [**Functions and Classes**](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/functions-and-classes)
-- **Provider Setup**
-    * [FCM](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/providers/fcm/)
-    * [HMS](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/providers/hms)
-    * [RuStore](https://guides.altcraft.com/en/developer-guide/sdk/v2/android/providers/rustore)
+* [Altcraft SDK](https://guides.altcraft.com/en/developer-guide/sdk/)
+* [Firebase Cloud Messaging (FCM) integration](https://guides.altcraft.com/en/developer-guide/sdk/android/)
 
 ---
 
@@ -90,13 +83,12 @@ Altcraft Android SDK is distributed under the **MIT** license.
 
 ### Third-party libraries and licenses
 
-**Apache License 2.0**  
-Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).  
-You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+**Apache License 2.0**
 
 * [Kotlin](https://github.com/JetBrains/kotlin)
 * [KotlinX Serialization](https://github.com/Kotlin/kotlinx.serialization)
 * [KotlinX Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
+* [Glide](https://github.com/bumptech/glide)
 * [Retrofit](https://github.com/square/retrofit)
 * [OkHttp](https://github.com/square/okhttp)
 * [AndroidX Room](https://developer.android.com/jetpack/androidx/releases/room)
@@ -104,12 +96,12 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [AndroidX Lifecycle](https://developer.android.com/jetpack/androidx/releases/lifecycle)
 * [AndroidX Test](https://developer.android.com/testing)
 * [Material Components for Android](https://github.com/material-components/material-components-android)
+* [JUnit](https://junit.org/junit4/)
 * [MockK](https://mockk.io/)
 
-**Other licenses:**
-* [Glide](https://github.com/bumptech/glide) — **BSD-2-Clause** 
-* [JUnit 4](https://junit.org/junit4/) — **EPL-1.0 (Eclipse Public License 1.0)**
-* [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
+**Other licenses**
+
+* [Java JWT (Auth0)](https://github.com/auth0/java-jwt) — MIT
 
 ---
 

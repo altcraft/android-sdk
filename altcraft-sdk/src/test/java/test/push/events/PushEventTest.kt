@@ -27,14 +27,14 @@ import org.junit.Test
 /**
  * PushEventTest
  *
- * Covers:
- *  - sendPushEvent null UID → logs error, no DB insert.
- *  - sendPushEvent offline → logs error, inserts entity, starts worker (prod behavior).
- *  - sendPushEvent returns RetryError → inserts entity, starts worker.
- *  - sendPushEvent success → no insert, no worker.
- *  - isRetry success path → deletes entity, returns false.
- *  - isRetry with RetryError → increases retry count, no delete, returns true.
- *  - sendAllPushEvents concurrency → deletes both on success.
+ * Positive scenarios:
+ *  - test_1: sendPushEvent with null UID → logs error, no DB insert, no worker
+ *  - test_2: sendPushEvent offline + RetryError → inserts entity and starts worker
+ *  - test_3: sendPushEvent online + RetryError → inserts entity and starts worker
+ *  - test_4: sendPushEvent success → no insert and no worker
+ *  - test_5: isRetry with success → deletes entity and returns false
+ *  - test_6: isRetry with RetryError → increases retry count, no delete, returns true
+ *  - test_7: sendAllPushEvents parallel success → deletes both entities
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PushEventTest {
@@ -52,7 +52,6 @@ class PushEventTest {
 
     @Before
     fun setUp() {
-        // Stub android.util.Log with explicit types for JVM tests
         mockkStatic(Log::class)
         every { Log.d(any<String>(), any<String>()) } returns 0
         every { Log.i(any<String>(), any<String>()) } returns 0
@@ -65,13 +64,11 @@ class PushEventTest {
         ctx = mockk(relaxed = true)
         entity = PushEventEntity(UID_1, TYPE_OPEN)
 
-        // Mock singletons/objects
         mockkObject(Request)
         mockkObject(LaunchFunctions)
         mockkObject(Events)
-        mockkObject(SDKdb)
+        mockkObject(SDKdb.Companion)
 
-        // Mock DB/DAO
         db = mockk(relaxed = true)
         dao = mockk(relaxed = true)
         every { SDKdb.getDb(ctx) } returns db
@@ -86,7 +83,7 @@ class PushEventTest {
         every { com.altcraft.sdk.additional.SubFunction.isOnline(ctx) } returns isOnline
     }
 
-    /** test_1: Null UID → logs error, does not insert or start worker. */
+    /** - test_1: sendPushEvent with null UID → logs error, no DB insert, no worker. */
     @Test
     fun sendPushEvent_nullUid_triggersError_noInsert() = runTest {
         mockOnline(true)
@@ -99,7 +96,7 @@ class PushEventTest {
         coVerify(exactly = 0) { Request.pushEventRequest(any(), any()) }
     }
 
-    /** test_2: Offline → logs error; when request returns RetryError, entity is enqueued and worker started. */
+    /** - test_2: sendPushEvent offline + RetryError → inserts entity and starts worker. */
     @Test
     fun sendPushEvent_offline_enqueuesAndStartsWorker() = runTest {
         mockOnline(false)
@@ -108,13 +105,11 @@ class PushEventTest {
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, UID_1)
 
         verify { Events.error(FUNC_SEND, any()) }
-        coVerify(exactly = 1) {
-            dao.insertPushEvent(match { it.uid == UID_1 && it.type == TYPE_OPEN })
-        }
+        coVerify(exactly = 1) { dao.insertPushEvent(match { it.uid == UID_1 && it.type == TYPE_OPEN }) }
         verify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
     }
 
-    /** test_3: Request returns RetryError → entity inserted and worker started (online). */
+    /** - test_3: sendPushEvent online + RetryError → inserts entity and starts worker. */
     @Test
     fun sendPushEvent_retry_insertsAndStartsWorker() = runTest {
         mockOnline(true)
@@ -122,14 +117,12 @@ class PushEventTest {
 
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, UID_1)
 
-        coVerify(exactly = 1) {
-            dao.insertPushEvent(match { it.uid == UID_1 && it.type == TYPE_OPEN })
-        }
+        coVerify(exactly = 1) { dao.insertPushEvent(match { it.uid == UID_1 && it.type == TYPE_OPEN }) }
         verify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
         verify(exactly = 0) { Events.error(FUNC_SEND, any()) }
     }
 
-    /** test_4: Request success → no DB insert and no worker start. */
+    /** - test_4: sendPushEvent success → no DB insert and no worker start. */
     @Test
     fun sendPushEvent_success_doesNotInsertOrStartWorker() = runTest {
         mockOnline(true)
@@ -141,7 +134,7 @@ class PushEventTest {
         verify(exactly = 0) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
     }
 
-    /** test_5: isRetry with success → entity deleted, returns false. */
+    /** - test_5: isRetry with success → deletes entity and returns false. */
     @Test
     fun isRetry_success_deletesAndReturnsFalse() = runTest {
         coEvery { dao.getAllPushEvents() } returns listOf(entity) andThen emptyList()
@@ -153,7 +146,7 @@ class PushEventTest {
         coVerify { dao.deletePushEventByUid(UID_1) }
     }
 
-    /** test_6: isRetry with RetryError → retry count increased, not deleted, returns true. */
+    /** - test_6: isRetry with RetryError → increases retry count, no delete, returns true. */
     @Test
     fun isRetry_withRetry_increasesRetryAndReturnsTrue() = runTest {
         coEvery { dao.getAllPushEvents() } returnsMany listOf(listOf(entity), listOf(entity))
@@ -166,7 +159,7 @@ class PushEventTest {
         coVerify(exactly = 0) { dao.deletePushEventByUid(any()) }
     }
 
-    /** test_7: sendAllPushEvents with two items → both deleted on success (concurrent). */
+    /** - test_7: sendAllPushEvents parallel success → deletes both entities. */
     @Test
     fun sendAllPushEvents_parallelSuccessDeletesBoth() = runTest {
         val e1 = PushEventEntity("u1", TYPE_OPEN)

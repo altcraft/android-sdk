@@ -19,9 +19,9 @@ import com.altcraft.sdk.workers.coroutine.Request.updateRequest
 
 /**
  * Provides entry points to launch coroutine-based WorkManager tasks
- * as unique work chains with predefined policies.
+ * as unique work chains with a predefined policy.
  *
- * Used to enqueue background jobs for push events, subscription, and updates
+ * Used to enqueue background jobs for push events, mobile events, subscription, and updates
  * without awaiting their results.
  */
 internal object LaunchFunctions {
@@ -54,7 +54,7 @@ internal object LaunchFunctions {
                 MOBILE_EVENT_C_WORK_NAME, policy, mobileEventRequest()
             ).enqueue()
         } catch (e: Exception) {
-            error("startPushEventCoroutineWorker", e)
+            error("startMobileEventCoroutineWorker", e)
         }
     }
 

@@ -26,10 +26,6 @@ import org.junit.Test
  *  - test_9: Cycles detection returns JsonNull on cyclic reference.
  *  - test_10: Max depth guard returns JsonNull when depth limit reached.
  *  - test_11: maxCollectionElements limits array/object size.
- *
- * Notes:
- *  - Pure JVM unit tests (no Android).
- *  - Asserts rely on kotlinx.serialization.json APIs.
  */
 class MapExtensionTest {
 

@@ -6,6 +6,7 @@ package com.altcraft.sdk.core
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.annotation.Keep
 import androidx.core.content.edit
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
@@ -32,8 +33,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Clears SDK data from DB, preferences, and active workers.
  *
- * - Removes data from all SDK tables.
  * - Cancels background workers and services.
+ * - Removes data from all SDK tables.
  * - Clears related SharedPreferences and flags.
  */
 internal object ClearCache {
@@ -52,6 +53,15 @@ internal object ClearCache {
                 retryControl = AtomicBoolean(false)
                 tokens.clear()
 
+                // Cancel any ongoing workers or tasks
+                suspendCoroutine { continuation ->
+                    cancelCoroutineWorkersTask(context) {
+                        continuation.resume(Unit)
+                    }
+                }
+
+                cancelPeriodicalWorkersTask(context)
+
                 // Get the instance of the SDK database
                 val room = SDKdb.getDb(context)
 
@@ -60,13 +70,6 @@ internal object ClearCache {
                 room.request().deleteAllSubscriptions()
                 room.request().deleteAllPushEvents()
                 room.request().deleteAllMobileEvents()
-
-                // Cancel any ongoing workers or tasks
-                suspendCoroutine { continuation ->
-                    cancelCoroutineWorkersTask(context) {
-                        continuation.resume(Unit)
-                    }
-                }
 
                 // Intent to close services
                 stopService(context, SUBSCRIBE_SERVICE)
@@ -78,8 +81,6 @@ internal object ClearCache {
                     remove(Preferenses.MANUAL_TOKEN_KEY)
                     remove(Preferenses.MESSAGE_ID_KEY)
                 }
-
-                cancelPeriodicalWorkersTask(context)
 
                 //Switch to the main thread to notify completion
                 withContext(Dispatchers.Main) {

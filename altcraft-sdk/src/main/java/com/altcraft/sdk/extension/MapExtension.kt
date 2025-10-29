@@ -16,11 +16,10 @@ import java.util.IdentityHashMap
  * `MapExtension` provides helpers to convert maps to WorkManager `Data` and JSON structures.
  */
 internal object MapExtension {
+
     /**
      * Converts a [Map] of [String] keys and [String] values into a [Data] object
      * suitable for WorkManager, or returns `null` if building the [Data] fails.
-     *
-     * This method catches internal WorkManager exceptions such as size limit or invalid input.
      *
      * @receiver Map of key-value pairs to encode.
      * @return [Data] if conversion is successful; `null` otherwise.
@@ -35,22 +34,23 @@ internal object MapExtension {
     }
 
     /**
-     * Converts a [Map] with `String` keys and arbitrary values to a [JsonElement].
+     * Converts a [Map] with `String` keys and arbitrary values into a [JsonElement].
      *
-     * Supports nested maps, lists, primitives, enums, and nulls.
-     * Values are recursively converted to their JSON representations.
+     * Supports nested maps, collections, sequences, arrays, primitives, enums, and nulls.
+     * Cyclic references are safely ignored, and non-string keys are skipped.
      *
-     * @return The [JsonElement] representing the entire map structure.
+     * @receiver The source map to convert.
+     * @param maxDepth Maximum recursion depth before returning [JsonNull].
+     * @param maxCollectionElements Maximum number of elements per collection or array.
+     * @return A [JsonElement] representing the entire map structure.
      */
     fun Map<String, Any?>.mapToJson(
         maxDepth: Int = 64,
         maxCollectionElements: Int = 10_000
     ): JsonElement {
-        // Track current recursion path by identity to break cycles
         val visiting = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
 
         fun Any?.toJson(depth: Int): JsonElement {
-            // Depth guard to prevent StackOverflowError
             if (depth >= maxDepth) return JsonNull
 
             return try {
@@ -64,7 +64,7 @@ internal object MapExtension {
 
                     // --- Maps ---
                     is Map<*, *> -> {
-                        if (!visiting.add(this)) return JsonNull // cycle guard
+                        if (!visiting.add(this)) return JsonNull
                         try {
                             buildJsonObject {
                                 var count = 0
@@ -80,7 +80,7 @@ internal object MapExtension {
 
                     // --- Iterable (covers List, Set, etc.) ---
                     is Iterable<*> -> {
-                        if (!visiting.add(this)) return JsonNull // cycle guard
+                        if (!visiting.add(this)) return JsonNull
                         try {
                             buildJsonArray {
                                 for ((count, item) in this@toJson.withIndex()) {
@@ -95,7 +95,7 @@ internal object MapExtension {
 
                     // --- Sequence (may be infinite) ---
                     is Sequence<*> -> {
-                        if (!visiting.add(this)) return JsonNull // cycle guard
+                        if (!visiting.add(this)) return JsonNull
                         try {
                             buildJsonArray {
                                 var count = 0
@@ -112,7 +112,7 @@ internal object MapExtension {
 
                     // --- Arrays (reference arrays) ---
                     is Array<*> -> {
-                        if (!visiting.add(this)) return JsonNull // cycle guard
+                        if (!visiting.add(this)) return JsonNull
                         try {
                             buildJsonArray {
                                 for ((count, item) in this@toJson.withIndex()) {
@@ -178,7 +178,6 @@ internal object MapExtension {
                     else -> JsonPrimitive(runCatching { this.toString() }.getOrDefault("null"))
                 }
             } catch (t: Throwable) {
-                // Catch Throwable to avoid crashing on Errors; return null JSON node on failure
                 error("mapToJson", t)
                 JsonNull
             }

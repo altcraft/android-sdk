@@ -50,14 +50,17 @@ internal object Retry {
             fcmProvider != null || hmsProvider != null || rustoreProvider != null
 
     /**
-     * Launches background tasks related to the push module:
-     * - periodic worker supervision,
-     * - retry flow for pending subscriptions,
-     * - push-token update checks,
-     * - retrying delivery/open push events.
+     * Launches processing of mobile events and, if applicable, push-related requests.
      *
-     * The start is gated by [retryControl] (one start per process) and is triggered
-     * only when the app is not in foreground (via `foregroundCallback`).
+     * What it does:
+     * - Checks the state of the periodic mobile-events worker and sends any pending mobile events.
+     * - If a push-token source is active (see `pushModuleIsActive()`), executes pending requests
+     * related to push, including push-token update checks.
+     *
+     * Start conditions:
+     * - Controlled by `retryControl` to ensure a single launch per process.
+     * - Triggered only when the app is in the foreground (see `foregroundCallback`;
+     * early return on `!foreground`).
      *
      * @param context Application context.
      */

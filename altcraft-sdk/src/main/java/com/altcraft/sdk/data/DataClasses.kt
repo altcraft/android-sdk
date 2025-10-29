@@ -37,8 +37,8 @@ object DataClasses {
      * Represents a general event with associated details.
      *
      * @property function The name or identifier of the function where the event occurred.
-     * @property eventMessage An optional message providing additional details about the event.
      * @property eventCode An optional code identifying the event type.
+     * @property eventMessage An optional message providing additional details about the event.
      * @property eventValue An optional value associated with the event.
      * @property date The date and time when the event occurred.
      */
@@ -57,10 +57,10 @@ object DataClasses {
      * Used for storing information about errors.
      *
      * @param function The name or identifier of the function where the error occurred.
-     * @param eventMessage An optional message providing details about the error.
      * @param eventCode An optional code identifying the error type.
+     * @param eventMessage An optional message providing details about the error.
      * @param eventValue An optional value associated with the error.
-     * @param date The date and time when the error occurred .
+     * @param date The date and time when the error occurred.
      */
     @Keep
     open class Error(
@@ -76,8 +76,8 @@ object DataClasses {
      * This class extends `Error` and is used for errors that support retry mechanisms.
      *
      * @param function The name or identifier of the function where the retryable error occurred.
-     * @param eventMessage An optional message providing details about the retryable error.
      * @param eventCode An optional code identifying the retryable error type.
+     * @param eventMessage An optional message providing details about the retryable error.
      * @param eventValue An optional value associated with the retryable error.
      * @param date The date and time when the retryable error occurred.
      */
@@ -149,12 +149,12 @@ object DataClasses {
     )
 
     /**
-     * Represents user profile data, including the ID, status, and subscriptions.
+     * Represents user profile data, including the ID, status, and subscription details.
      *
      * @property id The unique profile identifier.
      * @property status The profile status as a string.
      * @property isTest Indicates whether the profile is a test profile.
-     * @property subscription A list of the user's subscriptions.
+     * @property subscription Subscription details for the profile (optional).
      */
     @Keep
     @Serializable
@@ -167,11 +167,13 @@ object DataClasses {
     )
 
     /**
-     * Represents a subscription with its ID, status, and associated categories.
+     * Represents a subscription with its identifiers, status, provider, fields, and categories.
      *
      * @property subscriptionId The subscription token.
      * @property hashId The unique subscription identifier.
+     * @property provider The subscription provider (e.g., "android-firebase").
      * @property status The subscription status as a string.
+     * @property fields The field map (optional).
      * @property cats A list of subscription categories.
      */
     @Keep
@@ -207,7 +209,9 @@ object DataClasses {
     /**
      * A data class representing token data used for push notifications.
      *
-     * @property provider The push notification provider (Firebase, Huawei, Rustore.).
+     * @property provider The push notification provider (
+     * android-firebase, android-huawei, android-rustore
+     * ).
      * @property token The device-specific token used for push notifications.
      */
     @Keep
@@ -225,7 +229,7 @@ object DataClasses {
     }
 
     /**
-     * Base interface for all subscription types.
+     * Base interface for all subscription types added to a profile via mobile events.
      *
      * @property resourceId Resource identifier.
      * @property status Subscription status (optional).
@@ -388,15 +392,15 @@ object DataClasses {
      *
      * Represents identifiers that can be used to match a profile in the platform.
      *
-     * @param dbId            ID of the database used for matching.
-     * @param matching        Matching method.
-     * @param email           Matching identifier: profile email.
-     * @param phone           Matching identifier: profile phone number.
-     * @param profileId       Matching identifier: unique profile ID in the platform.
-     * @param fieldName       Matching identifier: custom field name (for custom matching).
-     * @param fieldValue      Matching identifier: custom field value (string or number).
-     * @param provider        Matching identifier: provider code (if the matching requires it).
-     * @param subscriptionId  Matching identifier: subscription id.
+     * @param dbId ID of the database used for matching.
+     * @param matching Matching method.
+     * @param email Matching identifier: profile email.
+     * @param phone Matching identifier: profile phone number.
+     * @param profileId Matching identifier: unique profile ID in the platform.
+     * @param fieldName Matching identifier: custom field name (for custom matching).
+     * @param fieldValue Matching identifier: custom field value (string or number).
+     * @param provider Matching identifier: provider code (if the matching requires it).
+     * @param subscriptionId Matching identifier: subscription id.
      */
     @Serializable
     internal data class JWTMatching(
@@ -448,13 +452,11 @@ object DataClasses {
     /**
      * Contains the data needed to create all types of SDK requests.
      *
-     * This data class stores key parameters that are used across various authentication
-     * and update processes, including configuration details, authentication headers,
-     * and token information.
-     *
      * @property config The configuration entity containing SDK settings.
-     * @property authHeader The authentication header required for making secure API requests.
-     * @property matchingMode The mode used for matching authentication details.
+     * @property currentToken The current device token with provider.
+     * @property savedToken The last saved token with provider.
+     * @property authHeader The authentication header required for secure API requests.
+     * @property matchingMode The type of matching for profile search.
      */
     internal data class CommonData(
         val config: ConfigurationEntity,
@@ -468,17 +470,18 @@ object DataClasses {
      * Represents the data required to create a subscription request.
      *
      * @property url API endpoint URL.
-     * @property time Request timestamp.
+     * @property time Request timestamp (epoch millis).
      * @property rToken Resource token (optional).
      * @property uid Unique request ID.
      * @property authHeader Authorization header.
-     * @property matchingMode Matching mode for authentication.
+     * @property matchingMode Matching type for profile search.
      * @property provider Push provider (e.g., android-firebase).
      * @property deviceToken Current device token.
      * @property status Subscription status.
-     * @property sync `1` for sync, `0` for async.
-     * @property fields Extra subscription fields.
-     * @property cats Category map (optional).
+     * @property sync `1` for sync, `0` for async (optional).
+     * @property profileFields Profile fields payload (optional).
+     * @property fields Extra subscription fields payload (optional).
+     * @property cats List of category objects (optional).
      * @property replace If `true`, replaces existing subscription.
      * @property skipTriggers If `true`, skips trigger execution.
      */
@@ -527,14 +530,12 @@ object DataClasses {
     /**
      * Data class representing the necessary data for sending a push event request.
      *
-     * This class encapsulates all required parameters for a push event API call,
-     * ensuring that only valid data is included in the request.
-     *
      * @property url The full API endpoint for the push event.
-     * @property time The timestamp of the push event in ISO 8601 format.
-     * @property authHeader The authorization header (Bearer token).
+     * @property time The event timestamp (epoch millis).
+     * @property type The push event type ("delivery", "open").
      * @property uid The unique request identifier (matches uid in PushEventEntity).
-     * @property matchingMode The optional matching mode parameter (excluded if null).
+     * @property authHeader The authorization header (Bearer token).
+     * @property matchingMode Matching type for profile search.
      */
     internal data class PushEventRequestData(
         val url: String,
@@ -548,10 +549,7 @@ object DataClasses {
     /**
      * Data class representing the necessary data for sending a mobile event request.
      *
-     * This class encapsulates all required parameters for a mobile event API call,
-     * ensuring that only valid data is included in the request.
-     *
-     * @property url The full API endpoint for the push event.
+     * @property url The full API endpoint for the mobile event.
      * @property sid The string ID of the pixel.
      * @property name The event name.
      * @property authHeader The authorization header (Bearer token).
@@ -564,14 +562,14 @@ object DataClasses {
     ) : RequestData
 
     /**
-     * Represents the required data for profile request, including the URL, headers,
-     * and subscription details.
+     * Represents the data required for a profile status request.
      *
-     * @property url The full API endpoint for the push event.
+     * @property url The full API endpoint.
+     * @property uid The unique request identifier.
      * @property authHeader The authorization header (Bearer token).
-     * @property uid The unique request identifier (matches uid in PushEventEntity).
-     * @property provider The provider identifier.
-     * @property matchingMode The optional matching mode parameter (excluded if null).
+     * @property matchingMode Matching type for profile search.
+     * @property provider The provider identifier (optional).
+     * @property token The token associated with the provider (optional).
      */
     internal data class StatusRequestData(
         val url: String,
@@ -585,8 +583,12 @@ object DataClasses {
     /**
      * Data model for the unSuspend request payload.
      *
+     * @property url The full API endpoint.
+     * @property uid The unique request identifier.
      * @property provider Push notification provider name.
-     * @property token Device push token (subscription ID).
+     * @property token Device push token.
+     * @property authHeader The authorization header (Bearer token).
+     * @property matchingMode Matching type for profile search.
      */
     internal data class UnSuspendRequestData(
         val url: String,

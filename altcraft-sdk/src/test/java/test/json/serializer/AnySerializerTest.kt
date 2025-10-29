@@ -49,14 +49,8 @@ import java.util.concurrent.atomic.AtomicReference
  * ### Negative scenarios:
  * - **test_10:** Non-JSON decoder returns `JsonNull`.
  * - **test_11:** Invalid JSON elements handled safely via `toKotlinValueOrNull()`.
- *
- * ### Notes:
- * - Pure JVM unit tests.
- * - `Events.error()` is mocked to suppress side-effects.
  */
 class AnySerializerTest {
-
-    // Used in test_8
     @Suppress("unused")
     private enum class E { A, B }
 
@@ -64,7 +58,6 @@ class AnySerializerTest {
 
     @Before
     fun setUp() {
-        // Silence Events.error() so errors inside helpers don’t propagate
         mockkObject(Events)
         every { Events.error(any(), any()) } returns DataClasses.Error("fn", 400, "err", null)
         every { Events.error(any(), any(), any()) } returns DataClasses.Error("fn", 400, "err", null)
@@ -72,10 +65,6 @@ class AnySerializerTest {
 
     @After
     fun tearDown() = unmockkAll()
-
-    // -------------------------
-    // Helpers
-    // -------------------------
 
     /** Minimal non-JSON Decoder to trigger JsonNull branch in AnySerializer.deserialize */
     @OptIn(ExperimentalSerializationApi::class)
@@ -94,10 +83,6 @@ class AnySerializerTest {
             captured.set(value)
         }
     }
-
-    // -------------------------
-    // Tests
-    // -------------------------
 
     /** test_1: AnySerializer serialize/deserialize primitives with Json encoder/decoder */
     @Test
@@ -178,21 +163,18 @@ class AnySerializerTest {
     /** test_4: ToJson supports primitives, maps, iterables, arrays and prevents cycles */
     @Test
     fun test_4_toJson_features_and_cycles() {
-        // primitives
         assertEquals(JsonPrimitive(1), 1.toJsonElement())
         assertEquals(JsonPrimitive(true), true.toJsonElement())
         assertEquals(JsonPrimitive("x"), "x".toJsonElement())
 
-        // map
         val mapEl = mapOf("a" to 1, "b" to "s").toJsonElement()
         assertTrue(mapEl is JsonObject)
         val obj = mapEl as JsonObject
         assertEquals(JsonPrimitive(1), obj["a"])
         assertEquals(JsonPrimitive("s"), obj["b"])
 
-        // iterable + cycle
         val cyc = mutableListOf<Any>()
-        cyc.add(cyc) // self-reference
+        cyc.add(cyc)
         val cycEl = cyc.toJsonElement()
         assertTrue(cycEl is JsonArray)
         cycEl as JsonArray
@@ -203,18 +185,15 @@ class AnySerializerTest {
     /** test_5: ToJson respects maxDepth/maxElements guards */
     @Test
     fun test_5_toJson_limits() {
-        // Deeply nested list builder
         fun deep(n: Int): Any = if (n == 0) 1 else listOf(deep(n - 1))
 
-        // Depth limit
         val limitedDepth = deep(10).toJsonElement(maxDepth = 2)
         assertTrue(limitedDepth is JsonArray)
         val lvl1 = (limitedDepth as JsonArray)[0]
         assertTrue(lvl1 is JsonArray)
         val lvl2 = (lvl1 as JsonArray)[0]
-        assertTrue(lvl2 is JsonNull) // truncated at depth = 2
+        assertTrue(lvl2 is JsonNull)
 
-        // Elements limit
         val many = (0..1000).toList()
         val limited = many.toJsonElement(maxElements = 5)
         assertTrue(limited is JsonArray)

@@ -53,8 +53,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * `ServiceManager` object contains utility functions for managing and shutting down foreground services.
- * It provides methods to create intents to stop services, handle service shutdowns, and close services directly.
+ * Provides utility functions for managing and shutting down foreground services.
+ *
+ * Includes methods to start or stop services, handle shutdown intents,
+ * and manage related notifications and retry logic.
  */
 internal object ServiceManager {
 
@@ -84,10 +86,12 @@ internal object ServiceManager {
     }
 
     /**
-     * Starts the `PushSubscribeService` or schedules a corresponding `ListenableWorker` if necessary.
+     * Starts the `PushSubscribeService`
+     * or schedules a corresponding `ListenableWorker` if necessary.
      *
      * @param context The application context used for service or worker initialization.
-     * @param config The current configuration entity, which determines whether to use foreground services.
+     * @param config The current configuration entity, which determines whether to use
+     * foreground services.
      */
     fun startSubscribeWorker(context: Context, config: ConfigurationEntity) {
         try {
@@ -102,10 +106,12 @@ internal object ServiceManager {
     }
 
     /**
-     * Starts the `TokenUpdateService` or schedules a corresponding `ListenableWorker` if necessary.
+     * Starts the `TokenUpdateService`
+     * or schedules a corresponding `ListenableWorker` if necessary.
      *
      * @param context The application context used for service or worker initialization.
-     * @param config The current configuration entity, which determines whether to use foreground services.
+     * @param config The current configuration entity, which determines whether to use
+     * foreground services.
      */
     fun startUpdateWorker(context: Context, config: ConfigurationEntity) {
         try {
@@ -140,13 +146,13 @@ internal object ServiceManager {
     }
 
     /**
-     * Handles the closure status of a service when an intent is used to stop it.
-     * It checks the intent for the stop action and a flag indicating if the service
-     * closed successfully, then stops the service accordingly.
+     * Handles a stop request for a service when an intent with [STOP_SERVICE_ACTION] is received.
      *
-     * @param intent The `Intent` that initiated the service closure. Can be `null`
-     * if no intent was provided.
-     * @param service The `Service` instance that is being stopped.
+     * Checks the intent for the stop action and, if present, stops the service and removes its
+     * foreground state.
+     *
+     * @param intent The [Intent] that may contain the stop action; can be `null`.
+     * @param service The [Service] instance to be stopped.
      */
     fun closedServiceHandler(
         intent: Intent?,

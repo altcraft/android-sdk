@@ -24,14 +24,13 @@ import com.altcraft.sdk.push.events.PublicPushEventFunctions
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * The Aircraft object provides an interface for initializing the Aircraft SDK.
- * It performs configuration configuration, saves configuration data, and provides access to public
- * SDK objects.  It contains the initialization function, as well as the SDK data cleanup function.
+ * Central control point of the Altcraft SDK.
+ * Provides public APIs for interacting with the Altcraft platform.
  */
 @Keep
 object AltcraftSDK {
 
-    // Working with public subscription functions
+   //  Working with public subscription functions
     @Keep
     val pushSubscriptionFunctions = PublicPushSubscriptionFunctions
 
@@ -54,8 +53,8 @@ object AltcraftSDK {
     /**
      * Public entry point to initialize the Altcraft SDK.
      *
-     * @param context The Android application context required for internal setup.
-     * @param configuration The configuration object containing all necessary SDK parameters.
+     * @param context Android application context used by SDK internal processes.
+     * @param configuration Configuration object with required SDK parameters.
      */
     @Keep
     fun initialization(
@@ -67,11 +66,10 @@ object AltcraftSDK {
     }
 
     /**
-     * Clears the data SDK database objects, SharedPreferences, stops active WorkManager tasks,
-     * and active foreground services related to the SDK.
+     * Clears SDK data and stops active SDK background work.
      *
-     * @param context The application context used for cache clearing.
-     * @param onComplete A lambda function that is called after the cache clearing is complete.
+     * @param context Application context used for cleanup.
+     * @param onComplete Optional callback invoked after cleanup completes.
      */
     @Keep
     fun clear(context: Context, onComplete: (() -> Unit)? = null) {
@@ -98,14 +96,10 @@ object AltcraftSDK {
     }
 
     /**
-     * Requests notification permission from the user.
+     * Requests notification permission from the user (Android 13+).
      *
-     * This function prompts the user to grant the app permission to post notifications.
-     * This request is only necessary on Android versions TIRAMISU and above,
-     * where notification permissions need to be explicitly granted.
-     *
-     * @param context The context used to check the current permission status.
-     * @param activity The activity from which the permission request should be made.
+     * @param context Context for permission state check.
+     * @param activity Activity to present the permission prompt from.
      */
     @Keep
     fun requestNotificationPermission(context: Context, activity: ComponentActivity) {
@@ -114,7 +108,7 @@ object AltcraftSDK {
 
     /**
      * An open class responsible for receiving incoming push notifications.
-     * It can be overridden to receive Altcraft notifications in other application packages.
+     * Can be overridden to handle Altcraft notifications in other app modules.
      */
     @Keep
     open class PushReceiver {
@@ -132,7 +126,7 @@ object AltcraftSDK {
         companion object {
 
             /**
-             * Delivers a push message to the Altcraft SDK.
+             * Delivers a push message to the SDK for processing.
              *
              * @param context Application context.
              * @param message Push payload.

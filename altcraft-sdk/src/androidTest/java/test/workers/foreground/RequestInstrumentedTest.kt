@@ -36,8 +36,10 @@ import org.junit.runner.RunWith
 /**
  * ForegroundRequestInstrumentedTest
  *
- * test_1: startEventForegroundWorker() enqueues a real worker; worker requests foreground info and calls sendPushEvent(...)
- * test_2: startPushForegroundWorker() enqueues a real worker; worker requests foreground info and calls showPush(...)
+ * test_1: startEventForegroundWorker() enqueues a real worker; worker requests foreground info
+ * and calls sendPushEvent(...)
+ * test_2: startPushForegroundWorker() enqueues a real worker; worker requests foreground info
+ * and calls showPush(...)
  */
 @RunWith(AndroidJUnit4::class)
 class ForegroundRequestInstrumentedTest {
@@ -85,7 +87,6 @@ class ForegroundRequestInstrumentedTest {
 
         Request.startEventForegroundWorker(context, data)
 
-        // ServiceManager.createServiceNotification(...) is called with applicationContext, not targetContext.
         val ctxSlot = slot<Context>()
         coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)

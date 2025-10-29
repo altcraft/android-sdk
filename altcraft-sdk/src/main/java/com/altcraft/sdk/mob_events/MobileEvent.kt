@@ -44,19 +44,20 @@ internal object MobileEvent {
     /**
      * Sends a mobile event to the server.
      *
-     * This function prepares and triggers the delivery of a mobile event composed of
-     * mandatory identifiers and optional metadata.
+     * Prepares and enqueues delivery of a mobile event composed of mandatory identifiers
+     * and optional metadata.
      *
-     * @param context Application or module context initiating the send operation.
+     * @param context Application context initiating the send.
      * @param sid The string ID of the pixel.
-     * @param eventName event name.
-     * @param payloadFields arbitrary event data as a map; will be serialized to JSON.
-     * @param matching matching parameters; will be serialized to JSON.
-     * @param sendMessageId Send Message ID.
-     * @param profileFields Optional profile fields to include in the request.
-     * @param subscription The subscription that will be added to the profile.
-     * @param utmTags Optional UTM tags for campaign attribution.
-     * @param altcraftClientID Altcraft client identifier.
+     * @param eventName Event name.
+     * @param sendMessageId Optional internal message ID to link the event.
+     * @param payloadFields Optional event payload; serialized to JSON.
+     * @param matching Optional matching parameters; serialized to JSON.
+     * @param matchingType Optional matching mode used for the request.
+     * @param profileFields Optional profile fields; serialized to JSON.
+     * @param subscription Optional subscription to attach to the profile; serialized to JSON.
+     * @param utmTags Optional UTM tags for attribution.
+     * @param altcraftClientID Optional Altcraft client identifier.
      */
     fun sendMobileEvent(
         context: Context,
@@ -111,19 +112,19 @@ internal object MobileEvent {
     }
 
     /**
-     * Determines whether mobile event requests for the current user need to be retried
+     * Determines whether mobile event processing should be retried for the current user tag.
      *
-     * This function retrieves all mobile events for the given user (identified by `userTag`),
-     * ordered from oldest to newest, and attempts to process them. If a mobile event request
-     * fails with a `retry` error, it checks whether the retry limit has been reached.
-     * If the limit is not exceeded, the event will be retried; otherwise, the event is deleted.
+     * Iterates through mobile events ordered by time (oldest first):
+     * - If the request succeeds, the entity is deleted and processing continues.
+     * - If it fails with a retry error and the limit is not reached, returns `true`.
+     * - If the limit is reached, logs and deletes the entity. If no more entries remain,
+     *   returns `false`; otherwise continues with the next record.
      *
-     * Events that are successfully processed are immediately deleted from the database.
-     * The function ensures thread-safe processing of the user's mobile events using a mutex lock.
+     * Ensures sequential execution via a mutex to prevent concurrent access.
      *
-     * @param context The application context used for database operations
-     * @return `true` if at least one mobile event request for this user needs to be retried,
-     *         otherwise `false`.
+     * @param context Application context for config, user tag, and DB access.
+     * @return `true` if another retry is required; `false` otherwise.
+     * @throws CancellationException if the coroutine is cancelled.
      */
     suspend fun isRetry(context: Context): Boolean {
         return try {
@@ -134,9 +135,8 @@ internal object MobileEvent {
                 val room = SDKdb.getDb(context)
 
                 room.request().allMobileEventsByTag(tag).forEach {
-
                     if (mobileEventRequest(context, it) is retry) {
-                        return !isRetryLimit(room, it)
+                        if (!isRetryLimit(room, it)) return true
                     } else {
                         entityDelete(room, it)
                     }

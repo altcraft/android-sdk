@@ -28,7 +28,6 @@ import com.altcraft.sdk.sdk_events.Events.error
  */
 object ForegroundGate {
 
-    // Process-wide scope; no per-call leaks.
     private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val hasSubscription = AtomicBoolean(false)
@@ -62,7 +61,7 @@ object ForegroundGate {
 
     /**
     Always waits for foreground while the process is alive.
-    Single safe retry on the next main tick; no infinite loops.
+    Single safe retry on the next main tick.
      */
     private suspend fun awaitForegroundInternal(): Boolean =
         withContext(Dispatchers.Main.immediate) {

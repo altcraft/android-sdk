@@ -11,21 +11,23 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.push.action.Intent.getIntent
 
 /**
- * `NotificationExtension` provides utilities to enhance notifications
- * with actions and styles like BigPicture.
+ * Utilities to enrich [NotificationCompat.Builder] with actions and styles,
+ * including applying [NotificationCompat.BigPictureStyle].
  */
 internal object NotificationExtension {
 
     /**
      * Adds interactive action buttons to the notification.
      *
-     * Each button triggers an intent when clicked, allowing
-     * the notification to perform specific actions.
+     * Each button attaches a PendingIntent so that tapping the action triggers
+     * the associated deep link or URL.
      *
-     * @param context Used to create pending intents.
-     * @param buttons Optional list of actions to attach.
-     * @param uid Unique ID passed with each intent.
-     * @return Notification builder with actions added.
+     * @receiver The target [NotificationCompat.Builder].
+     * @param context Application context used to create pending intents.
+     * @param messageId Notification message ID used to distinguish intents.
+     * @param buttons Optional list of action descriptors to attach; if `null`, nothing is added.
+     * @param uid Unique identifier passed with each intent for tracking.
+     * @return The same [NotificationCompat.Builder] with actions appended (if any).
      */
     fun NotificationCompat.Builder.addActions(
         context: Context,
@@ -44,13 +46,15 @@ internal object NotificationExtension {
     }
 
     /**
-     * Applies BigPictureStyle to show a large image in the notification.
+     * Applies [NotificationCompat.BigPictureStyle] to show a large image in the notification.
      *
-     * If an image is available, the style is set with the given title.
-     * Errors are caught to prevent crashes during rendering.
+     * The style is applied only when a non-null `largeImage` is available in [data].
+     * Errors are caught to avoid crashes during rendering.
      *
-     * @param data Notification content including title and image.
-     * @return Notification builder with style applied if possible.
+     * @receiver The target [NotificationCompat.Builder].
+     * @param data Notification content including title and images.
+     * @return The same [NotificationCompat.Builder] with the style applied if possible,
+     *         or unchanged if no large image is available or an error occurs.
      */
     fun NotificationCompat.Builder.applyBigPictureStyle(
         data: DataClasses.NotificationData

@@ -5,10 +5,9 @@ package com.altcraft.sdk.sdk_events
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 /**
- * Object containing string constants used for creating event messages.
+ * Contains string constants used for creating and categorizing SDK event messages.
  *
- * The `EventMessage` object provides predefined string constants that represent various event
- * messages.
+ * Provides predefined message templates for informational, error, and retryable events.
  */
 @Suppress("SpellCheckingInspection")
 internal object EventList {
@@ -70,7 +69,7 @@ internal object EventList {
     val fieldsIsObjects = 472 to "invalid customFields: not all values are primitives"
 
     /**
-     * 424–425 — Missing request payloads (no automatic retry)
+     * 422,423 — Missing request payloads (no automatic retry)
      * These errors indicate missing request data for which the SDK does not attempt to recollect
      * or retry.
      */
@@ -108,7 +107,7 @@ internal object EventList {
     val mobEventRequestDataIsNull = 525 to "mobile event request data is null"
 
     /**
-     * 530–534 — SDK-to-server request errors with automatic retry by the SDK
+     * 530–535 — SDK-to-server request errors with automatic retry by the SDK
      *  - 530 → subscribe request failed
      *  - 531 → token update request failed
      *  - 534 → push event delivery failed

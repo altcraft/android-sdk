@@ -19,7 +19,7 @@ import kotlinx.coroutines.CompletableDeferred
 /**
  * Handles loading of images for push notifications.
  *
- * Provides methods to load the small icon, large banner, and fallback app icon.
+ * Provides methods to load the small icon, large banner.
  */
 internal object PushImage {
 

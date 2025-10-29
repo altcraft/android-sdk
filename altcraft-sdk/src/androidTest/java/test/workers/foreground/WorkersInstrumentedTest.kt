@@ -3,6 +3,7 @@
 package test.workers.foreground
 
 //  Created by Andrey Pogodin.
+//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.app.Notification
@@ -29,13 +30,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * ForegroundWorkerInstrumentedTest (updated for new Worker implementation)
+ * WorkersInstrumentedTest
  *
- * test_1: EventForegroundWorker — returns Success and calls sendPushEvent(context, DELIVERY, uid);
- *         also requests foreground notification via ServiceManager.createServiceNotification(...)
- * test_2: PushForegroundWorker  — returns Success and calls showPush(context, inputMap);
- *         also requests foreground notification via ServiceManager.createServiceNotification(...)
- *
+ * Positive scenarios:
+ * - test_1: EventForegroundWorker returns Success, requests foreground notification,
+ * and calls sendPushEvent(context, DELIVERY, uid).
+ * - test_2: PushForegroundWorker returns Success, requests foreground notification,
+ * and calls showPush(context, inputMap).
  */
 @RunWith(AndroidJUnit4::class)
 class WorkersInstrumentedTest {
@@ -45,13 +46,10 @@ class WorkersInstrumentedTest {
     @Before
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext
-
-        // Mock collaborators touched by workers.
         mockkObject(ServiceManager)
         mockkObject(PushEvent)
         mockkObject(PushPresenter)
 
-        // Provide a concrete Notification so ForegroundInfo creation succeeds across API levels.
         val fakeNotification: Notification =
             NotificationCompat.Builder(context, "test-channel")
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
@@ -59,7 +57,6 @@ class WorkersInstrumentedTest {
                 .setContentText("fg")
                 .build()
 
-        // IMPORTANT: these functions are NOT suspend; use `every`, not `coEvery`.
         coEvery { ServiceManager.createServiceNotification(any()) } returns fakeNotification
         coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
         coEvery { PushPresenter.showPush(any(), any()) } just Runs
@@ -73,7 +70,7 @@ class WorkersInstrumentedTest {
         unmockkAll()
     }
 
-    /** test_1: verifies Success result, foreground setup, and sendPushEvent(uid) call */
+    /** - test_1: EventForegroundWorker returns Success, sets foreground, and sends DELIVERY with uid. */
     @Test
     fun test_1_EventForegroundWorker_success_and_sendsDelivery() = runBlocking {
         val uid = "uid-123"
@@ -88,16 +85,13 @@ class WorkersInstrumentedTest {
         val result = worker.doWork()
         assertTrue(result is ListenableWorker.Result.Success)
 
-        // Foreground notification must be requested (uses applicationContext internally).
         val ctxSlot = slot<Context>()
         coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
-
-        // sendPushEvent called with DELIVERY and provided UID.
         coVerify(exactly = 1) { PushEvent.sendPushEvent(ctxSlot.captured, DELIVERY, uid) }
     }
 
-    /** test_2: verifies Success result, foreground setup, and showPush(inputMap) call */
+    /** - test_2: PushForegroundWorker returns Success, sets foreground, and shows push with input payload. */
     @Test
     fun test_2_PushForegroundWorker_success_and_showsPush() = runBlocking {
         val payload = mapOf(
@@ -117,8 +111,6 @@ class WorkersInstrumentedTest {
         val ctxSlot = slot<Context>()
         coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
-
-        // Verify showPush received the same data (at least key fields).
         coVerify(exactly = 1) {
             PushPresenter.showPush(ctxSlot.captured, withArg { map ->
                 assertEquals(payload["title"], map["title"])
@@ -128,4 +120,3 @@ class WorkersInstrumentedTest {
         }
     }
 }
-

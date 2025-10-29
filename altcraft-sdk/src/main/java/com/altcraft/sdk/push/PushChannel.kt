@@ -15,7 +15,7 @@ import com.altcraft.sdk.data.Constants.onlySound
 import com.altcraft.sdk.data.room.ConfigurationEntity
 
 /**
- * `PushChannel` manages creation and selection of Android notification channels
+ * Manages creation and selection of Android notification channels
  * with different sound and vibration configurations, based on push notification settings.
  */
 internal object PushChannel {
@@ -38,6 +38,7 @@ internal object PushChannel {
      * Creates a notification channel that has both sound and vibration enabled.
      *
      * @param context The context used to create the notification channel.
+     * @param info Channel name and description.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createAllSignalChannel(context: Context, info: Pair<String, String>) {
@@ -52,6 +53,7 @@ internal object PushChannel {
      * Creates a notification channel where both sound and vibration are disabled.
      *
      * @param context The context used to create the notification channel.
+     * @param info Channel name and description.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createSoundlessChannel(context: Context, info: Pair<String, String>) {
@@ -66,6 +68,7 @@ internal object PushChannel {
      * Creates a notification channel where sound is enabled but vibration is disabled.
      *
      * @param context The context used to create the notification channel.
+     * @param info Channel name and description.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createOnlySoundChannel(context: Context, info: Pair<String, String>) {

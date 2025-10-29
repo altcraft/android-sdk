@@ -14,7 +14,7 @@ import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.concurrency.withInitReady
 import com.altcraft.sdk.config.ConfigSetup.getConfig
-import com.altcraft.sdk.network.Request.subscribeRequest
+import com.altcraft.sdk.network.Request.pushSubscribeRequest
 import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.retry
@@ -39,8 +39,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Contains public functions for executing profile subscription-related requests and obtaining
- * profile information.
+ * Contains functions for managing the status of a push subscription.
  */
 internal object PushSubscribe {
 
@@ -51,14 +50,14 @@ internal object PushSubscribe {
      * Initiates a subscription process by storing subscription details in the database
      * and triggering the background worker to process pending subscriptions.
      *
-     * @param context The application context used for database operations.
-     * @param status The subscription status (default is "subscribe").
-     * @param sync An optional synchronization flag.
-     * @param customFields Additional custom fields associated with the subscription.
-     * @param profileFields Optional profile fields to include in the request.
-     * @param cats A map of category preferences for the subscription.
-     * @param replace A flag indicating whether to replace an existing subscription.
-     * @param skipTriggers A flag indicating whether to skip associated triggers.
+     * @param context Application context used for DB and worker scheduling.
+     * @param sync Optional flag passed through as-is to transport layer (1 for sync / 0 for async).
+     * @param status Target subscription status (default is SUBSCRIBED).
+     * @param customFields Optional custom fields to be merged and sent with the request.
+     * @param profileFields Optional profile fields to be included with the request.
+     * @param cats Optional list of category preferences to accompany the request.
+     * @param replace If `true`, marks the request to replace an existing subscription.
+     * @param skipTriggers If `true`, asks the server to skip trigger execution.
      */
     fun pushSubscribe(
         context: Context,
@@ -105,32 +104,31 @@ internal object PushSubscribe {
     }
 
     /**
-     * Determines whether subscription requests need to be retried
+     * Determines whether subscription processing should be retried for the current user tag.
      *
-     * This function retrieves all subscription records associated with the current user tag
-     * and attempts to process them. If a subscription request fails with a `RetryError`,
-     * it checks whether the retry limit has been reached. If the limit is exceeded, the subscription
-     * is deleted; otherwise, the retry count is incremented, and the subscription will be retried.
+     * Iterates through subscriptions ordered by time (oldest first):
+     * - If the request succeeds, the entity is deleted and processing continues.
+     * - If it fails with a retry error and the limit is not reached, returns `true`.
+     * - If the limit is reached, logs and deletes the entity. If no more entries remain,
+     *   returns `false`; otherwise continues with the next record.
      *
-     * Additionally, this function:
-     * - Ensures subscriptions are processed sequentially.
-     * - Calls `checkSubServerClosed()` after processing.
-     * - Releases the subscription lock to allow further operations.
+     * Ensures sequential execution via a mutex to prevent concurrent access.
      *
-     * @return `true` if at least one subscription request needs to be retried, otherwise `false`.
+     * @param context Application context for config, user tag, and DB access.
+     * @return `true` if another retry is required; `false` otherwise.
+     * @throws CancellationException if the coroutine is cancelled.
      */
     suspend fun isRetry(context: Context): Boolean {
         return try {
             sendAllSubscriptionsMutex.withLock {
-
                 val config = getConfig(context) ?: exception(configIsNull)
                 val tag = getUserTag(config.rToken) ?: exception(userTagIsNull)
 
                 val room = SDKdb.getDb(context)
 
                 room.request().allSubscriptionsByTag(tag).forEach {
-                    if (subscribeRequest(context, it) is retry) {
-                        return !isRetryLimit(room, it)
+                    if (pushSubscribeRequest(context, it) is retry) {
+                        if (!isRetryLimit(room, it)) return true
                     } else {
                         entityDelete(room, it)
                     }

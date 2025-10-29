@@ -16,6 +16,7 @@ import com.altcraft.sdk.sdk_events.Events.error
  * Provides two independent queues:
  * - InitCommandQueue — handles SDK initialization commands.
  * - SubscribeCommandQueue — handles subscription commands.
+ * - MobileEventCommandQueue - handles mobile event commands.
  *
  * Each queue runs on Dispatchers.IO, processing suspend functions in FIFO order.
  * Errors are caught, logged, and do not stop the loop.

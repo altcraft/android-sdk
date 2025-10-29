@@ -46,8 +46,10 @@ import java.util.concurrent.TimeUnit
  * RequestInstrumentedTest
  *
  * test_1: pushEventRequest() builds request with correct shape and runs -> SUCCEEDED
- * test_2: subscribeRequest() builds correctly and on run -> SUCCEEDED; closeService(..., PUSH_SUBSCRIBE_SERVICE, true)
- * test_3: updateRequest() builds correctly and on run -> SUCCEEDED; closeService(..., TOKEN_UPDATE_SERVICE, true)
+ * test_2: subscribeRequest() builds correctly and on run ->
+ * SUCCEEDED; closeService(..., PUSH_SUBSCRIBE_SERVICE, true)
+ * test_3: updateRequest() builds correctly and on run ->
+ * SUCCEEDED; closeService(..., TOKEN_UPDATE_SERVICE, true)
  * test_4: mobileEventRequest() builds request with correct shape and runs -> SUCCEEDED
  */
 @RunWith(AndroidJUnit4::class)
@@ -71,12 +73,10 @@ class RequestInstrumentedTest {
 
         mockkObject(SubFunction, ServiceManager, PushEvent, PushSubscribe, TokenUpdate, MobileEvent)
 
-        // Non-suspend collaborators
         every { SubFunction.isAppInForegrounded() } returns true
         every { ServiceManager.checkServiceClosed(any(), any(), any()) } just Runs
         every { ServiceManager.closeService(any(), any(), any()) } just Runs
 
-        // Suspend collaborators
         coEvery { PushEvent.isRetry(any()) } returns false
         coEvery { PushSubscribe.isRetry(any()) } returns false
         coEvery { TokenUpdate.isRetry(any(), any()) } returns false
@@ -101,7 +101,6 @@ class RequestInstrumentedTest {
         assertEquals(NetworkType.CONNECTED, req.workSpec.constraints.requiredNetworkType)
         assertEquals(BackoffPolicy.EXPONENTIAL, req.workSpec.backoffPolicy)
 
-        // WorkManager enforces minimum backoff = WorkRequest.MIN_BACKOFF_MILLIS
         val expectedBackoffMs = maxOf(
             TimeUnit.SECONDS.toMillis(RETRY_TIME_C_WORK),
             WorkRequest.MIN_BACKOFF_MILLIS
@@ -124,7 +123,7 @@ class RequestInstrumentedTest {
 
     /** test_2: subscribeRequest builds and, when run, closes PUSH_SUBSCRIBE_SERVICE and succeeds */
     @Test
-    fun test_2_subscribeRequest_buildsAndClosesService() {
+    fun test_2_pushSubscribeRequest_buildsAndClosesService() {
         val req = Request.subscribeRequest()
 
         assertTrue(req.tags.contains(SUBSCRIBE_C_WORK_TAG))
@@ -157,7 +156,7 @@ class RequestInstrumentedTest {
 
     /** test_3: updateRequest builds and, when run, closes TOKEN_UPDATE_SERVICE and succeeds */
     @Test
-    fun test_3_updateRequest_buildsAndClosesService() {
+    fun test_3_tokenUpdateRequest_buildsAndClosesService() {
         val req = Request.updateRequest()
 
         assertTrue(req.tags.contains(UPDATE_C_WORK_TAG))

@@ -4,7 +4,6 @@ package com.altcraft.sdk.json
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.Constants.CATS
 import com.altcraft.sdk.data.Constants.CATS_ACTIVE
 import com.altcraft.sdk.data.Constants.CATS_NAME
@@ -29,7 +28,7 @@ import kotlinx.serialization.json.*
 import kotlinx.serialization.json.JsonObject
 
 /**
- * `JsonFactory` generates JSON payloads for various SDK requests like
+ * Generates JSON payloads for SDK requests such as
  * subscription, token update, push events, and unSuspend operations.
  */
 internal object JsonFactory {
@@ -37,7 +36,7 @@ internal object JsonFactory {
     /**
      * Builds a JSON object for a push subscription request.
      *
-     * @param data Subscription details.
+     * @param data Subscription request data.
      * @return JSON object ready to send, or empty if error occurs.
      */
     internal fun createSubscribeJson(
@@ -73,7 +72,7 @@ internal object JsonFactory {
     /**
      * Creates a JSON payload for a push event request.
      *
-     * @param data Event data.
+     * @param data Push event data.
      * @return A [JsonObject] for the request.
      */
     fun createPushEventJson(

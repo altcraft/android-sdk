@@ -24,22 +24,22 @@ import java.util.concurrent.TimeUnit
  * CommandQueueTest
  *
  * Positive scenarios:
- *  - test_1: InitCommandQueue FIFO — tasks execute strictly in submission order (1,2,3).
- *  - test_2: InitCommandQueue resilience — execution continues after failures; later tasks run.
- *  - test_3: InitCommandQueue submit() is non-blocking — caller thread not blocked; completion observed via latch.
- *  - test_4: SubscribeCommandQueue FIFO (IO) — tasks execute in order using CountDownLatch.
- *  - test_5: SubscribeCommandQueue resilience — execution continues after a failure; later tasks run.
+ *  - test_1: InitCommandQueue FIFO — executes tasks strictly in submission order (1,2,3).
+ *  - test_2: InitCommandQueue resilience — continues after failures; later tasks run.
+ *  - test_3: InitCommandQueue submit() is non-blocking — caller not blocked; completion observed via latch.
+ *  - test_4: SubscribeCommandQueue FIFO — executes tasks in order using CountDownLatch.
+ *  - test_5: SubscribeCommandQueue resilience — continues after a failure; later tasks run.
  *  - test_6: SubscribeCommandQueue submit() is non-blocking — caller not blocked; completion observed via latch.
- *  - test_7: MobileEventCommandQueue FIFO — tasks execute in submission order (1,2,3).
+ *  - test_7: MobileEventCommandQueue FIFO — executes tasks in submission order (1,2,3).
  *  - test_8: MobileEventCommandQueue resilience — continues after a failure; later tasks run.
  *  - test_9: MobileEventCommandQueue submit() is non-blocking — caller not blocked; completion observed via latch.
  */
 
-// ---------- Assertion messages ----------
+// Assertion messages
 private const val MSG_TASK_NOT_FINISH = "Task did not finish in time"
 private const val MSG_TASKS_NOT_FINISH_IN_TIME = "Tasks did not finish in time"
 
-// ---------- Labels ----------
+// Labels
 private const val LBL_BEFORE = "before"
 private const val LBL_AFTER  = "after"
 private const val LBL_TAIL   = "tail"
@@ -48,7 +48,6 @@ class CommandQueueTest {
 
     @Before
     fun setUp() {
-        // Mock android.util.Log (JVM)
         io.mockk.mockkStatic(android.util.Log::class)
         every { android.util.Log.d(any<String>(), any<String>()) } returns 0
         every { android.util.Log.i(any<String>(), any<String>()) } returns 0
@@ -69,7 +68,7 @@ class CommandQueueTest {
         Thread.sleep(20)
     }
 
-    /** Ensures InitCommandQueue executes tasks sequentially (FIFO) */
+    /** - test_1: InitCommandQueue FIFO — executes tasks strictly in submission order (1,2,3). */
     @Test
     fun initQueue_sequential_fifo() {
         val order = Collections.synchronizedList(mutableListOf<Int>())
@@ -94,7 +93,7 @@ class CommandQueueTest {
         assertEquals(listOf(1, 2, 3), order.toList())
     }
 
-    /** Ensures InitCommandQueue continues after a failure and logs error */
+    /** - test_2: InitCommandQueue resilience — continues after failures; later tasks run. */
     @Test
     fun initQueue_continues_after_failure() {
         val order = Collections.synchronizedList(mutableListOf<String>())
@@ -121,7 +120,7 @@ class CommandQueueTest {
         assertTrue(order.contains(LBL_TAIL))
     }
 
-    /** Ensures InitCommandQueue.submit is non-blocking */
+    /** - test_3: InitCommandQueue submit() is non-blocking — caller not blocked; completion via latch. */
     @Test
     fun initQueue_submit_is_non_blocking() {
         var marker = 0
@@ -138,7 +137,7 @@ class CommandQueueTest {
         assertEquals(2, marker)
     }
 
-    /** Ensures SubscribeCommandQueue executes tasks sequentially (FIFO) on IO dispatcher */
+    /** - test_4: SubscribeCommandQueue FIFO — executes tasks in order. */
     @Test
     fun subscribeQueue_sequential_fifo() {
         val order = Collections.synchronizedList(mutableListOf<Int>())
@@ -163,7 +162,7 @@ class CommandQueueTest {
         assertEquals(listOf(1, 2, 3), order.toList())
     }
 
-    /** Ensures SubscribeCommandQueue continues after a failure */
+    /** - test_5: SubscribeCommandQueue resilience — continues after a failure; later tasks run. */
     @Test
     fun subscribeQueue_continues_after_failure() {
         val order = Collections.synchronizedList(mutableListOf<String>())
@@ -186,7 +185,7 @@ class CommandQueueTest {
         assertTrue(order.containsAll(listOf(LBL_AFTER, LBL_TAIL)))
     }
 
-    /** Ensures SubscribeCommandQueue.submit is non-blocking */
+    /** - test_6: SubscribeCommandQueue submit() is non-blocking — caller not blocked; completion via latch. */
     @Test
     fun subscribeQueue_submit_is_non_blocking() {
         var marker = 0
@@ -203,11 +202,7 @@ class CommandQueueTest {
         assertEquals(2, marker)
     }
 
-    // -------------------------------
-    // MobileEventCommandQueue tests
-    // -------------------------------
-
-    /** Ensures MobileEventCommandQueue executes tasks sequentially (FIFO) */
+    /** - test_7: MobileEventCommandQueue FIFO — executes tasks in submission order (1,2,3). */
     @Test
     fun mobileEventQueue_sequential_fifo() {
         val order = Collections.synchronizedList(mutableListOf<Int>())
@@ -232,7 +227,7 @@ class CommandQueueTest {
         assertEquals(listOf(1, 2, 3), order.toList())
     }
 
-    /** Ensures MobileEventCommandQueue continues after a failure */
+    /** - test_8: MobileEventCommandQueue resilience — continues after a failure; later tasks run. */
     @Test
     fun mobileEventQueue_continues_after_failure() {
         val order = Collections.synchronizedList(mutableListOf<String>())
@@ -255,7 +250,7 @@ class CommandQueueTest {
         assertTrue(order.containsAll(listOf(LBL_AFTER, LBL_TAIL)))
     }
 
-    /** Ensures MobileEventCommandQueue.submit is non-blocking */
+    /** - test_9: MobileEventCommandQueue submit() is non-blocking — caller not blocked; completion via latch. */
     @Test
     fun mobileEventQueue_submit_is_non_blocking() {
         var marker = 0

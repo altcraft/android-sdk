@@ -9,10 +9,10 @@ import android.os.Bundle
 import com.altcraft.sdk.push.action.PushAction.handleExtras
 
 /**
- * `AltcraftPushActionActivity` is an `AppCompatActivity` subclass responsible for handling actions
- * triggered by push notifications.
- * This activity is launched when a user interacts with a push notification, and it processes
- * the intent extras to perform specific actions, such as opening a URL or launching an app component.
+ * Activity that handles actions triggered by push notifications.
+ *
+ * Launched when the user interacts with a notification; processes intent extras via `handleExtras`
+ * (open a URL or start an app component) and finishes immediately without showing UI.
  */
 internal class AltcraftPushActionActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,4 +21,3 @@ internal class AltcraftPushActionActivity : Activity() {
         finish()
     }
 }
-

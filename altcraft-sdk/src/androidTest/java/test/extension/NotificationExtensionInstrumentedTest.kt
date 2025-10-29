@@ -47,7 +47,6 @@ class NotificationExtensionInstrumentedTest {
         ctx = ApplicationProvider.getApplicationContext()
         builder = NotificationCompat.Builder(ctx, "test-channel")
 
-        // Prepare dummy PendingIntent
         val intent = AndroidIntent(ctx, javaClass)
         pendingIntent = PendingIntent.getActivity(
             ctx,
@@ -56,7 +55,6 @@ class NotificationExtensionInstrumentedTest {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Mock Intent.getIntent
         mockkObject(com.altcraft.sdk.push.action.Intent)
         every { getIntent(any(), any(), any(), any()) } returns pendingIntent
     }

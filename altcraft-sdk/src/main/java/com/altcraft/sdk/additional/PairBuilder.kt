@@ -24,11 +24,9 @@ internal object PairBuilder {
     /**
      * Returns both the error and success messages for a given response and request context.
      *
-     * This helper is useful when both message types are needed for event logging or processing.
-     *
      * @param code The HTTP status code.
      * @param response The API response object containing error details.
-     * @param request The original request metadata.
+     * @param request The request data.
      * @return A pair containing (errorMessage, successMessage).
      */
     fun getRequestMessages(
@@ -90,7 +88,7 @@ internal object PairBuilder {
      *
      * @param code The HTTP status code from the server.
      * @param response The parsed API response containing error details.
-     * @param requestData The original request metadata used to enrich the message.
+     * @param requestData The request data used to enrich the message.
      * @return A Pair where:
      *   - first: a custom error code.
      *   - second: a formatted error message string.

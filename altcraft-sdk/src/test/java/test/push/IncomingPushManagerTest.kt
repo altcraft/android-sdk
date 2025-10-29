@@ -25,16 +25,11 @@ import org.junit.Test
  * - test_1: handlePush() with Altcraft message calls deliveryEventStrategy() and reaches fallback receiver
  * - test_2: Altcraft message with no custom receivers -> falls back to default AltcraftSDK.PushReceiver
  * - test_3: Non-Altcraft message -> no deliveryEventStrategy, no recipients/fallback
- *
- * Notes:
- * - Pure unit tests (no instrumentation).
- * - android.util.Log is statically mocked to avoid "not mocked" runtime errors.
- * - Private getAllRecipient(...) is stubbed via spy + `anyArguments` (no fragile matchers).
  */
 class IncomingPushManagerTest {
 
     private companion object {
-        private const val TIMEOUT_MS = 2000L // give IO coroutine time to run
+        private const val TIMEOUT_MS = 2000L
         private val ALT_MESSAGE = mapOf("_ac_push" to "1", "_uid" to "U1")
         private val NON_ALT_MESSAGE = mapOf("some" to "value")
     }
@@ -45,7 +40,6 @@ class IncomingPushManagerTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
-        // Prevent android.util.Log crashes in local unit environment.
         mockkStatic(Log::class)
         every { Log.d(any(), any<String>()) } returns 0
         every { Log.i(any(), any<String>()) } returns 0
@@ -55,17 +49,15 @@ class IncomingPushManagerTest {
         every { Log.println(any(), any(), any()) } returns 0
         every { Log.wtf(any(), any<String>()) } returns 0
 
-        // SDK singletons.
         mockkObject(SubFunction)
         mockkObject(OpenPushStrategy)
         mockkObject(ConfigSetup)
 
-        // Defaults for all tests.
         every { SubFunction.altcraftPush(any()) } answers {
             firstArg<Map<String, String>>().containsKey("_ac_push")
         }
         every { OpenPushStrategy.deliveryEventStrategy(any(), any()) } just Runs
-        coEvery { ConfigSetup.getConfig(any()) } returns null // no custom receivers -> fallback by default
+        coEvery { ConfigSetup.getConfig(any()) } returns null
     }
 
     @After
@@ -80,7 +72,6 @@ class IncomingPushManagerTest {
         every { SubFunction.altcraftPush(ALT_MESSAGE) } returns true
         coEvery { ConfigSetup.getConfig(ctx) } returns null
 
-        // Intercept default receiver construction and its pushHandler(...)
         mockkConstructor(AltcraftSDK.PushReceiver::class)
         every { anyConstructed<AltcraftSDK.PushReceiver>().pushHandler(ctx, ALT_MESSAGE) } just Runs
 

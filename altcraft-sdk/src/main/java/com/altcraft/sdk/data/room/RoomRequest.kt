@@ -173,7 +173,7 @@ internal object RoomRequest {
     }
 
     /**
-     * Cleans up old push events if count exceeds limit.
+     * Cleans up old mobile events if count exceeds limit.
      *
      * @param room Local database instance.
      */

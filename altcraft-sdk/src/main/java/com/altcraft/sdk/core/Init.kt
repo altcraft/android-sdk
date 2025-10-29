@@ -5,6 +5,7 @@ package com.altcraft.sdk.core
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import androidx.annotation.Keep
 import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.config.AltcraftConfiguration
@@ -31,9 +32,9 @@ object Init {
      * calls `performRetryOperations(appCtx)`, which starts verification and processing of all
      * pending operations:
      * - sending mobile events;
+     * - sending push events;
      * - handling push subscriptions;
-     * - verifying and updating the device push token;
-     * - sending push events.
+     * - verifying and updating the device push token.
      *
      * @param context The application context used for configuration and internal setup.
      * @param configuration The SDK configuration required for initialization.

@@ -34,11 +34,6 @@ import org.junit.Test
  *
  * Edge/Fallback:
  *  - test_5: openPushStrategy(): background + non-FCM but workData == null -> falls back to direct show
- *
- * Notes:
- *  - Pure unit tests; android.util.Log is statically mocked to avoid "not mocked" errors.
- *  - We mock SubFunction/MapExtension/Request/PushPresenter/PushEvent objects.
- *  - To exercise worker path we use a non-FCM provider (_provider = "android-huawei").
  */
 class OpenPushStrategyTest {
 
@@ -54,7 +49,6 @@ class OpenPushStrategyTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
-        // Avoid android.util.Log crashes in JVM unit tests
         mockkStatic(Log::class)
         every { Log.d(any(), any<String>()) } returns 0
         every { Log.i(any(), any<String>()) } returns 0
@@ -64,21 +58,18 @@ class OpenPushStrategyTest {
         every { Log.println(any(), any(), any()) } returns 0
         every { Log.wtf(any(), any<String>()) } returns 0
 
-        // Mock SDK singletons referenced by OpenPushStrategy
         mockkObject(SubFunction)
         mockkObject(Request)
         mockkObject(PushPresenter)
         mockkObject(PushEvent)
         mockkObject(MapExtension)
 
-        // Safe defaults
         every { SubFunction.isAppInForegrounded() } returns false
         coEvery { PushPresenter.showPush(any(), any()) } just Runs
         coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
         every { Request.startPushForegroundWorker(any(), any()) } just Runs
         every { Request.startEventForegroundWorker(any(), any()) } just Runs
 
-        // Default stubs for the extension: return some Data for known messages.
         every {
             MapExtension.run { NON_FCM_MESSAGE.toWorkDataOrNull() }
         } returns Data.Builder().putString("provider", "huawei").build()
@@ -109,7 +100,6 @@ class OpenPushStrategyTest {
     @Test
     fun openPushStrategy_background_usesWorker() = runBlocking {
         every { SubFunction.isAppInForegrounded() } returns false
-        // workData for NON_FCM_MESSAGE уже задан в setUp()
 
         OpenPushStrategy.openPushStrategy(ctx, NON_FCM_MESSAGE)
 
@@ -134,7 +124,6 @@ class OpenPushStrategyTest {
     @Test
     fun deliveryEventStrategy_background_usesWorker() = runBlocking {
         every { SubFunction.isAppInForegrounded() } returns false
-        // workData для NON_FCM_MESSAGE задан в setUp()
 
         OpenPushStrategy.deliveryEventStrategy(ctx, NON_FCM_MESSAGE)
 
@@ -146,7 +135,6 @@ class OpenPushStrategyTest {
     @Test
     fun openPushStrategy_background_noWorkData_fallsBackToDirect() = runBlocking {
         every { SubFunction.isAppInForegrounded() } returns false
-        // Переопределяем конкретно для этого сообщения — вернуть null
         every {
             MapExtension.run { NON_FCM_MESSAGE.toWorkDataOrNull() }
         } returns null

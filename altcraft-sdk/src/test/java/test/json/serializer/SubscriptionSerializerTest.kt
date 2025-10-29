@@ -36,8 +36,6 @@ import org.junit.Test
  * test_6: roundtrip push with mixed custom_fields types.
  */
 class SubscriptionSerializerTest {
-
-    // Json with AnySerializer for @Contextual Any?
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true

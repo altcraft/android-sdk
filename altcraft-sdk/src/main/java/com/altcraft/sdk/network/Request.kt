@@ -18,7 +18,7 @@ import com.altcraft.sdk.data.Repository.getMobileEventRequestData
 import com.altcraft.sdk.data.Repository.getStatusRequestData
 import com.altcraft.sdk.data.Repository.getPushEventRequestData
 import com.altcraft.sdk.data.Repository.getSubscribeRequestData
-import com.altcraft.sdk.data.Repository.getUnSubscribeRequestData
+import com.altcraft.sdk.data.Repository.getUnSuspendRequestData
 import com.altcraft.sdk.data.Repository.getUpdateRequestData
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
@@ -42,18 +42,19 @@ import com.altcraft.sdk.sdk_events.EventList.mobEventRequestDataIsNull
  * Enables functions for executing server requests.
  */
 internal object Request {
-    
+
     /**
-     * Executes the subscription process by checking permissions, retrieving necessary data,
-     * and sending a request to the server via Retrofit.
+     * Handles the process of subscribing a device.
+     *
+     * This function checks notification permission, retrieves required data,
+     * and sends the subscription using the `subscribe` API call.
+     * If the request fails, it triggers a retry mechanism.
      *
      * @param context The application context used for permission checks and data retrieval.
-     * @param item A `SubscribeEntity` object containing subscription details.
-     * @return `DataClasses.Event`, representing the outcome of the operation.
-     *
-     * @throws Exception If an error occurs, the function triggers a retry (`retry`).
+     * @param item A [SubscribeEntity] containing subscription details.
+     * @return A [DataClasses.Event] representing the outcome of the operation.
      */
-    suspend fun subscribeRequest(
+    suspend fun pushSubscribeRequest(
         context: Context,
         item: SubscribeEntity
     ): DataClasses.Event {
@@ -91,7 +92,7 @@ internal object Request {
      * @param requestId The unique identifier for the update request.
      * @return A [DataClasses.Event] representing the outcome of the update process.
      */
-    suspend fun updateRequest(
+    suspend fun tokenUpdateRequest(
         context: Context,
         requestId: String
     ): DataClasses.Event {
@@ -201,7 +202,7 @@ internal object Request {
         context: Context,
     ): DataClasses.Event {
         return try {
-            val data = getUnSubscribeRequestData(context) ?: exception(unSuspendRequestDataIsNull)
+            val data = getUnSuspendRequestData(context) ?: exception(unSuspendRequestDataIsNull)
             val json = JsonFactory.createUnSuspendJson(data)
 
             val response = getRetrofit().unSuspend(
@@ -227,7 +228,7 @@ internal object Request {
      * - [LATEST_FOR_PROVIDER]: latest subscription for a given provider
      * - [MATCH_CURRENT_CONTEXT]: subscription matching current token and profile
      *
-     * @param context Application context for resolving config and tokens.
+     * @param context Context for resolving config and tokens.
      * @param mode Matching mode used to determine provider and token.
      * @param targetProvider Optional provider override for [LATEST_FOR_PROVIDER] mode.
      * @return Result of the request as [DataClasses.Event].

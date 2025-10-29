@@ -21,15 +21,14 @@ import org.junit.Test
  * PublicPushEventFunctionsTest
  *
  * Positive scenarios:
- *  - test_delivery_withAltcraftMessage_usesUidFromMessage
- *  - test_delivery_withAltcraftMessage_withoutUid_fallsBackToMessageUid
- *  - test_open_withMessageUidOnly_usesProvidedUid
- *  - test_open_bothMessageAndMessageUid_prefersUidFromMessage
+ *  - test_1: deliveryEvent() with Altcraft message containing _uid → uses UID from message
+ *  - test_2: deliveryEvent() with Altcraft message missing _uid → falls back to messageUID
+ *  - test_3: openEvent() with only messageUID → uses provided UID
+ *  - test_4: openEvent() with both message and messageUID → prefers UID from message
  *
  * Negative scenarios:
- *  - test_delivery_nonAltcraftMessage_isIgnored
- *  - test_open_bothNullUids_callsSendWithNull
- *
+ *  - test_5: deliveryEvent() with non-Altcraft message → ignored
+ *  - test_6: openEvent() with both message and messageUID null → calls send with null
  */
 class PublicPushEventFunctionsTest {
 
@@ -44,15 +43,9 @@ class PublicPushEventFunctionsTest {
     @Before
     fun setUp() {
         ctx = mockk(relaxed = true)
-
-        // Mock required singletons/objects
         mockkObject(SubFunction)
         mockkObject(PushEvent)
-
-        // Default: altcraftPush returns true (Altcraft message)
         every { SubFunction.altcraftPush(any()) } returns true
-
-        // Default: sendPushEvent does nothing
         coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
     }
 
@@ -61,99 +54,64 @@ class PublicPushEventFunctionsTest {
         unmockkAll()
     }
 
-    /** Positive: Altcraft message with _uid → take UID from message and type DELIVERY */
+    /** - test_1: deliveryEvent with Altcraft message containing _uid → uses UID from message. */
     @Test
     fun test_delivery_withAltcraftMessage_usesUidFromMessage() = runBlocking {
         val message = mapOf(Constants.UID_KEY to UID_FROM_MESSAGE)
-
-        PublicPushEventFunctions.deliveryEvent(
-            context = ctx,
-            message = message,
-            messageUID = UID_FROM_PARAM // should be ignored
-        )
-
+        PublicPushEventFunctions.deliveryEvent(ctx, message, UID_FROM_PARAM)
         coVerify(timeout = TIMEOUT_MS, exactly = 1) {
             PushEvent.sendPushEvent(ctx, Constants.DELIVERY, UID_FROM_MESSAGE)
         }
         confirmVerified(PushEvent)
     }
 
-    /** Positive: Altcraft message without _uid → fallback to messageUID */
+    /** - test_2: deliveryEvent with Altcraft message missing _uid → falls back to messageUID. */
     @Test
     fun test_delivery_withAltcraftMessage_withoutUid_fallsBackToMessageUid() = runBlocking {
-        val message = mapOf("some_key" to "some_value") // no _uid
-
-        PublicPushEventFunctions.deliveryEvent(
-            context = ctx,
-            message = message,
-            messageUID = UID_FROM_PARAM
-        )
-
+        val message = mapOf("some_key" to "some_value")
+        PublicPushEventFunctions.deliveryEvent(ctx, message, UID_FROM_PARAM)
         coVerify(timeout = TIMEOUT_MS, exactly = 1) {
             PushEvent.sendPushEvent(ctx, Constants.DELIVERY, UID_FROM_PARAM)
         }
         confirmVerified(PushEvent)
     }
 
-    /** Negative: non-Altcraft message → should not call sendPushEvent */
+    /** - test_5: deliveryEvent with non-Altcraft message → ignored. */
     @Test
     fun test_delivery_nonAltcraftMessage_isIgnored() = runBlocking {
         every { SubFunction.altcraftPush(any()) } returns false
-
         val message = mapOf(Constants.UID_KEY to UID_FROM_MESSAGE)
-
-        PublicPushEventFunctions.deliveryEvent(
-            context = ctx,
-            message = message,
-            messageUID = UID_FROM_PARAM
-        )
-
+        PublicPushEventFunctions.deliveryEvent(ctx, message, UID_FROM_PARAM)
         coVerify(timeout = TIMEOUT_MS, exactly = 0) {
             PushEvent.sendPushEvent(any(), any(), any())
         }
     }
 
-    /** Positive: only messageUID provided (message == null) → OPEN with UID_FROM_PARAM */
+    /** - test_3: openEvent with only messageUID → uses provided UID. */
     @Test
     fun test_open_withMessageUidOnly_usesProvidedUid() = runBlocking {
-        PublicPushEventFunctions.openEvent(
-            context = ctx,
-            message = null,
-            messageUID = UID_FROM_PARAM
-        )
-
+        PublicPushEventFunctions.openEvent(ctx, null, UID_FROM_PARAM)
         coVerify(timeout = TIMEOUT_MS, exactly = 1) {
             PushEvent.sendPushEvent(ctx, Constants.OPEN, UID_FROM_PARAM)
         }
         confirmVerified(PushEvent)
     }
 
-    /** Positive: both message and messageUID provided → prefer UID from message */
+    /** - test_4: openEvent with both message and messageUID → prefers UID from message. */
     @Test
     fun test_open_bothMessageAndMessageUid_prefersUidFromMessage() = runBlocking {
         val message = mapOf(Constants.UID_KEY to UID_FROM_MESSAGE)
-
-        PublicPushEventFunctions.openEvent(
-            context = ctx,
-            message = message,
-            messageUID = UID_FROM_PARAM // should be ignored
-        )
-
+        PublicPushEventFunctions.openEvent(ctx, message, UID_FROM_PARAM)
         coVerify(timeout = TIMEOUT_MS, exactly = 1) {
             PushEvent.sendPushEvent(ctx, Constants.OPEN, UID_FROM_MESSAGE)
         }
         confirmVerified(PushEvent)
     }
 
-    /** Negative: both message and messageUID are null → call with null UID */
+    /** - test_6: openEvent with both message and messageUID null → calls send with null. */
     @Test
     fun test_open_bothNullUids_callsSendWithNull() = runBlocking {
-        PublicPushEventFunctions.openEvent(
-            context = ctx,
-            message = null,
-            messageUID = null
-        )
-
+        PublicPushEventFunctions.openEvent(ctx, null, null)
         coVerify(timeout = TIMEOUT_MS, exactly = 1) {
             PushEvent.sendPushEvent(ctx, Constants.OPEN, null)
         }

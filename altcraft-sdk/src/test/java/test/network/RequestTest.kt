@@ -1,6 +1,7 @@
 package test.network
 
 //  Created by Andrey Pogodin.
+//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
@@ -32,30 +33,26 @@ import org.junit.Test
 import retrofit2.Response as RResponse
 
 /**
- * RequestUnitTest
+ * RequestTest
  *
  * Positive scenarios:
- *  - test_1: subscribeRequest → permission OK, data OK → calls Api.subscribe and returns processResponse result.
- *  - test_2: updateRequest → data OK → calls Api.update and returns processResponse result.
- *  - test_3: pushEventRequest → data OK → calls Api.pushEvent and returns processResponse result.
- *  - test_4: unSuspendRequest → data OK → calls Api.unSuspend and returns processResponse result.
- *  - test_5: statusRequest LATEST_SUBSCRIPTION → provider/token null → calls Api.getProfile and returns result.
- *  - test_6: statusRequest MATCH_CURRENT_CONTEXT → provider/token from data → calls Api.getProfile and returns result.
- *  - test_7: statusRequest LATEST_FOR_PROVIDER with override → uses targetProvider, token null.
- *  - test_13: mobileEventRequest → data OK + parts OK → calls Api.mobileEvent and returns processResponse result.
+ * - test_1: subscribeRequest — permission OK, data OK → calls Api.subscribe and returns processResponse result.
+ * - test_2: updateRequest — data OK → calls Api.update and returns processResponse result.
+ * - test_3: pushEventRequest — data OK → calls Api.pushEvent and returns processResponse result.
+ * - test_4: unSuspendRequest — data OK → calls Api.unSuspend and returns processResponse result.
+ * - test_5: statusRequest LATEST_SUBSCRIPTION — provider/token null → Api.getProfile and returns result.
+ * - test_6: statusRequest MATCH_CURRENT_CONTEXT — provider/token from data → Api.getProfile and returns result.
+ * - test_7: statusRequest LATEST_FOR_PROVIDER with override — uses targetProvider, token null.
+ * - test_13: mobileEventRequest — data OK + parts OK → Api.mobileEvent and returns processResponse result.
  *
  * Negative scenarios:
- *  - test_8: subscribeRequest → permission denied → returns RetryError, Api not called.
- *  - test_9: updateRequest → getUpdateRequestData = null → returns RetryError, Api not called.
- *  - test_10: pushEventRequest → getPushEventRequestData = null → returns RetryError, Api not called.
- *  - test_11: unSuspendRequest → getUnSubscribeRequestData = null → returns Error("profileRequest"), Api not called.
- *  - test_12: statusRequest → getStatusRequestData = null → returns Error("profileRequest"), Api not called.
- *  - test_14: mobileEventRequest → getMobileEventRequestData = null → returns RetryError, Api not called.
- *  - test_15: mobileEventRequest → parts == null → returns Error("mobileEventRequest"), Api not called.
- *
- * Notes:
- *  - Pure JVM unit tests with MockK; Retrofit calls mocked.
- *  - We stub Response.processResponse(...) to return a canned Event per test.
+ * - test_8: subscribeRequest — permission denied → returns RetryError, Api not called.
+ * - test_9: updateRequest — getUpdateRequestData = null → returns RetryError, Api not called.
+ * - test_10: pushEventRequest — getPushEventRequestData = null → returns RetryError, Api not called.
+ * - test_11: unSuspendRequest — getUnSubscribeRequestData = null → returns Error("profileRequest"), Api not called.
+ * - test_12: statusRequest — getStatusRequestData = null → returns Error("profileRequest"), Api not called.
+ * - test_14: mobileEventRequest — getMobileEventRequestData = null → returns RetryError, Api not called.
+ * - test_15: mobileEventRequest — parts == null → returns Error("mobileEventRequest"), Api not called.
  */
 class RequestTest {
 
@@ -67,19 +64,16 @@ class RequestTest {
         ctx = mockk(relaxed = true)
         api = mockk(relaxed = true)
 
-        // Mock singletons/objects we call
         mockkObject(Network)
         every { Network.getRetrofit() } returns api
 
-        mockkObject(Response) // processResponse(...)
+        mockkObject(Response)
         mockkObject(Repository)
         mockkObject(SubFunction)
         mockkObject(Events)
 
-        // Default: permission granted
         every { SubFunction.checkingNotificationPermission(any()) } returns true
 
-        // Default Events.error/retry fallbacks (used in negative branches we assert by type/func)
         every { Events.retry(any(), any(), any()) } answers {
             val func = firstArg<String>()
             DataClasses.RetryError(func, 500, "retry", null)
@@ -93,11 +87,11 @@ class RequestTest {
     @After
     fun tearDown() = unmockkAll()
 
-    // ------------------------ subscribeRequest ------------------------
-
-    /** Verifies subscribeRequest: permission OK, data OK → Api.subscribe called; returns processResponse result. */
+    /** - test_1: subscribeRequest — permission OK, data OK → Api.subscribe called; returns
+     * processResponse result.
+     * */
     @Test
-    fun subscribeRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
+    fun pushSubscribeRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val item = mockk<SubscribeEntity>(relaxed = true)
 
         val req = DataClasses.SubscribeRequestData(
@@ -135,7 +129,7 @@ class RequestTest {
         val expected = DataClasses.Event("process", 200, "ok", null)
         every { Response.processResponse(req, retrofitResp) } returns expected
 
-        val out = Request.subscribeRequest(ctx, item)
+        val out = Request.pushSubscribeRequest(ctx, item)
         assertSame(expected, out)
 
         coVerify(exactly = 1) {
@@ -152,24 +146,22 @@ class RequestTest {
         verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** Verifies subscribeRequest: permission denied → returns RetryError; Api not called. */
+    /** - test_8: subscribeRequest — permission denied → returns RetryError; Api not called. */
     @Test
-    fun subscribeRequest_permissionDenied_returnsRetry_noApiCall() = runBlocking {
+    fun pushSubscribeRequest_permissionDenied_returnsRetry_noApiCall() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns false
 
         val item = mockk<SubscribeEntity>(relaxed = true)
-        val result = Request.subscribeRequest(ctx, item)
+        val result = Request.pushSubscribeRequest(ctx, item)
 
         assertTrue(result is DataClasses.RetryError)
         assertEquals("subscribeRequest", result.function)
         coVerify(exactly = 0) { api.subscribe(any(), any(), any(), any(), any(), any(), any()) }
     }
 
-    // ------------------------ updateRequest ------------------------
-
-    /** Verifies updateRequest: data OK → Api.update called; returns processResponse result. */
+    /** - test_2: updateRequest — data OK → Api.update called; returns processResponse result. */
     @Test
-    fun updateRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
+    fun tokenUpdateRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val req = DataClasses.UpdateRequestData(
             url = "https://api/update",
             uid = "uid-2",
@@ -189,7 +181,7 @@ class RequestTest {
         val expected = DataClasses.Event("process", 200, "ok", null)
         every { Response.processResponse(req, retrofitResp) } returns expected
 
-        val out = Request.updateRequest(ctx, "rid")
+        val out = Request.tokenUpdateRequest(ctx, "rid")
         assertSame(expected, out)
 
         coVerify(exactly = 1) {
@@ -205,19 +197,17 @@ class RequestTest {
         verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** Verifies updateRequest: getUpdateRequestData = null → returns RetryError; Api not called. */
+    /** - test_9: updateRequest — getUpdateRequestData = null → returns RetryError; Api not called. */
     @Test
-    fun updateRequest_nullData_returnsRetry_noApiCall() = runBlocking {
+    fun tokenUpdateRequest_nullData_returnsRetry_noApiCall() = runBlocking {
         coEvery { Repository.getUpdateRequestData(ctx, any()) } returns null
-        val out = Request.updateRequest(ctx, "x")
+        val out = Request.tokenUpdateRequest(ctx, "x")
         assertTrue(out is DataClasses.RetryError)
         assertEquals("updateRequest", out.function)
         coVerify(exactly = 0) { api.update(any(), any(), any(), any(), any(), any()) }
     }
 
-    // ------------------------ pushEventRequest ------------------------
-
-    /** Verifies pushEventRequest: data OK → Api.pushEvent called; returns processResponse result. */
+    /** - test_3: pushEventRequest — data OK → Api.pushEvent called; returns processResponse result. */
     @Test
     fun pushEventRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val ev = PushEventEntity(uid = "e1", type = "opened")
@@ -253,7 +243,9 @@ class RequestTest {
         verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** Verifies pushEventRequest: getPushEventRequestData = null → returns RetryError; Api not called. */
+    /** - test_10: pushEventRequest — getPushEventRequestData = null → returns RetryError;
+     *  Api not called.
+     *  */
     @Test
     fun pushEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
         coEvery { Repository.getPushEventRequestData(ctx, any()) } returns null
@@ -263,9 +255,7 @@ class RequestTest {
         coVerify(exactly = 0) { api.pushEvent(any(), any(), any(), any(), any()) }
     }
 
-    // ------------------------ unSuspendRequest ------------------------
-
-    /** Verifies unSuspendRequest: data OK → Api.unSuspend called; returns processResponse result. */
+    /** - test_4: unSuspendRequest — data OK → Api.unSuspend called; returns processResponse result. */
     @Test
     fun unSuspendRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val req = DataClasses.UnSuspendRequestData(
@@ -276,7 +266,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getUnSubscribeRequestData(ctx) } returns req
+        coEvery { Repository.getUnSuspendRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonObject(mapOf()))
         coEvery {
@@ -302,10 +292,12 @@ class RequestTest {
         verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** Verifies unSuspendRequest: getUnSubscribeRequestData = null → returns Error("profileRequest"); Api not called. */
+    /** - test_11: unSuspendRequest — getUnSubscribeRequestData = null →
+     * returns Error("profileRequest"); Api not called.
+     * */
     @Test
     fun unSuspendRequest_nullData_returnsError_noApiCall() = runBlocking {
-        coEvery { Repository.getUnSubscribeRequestData(ctx) } returns null
+        coEvery { Repository.getUnSuspendRequestData(ctx) } returns null
         every { Events.error(any(), any(), any()) } returns DataClasses.Error(
             "profileRequest",
             400,
@@ -319,16 +311,14 @@ class RequestTest {
         coVerify(exactly = 0) { api.unSuspend(any(), any(), any(), any(), any(), any()) }
     }
 
-    // ------------------------ statusRequest ------------------------
-
-    /** Verifies statusRequest: LATEST_SUBSCRIPTION → provider/token null. */
+    /** - test_5: statusRequest — LATEST_SUBSCRIPTION → provider/token null. */
     @Test
     fun statusRequest_latestSubscription_callsApi_withNulls() = runBlocking {
         val req = DataClasses.StatusRequestData(
             url = "https://api/profile",
             uid = "uid-4",
-            provider = "android-firebase", // ignored in this mode
-            token = "tkn",                  // ignored in this mode
+            provider = "android-firebase",
+            token = "tkn",
             authHeader = "Bearer X",
             matchingMode = "device"
         )
@@ -357,7 +347,7 @@ class RequestTest {
         }
     }
 
-    /** Verifies statusRequest: MATCH_CURRENT_CONTEXT → uses provider/token from data. */
+    /** - test_6: statusRequest — MATCH_CURRENT_CONTEXT → uses provider/token from data. */
     @Test
     fun statusRequest_matchCurrentContext_usesTokenAndProvider() = runBlocking {
         val req = DataClasses.StatusRequestData(
@@ -399,7 +389,9 @@ class RequestTest {
         }
     }
 
-    /** Verifies statusRequest: LATEST_FOR_PROVIDER + override → uses targetProvider, token null. */
+    /** - test_7: statusRequest — LATEST_FOR_PROVIDER with override → uses targetProvider,
+     * token null.
+     * */
     @Test
     fun statusRequest_latestForProvider_withOverride() = runBlocking {
         val req = DataClasses.StatusRequestData(
@@ -441,7 +433,9 @@ class RequestTest {
         }
     }
 
-    /** Verifies statusRequest: getStatusRequestData = null → returns Error("profileRequest"); Api not called. */
+    /** - test_12: statusRequest — getStatusRequestData = null → returns Error("profileRequest");
+     *  Api not called.
+     *  */
     @Test
     fun statusRequest_nullData_returnsError_noApiCall() = runBlocking {
         coEvery { Repository.getStatusRequestData(ctx) } returns null
@@ -458,9 +452,9 @@ class RequestTest {
         coVerify(exactly = 0) { api.getProfile(any(), any(), any(), any(), any(), any()) }
     }
 
-    // ------------------------ mobileEventRequest ------------------------
-
-    /** test_13: mobileEventRequest → data OK + parts OK → Api.mobileEvent called; returns processResponse result. */
+    /** - test_13: mobileEventRequest — data OK + parts OK → Api.mobileEvent called;
+     *  returns processResponse result.
+     *  */
     @Test
     fun mobileEventRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val entity = MobileEventEntity(
@@ -473,11 +467,11 @@ class RequestTest {
             eventName = "purchase",
             payload = """{"sum":5}""",
             matching = """{"m":"v"}""",
-            matchingType = "email",              // new field provided
+            matchingType = "email",
             profileFields = """{"age":20}""",
             subscription = """{"channel":"email"}""",
             sendMessageId = """"sm-1"""",
-            utmTags = null,                      // new field explicitly set
+            utmTags = null,
             retryCount = 0,
             maxRetryCount = 3
         )
@@ -500,9 +494,9 @@ class RequestTest {
                 req.url,
                 req.authHeader,
                 req.sid,
-                any(), // TRACKER_MOB
-                any(), // TYPE_MOB
-                any(), // VERSION_MOB
+                any(),
+                any(),
+                any(),
                 parts = any()
             )
         } returns retrofitResp
@@ -527,7 +521,9 @@ class RequestTest {
         verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** test_14: mobileEventRequest → getMobileEventRequestData = null → returns RetryError; Api not called. */
+    /** - test_14: mobileEventRequest — getMobileEventRequestData = null → returns RetryError;
+     *  Api not called.
+     *  */
     @Test
     fun mobileEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
         val entity = MobileEventEntity(
@@ -540,11 +536,11 @@ class RequestTest {
             eventName = "e",
             payload = null,
             matching = null,
-            matchingType = null,                 // new field present as null
+            matchingType = null,
             profileFields = null,
             subscription = null,
             sendMessageId = null,
-            utmTags = null,                      // new field present as null
+            utmTags = null,
             retryCount = 0,
             maxRetryCount = 3
         )
@@ -557,7 +553,9 @@ class RequestTest {
         coVerify(exactly = 0) { api.mobileEvent(any(), any(), any(), any(), any(), any(), any()) }
     }
 
-    /** test_15: mobileEventRequest → parts == null → returns Error("mobileEventRequest"); Api not called. */
+    /** - test_15: mobileEventRequest — parts == null → returns Error("mobileEventRequest");
+     * Api not called.
+     * */
     @Test
     fun mobileEventRequest_partsNull_returnsError_noApiCall() = runBlocking {
         val entity = MobileEventEntity(
@@ -570,11 +568,11 @@ class RequestTest {
             eventName = "e",
             payload = null,
             matching = null,
-            matchingType = null,                 // new field present as null
+            matchingType = null,
             profileFields = null,
             subscription = null,
             sendMessageId = null,
-            utmTags = null,                      // new field present as null
+            utmTags = null,
             retryCount = 0,
             maxRetryCount = 3
         )

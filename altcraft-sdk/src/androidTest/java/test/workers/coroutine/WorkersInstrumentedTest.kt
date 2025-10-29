@@ -28,8 +28,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-
-// SDK imports
 import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
@@ -41,21 +39,21 @@ import com.altcraft.sdk.services.manager.ServiceManager
 import com.altcraft.sdk.workers.coroutine.Worker
 
 /**
- * WorkerInstrumentedTest
+ * WorkersInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: PushEventCoroutineWorker → PushEvent.isRetry = true ⇒ Result.retry
- *  - test_2: PushEventCoroutineWorker → PushEvent.isRetry = false ⇒ Result.success
- *  - test_3: SubscribeCoroutineWorker → isRetry = true ⇒ calls ServiceManager.checkServiceClosed(
- *            ..., PUSH_SUBSCRIBE_SERVICE, ++retrySubscribe), returns Result.retry
- *  - test_4: SubscribeCoroutineWorker → isRetry = false ⇒ calls ServiceManager.closeService(
- *            ..., PUSH_SUBSCRIBE_SERVICE, true), returns Result.success
- *  - test_5: UpdateCoroutineWorker → isRetry = true ⇒ calls ServiceManager.checkServiceClosed(
- *            ..., TOKEN_UPDATE_SERVICE, ++retrySubscribe), returns Result.retry
- *  - test_6: UpdateCoroutineWorker → isRetry = false ⇒ calls ServiceManager.closeService(
- *            ..., TOKEN_UPDATE_SERVICE, true), returns Result.success
- *  - test_7: MobileEventCoroutineWorker → MobileEvent.isRetry = true ⇒ Result.retry
- *  - test_8: MobileEventCoroutineWorker → MobileEvent.isRetry = false ⇒ Result.success
+ *  - test_1: PushEventCoroutineWorker → PushEvent.isRetry = true ⇒ Result.retry.
+ *  - test_2: PushEventCoroutineWorker → PushEvent.isRetry = false ⇒ Result.success.
+ *  - test_3: SubscribeCoroutineWorker → isRetry = true ⇒
+ *  ServiceManager.checkServiceClosed(..., PUSH_SUBSCRIBE_SERVICE, ++retrySubscribe); Result.retry.
+ *  - test_4: SubscribeCoroutineWorker → isRetry = false ⇒
+ *  ServiceManager.closeService(..., PUSH_SUBSCRIBE_SERVICE, true); Result.success.
+ *  - test_5: UpdateCoroutineWorker → isRetry = true ⇒
+ *  ServiceManager.checkServiceClosed(..., TOKEN_UPDATE_SERVICE, ++retrySubscribe); Result.retry.
+ *  - test_6: UpdateCoroutineWorker → isRetry = false ⇒
+ *  ServiceManager.closeService(..., TOKEN_UPDATE_SERVICE, true); Result.success.
+ *  - test_7: MobileEventCoroutineWorker → MobileEvent.isRetry = true ⇒ Result.retry.
+ *  - test_8: MobileEventCoroutineWorker → MobileEvent.isRetry = false ⇒ Result.success.
  *
  * Notes:
  *  - isAppInForegrounded() is mocked to true to skip delay in awaitInBackground().
@@ -95,8 +93,6 @@ class WorkersInstrumentedTest {
         unmockkAll()
     }
 
-    // Helpers
-
     private fun buildPushEventWorker(): Worker.PushEventCoroutineWorker =
         TestListenableWorkerBuilder<Worker.PushEventCoroutineWorker>(context).build()
 
@@ -109,11 +105,7 @@ class WorkersInstrumentedTest {
     private fun buildUpdateWorker(): Worker.UpdateCoroutineWorker =
         TestListenableWorkerBuilder<Worker.UpdateCoroutineWorker>(context).build()
 
-    // --------------------------
-    // PushEventCoroutineWorker
-    // --------------------------
-
-    /** Ensures PushEvent worker returns Result.retry when PushEvent.isRetry() is true. */
+    /** - test_1: PushEventCoroutineWorker → PushEvent.isRetry = true ⇒ Result.retry. */
     @Test
     fun pushEventWorker_returns_retry_when_PushEvent_isRetry_true() = runTest {
         coEvery { PushEvent.isRetry(any()) } returns true
@@ -125,7 +117,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { PushEvent.isRetry(context) }
     }
 
-    /** Ensures PushEvent worker returns Result.success when PushEvent.isRetry() is false. */
+    /** - test_2: PushEventCoroutineWorker → PushEvent.isRetry = false ⇒ Result.success. */
     @Test
     fun pushEventWorker_returns_success_when_PushEvent_isRetry_false() = runTest {
         coEvery { PushEvent.isRetry(any()) } returns false
@@ -137,11 +129,77 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { PushEvent.isRetry(context) }
     }
 
-    // --------------------------
-    // MobileEventCoroutineWorker
-    // --------------------------
+    /** - test_3: SubscribeCoroutineWorker → isRetry = true ⇒
+     *  checkServiceClosed(..., PUSH_SUBSCRIBE_SERVICE, 1) and Result.retry.
+     *  */
+    @Test
+    fun subscribeWorker_retry_path_calls_checkServiceClosed_and_returns_retry() = runTest {
+        Worker.retrySubscribe = 0
+        coEvery { PushSubscribe.isRetry(any()) } returns true
+        every { ServiceManager.checkServiceClosed(any(), any(), any()) } returns Unit
 
-    /** Ensures MobileEvent worker returns Result.retry when MobileEvent.isRetry() is true. */
+        val worker = buildSubscribeWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Retry, `is`(true))
+        verify(exactly = 1) { ServiceManager.checkServiceClosed(context, PUSH_SUBSCRIBE_SERVICE, 1) }
+        verify(exactly = 0) { ServiceManager.closeService(any(), any(), any()) }
+        coVerify(exactly = 1) { PushSubscribe.isRetry(context) }
+    }
+
+    /** - test_4: SubscribeCoroutineWorker → isRetry = false ⇒
+     * closeService(..., PUSH_SUBSCRIBE_SERVICE, true) and Result.success.
+     * */
+    @Test
+    fun subscribeWorker_success_path_calls_closeService_and_returns_success() = runTest {
+        coEvery { PushSubscribe.isRetry(any()) } returns false
+        every { ServiceManager.closeService(any(), any(), any()) } returns Unit
+
+        val worker = buildSubscribeWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Success, `is`(true))
+        verify(exactly = 1) { ServiceManager.closeService(context, PUSH_SUBSCRIBE_SERVICE, true) }
+        verify(exactly = 0) { ServiceManager.checkServiceClosed(any(), any(), any()) }
+        coVerify(exactly = 1) { PushSubscribe.isRetry(context) }
+    }
+
+    /** - test_5: UpdateCoroutineWorker → isRetry = true ⇒
+     * checkServiceClosed(..., TOKEN_UPDATE_SERVICE, 1) and Result.retry.
+     * */
+    @Test
+    fun updateWorker_retry_path_calls_checkServiceClosed_and_returns_retry() = runTest {
+        Worker.retrySubscribe = 0
+        coEvery { TokenUpdate.isRetry(any(), any()) } returns true
+        every { ServiceManager.checkServiceClosed(any(), any(), any()) } returns Unit
+
+        val worker = buildUpdateWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Retry, `is`(true))
+        verify(exactly = 1) { ServiceManager.checkServiceClosed(context, TOKEN_UPDATE_SERVICE, 1) }
+        verify(exactly = 0) { ServiceManager.closeService(any(), any(), any()) }
+        coVerify(exactly = 1) { TokenUpdate.isRetry(context, any()) }
+    }
+
+    /** - test_6: UpdateCoroutineWorker → isRetry = false ⇒
+     * closeService(..., TOKEN_UPDATE_SERVICE, true) and Result.success.
+     * */
+    @Test
+    fun updateWorker_success_path_calls_closeService_and_returns_success() = runTest {
+        coEvery { TokenUpdate.isRetry(any(), any()) } returns false
+        every { ServiceManager.closeService(any(), any(), any()) } returns Unit
+
+        val worker = buildUpdateWorker()
+        val result = worker.doWork()
+
+        assertThat(result is ListenableWorker.Result.Success, `is`(true))
+        verify(exactly = 1) { ServiceManager.closeService(context, TOKEN_UPDATE_SERVICE, true) }
+        verify(exactly = 0) { ServiceManager.checkServiceClosed(any(), any(), any()) }
+        coVerify(exactly = 1) { TokenUpdate.isRetry(context, any()) }
+    }
+
+    /** - test_7: MobileEventCoroutineWorker → MobileEvent.isRetry = true ⇒ Result.retry. */
     @Test
     fun mobileEventWorker_returns_retry_when_MobileEvent_isRetry_true() = runTest {
         coEvery { MobileEvent.isRetry(any()) } returns true
@@ -153,7 +211,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { MobileEvent.isRetry(context) }
     }
 
-    /** Ensures MobileEvent worker returns Result.success when MobileEvent.isRetry() is false. */
+    /** - test_8: MobileEventCoroutineWorker → MobileEvent.isRetry = false ⇒ Result.success. */
     @Test
     fun mobileEventWorker_returns_success_when_MobileEvent_isRetry_false() = runTest {
         coEvery { MobileEvent.isRetry(any()) } returns false
@@ -164,83 +222,4 @@ class WorkersInstrumentedTest {
         assertThat(result is ListenableWorker.Result.Success, `is`(true))
         coVerify(exactly = 1) { MobileEvent.isRetry(context) }
     }
-
-    // --------------------------
-    // SubscribeCoroutineWorker
-    // --------------------------
-
-    /** Verifies Subscribe worker retries and calls checkServiceClosed() when isRetry() is true. */
-    @Test
-    fun subscribeWorker_retry_path_calls_checkServiceClosed_and_returns_retry() = runTest {
-        Worker.retrySubscribe = 0
-        coEvery { PushSubscribe.isRetry(any()) } returns true
-        every { ServiceManager.checkServiceClosed(any(), any(), any()) } returns Unit
-
-        val worker = buildSubscribeWorker()
-        val result = worker.doWork()
-
-        assertThat(result is ListenableWorker.Result.Retry, `is`(true))
-        verify(exactly = 1) {
-            ServiceManager.checkServiceClosed(context, PUSH_SUBSCRIBE_SERVICE, 1)
-        }
-        verify(exactly = 0) { ServiceManager.closeService(any(), any(), any()) }
-        coVerify(exactly = 1) { PushSubscribe.isRetry(context) }
-    }
-
-    /** Verifies Subscribe worker succeeds and calls closeService() when isRetry() is false. */
-    @Test
-    fun subscribeWorker_success_path_calls_closeService_and_returns_success() = runTest {
-        coEvery { PushSubscribe.isRetry(any()) } returns false
-        every { ServiceManager.closeService(any(), any(), any()) } returns Unit
-
-        val worker = buildSubscribeWorker()
-        val result = worker.doWork()
-
-        assertThat(result is ListenableWorker.Result.Success, `is`(true))
-        verify(exactly = 1) {
-            ServiceManager.closeService(context, PUSH_SUBSCRIBE_SERVICE, true)
-        }
-        verify(exactly = 0) { ServiceManager.checkServiceClosed(any(), any(), any()) }
-        coVerify(exactly = 1) { PushSubscribe.isRetry(context) }
-    }
-
-    // --------------------------
-    // UpdateCoroutineWorker
-    // --------------------------
-
-    /** Verifies Update worker retries and calls checkServiceClosed() when isRetry() is true. */
-    @Test
-    fun updateWorker_retry_path_calls_checkServiceClosed_and_returns_retry() = runTest {
-        Worker.retrySubscribe = 0
-        coEvery { TokenUpdate.isRetry(any(), any()) } returns true
-        every { ServiceManager.checkServiceClosed(any(), any(), any()) } returns Unit
-
-        val worker = buildUpdateWorker()
-        val result = worker.doWork()
-
-        assertThat(result is ListenableWorker.Result.Retry, `is`(true))
-        verify(exactly = 1) {
-            ServiceManager.checkServiceClosed(context, TOKEN_UPDATE_SERVICE, 1)
-        }
-        verify(exactly = 0) { ServiceManager.closeService(any(), any(), any()) }
-        coVerify(exactly = 1) { TokenUpdate.isRetry(context, any()) }
-    }
-
-    /** Verifies Update worker succeeds and calls closeService() when isRetry() is false. */
-    @Test
-    fun updateWorker_success_path_calls_closeService_and_returns_success() = runTest {
-        coEvery { TokenUpdate.isRetry(any(), any()) } returns false
-        every { ServiceManager.closeService(any(), any(), any()) } returns Unit
-
-        val worker = buildUpdateWorker()
-        val result = worker.doWork()
-
-        assertThat(result is ListenableWorker.Result.Success, `is`(true))
-        verify(exactly = 1) {
-            ServiceManager.closeService(context, TOKEN_UPDATE_SERVICE, true)
-        }
-        verify(exactly = 0) { ServiceManager.checkServiceClosed(any(), any(), any()) }
-        coVerify(exactly = 1) { TokenUpdate.isRetry(context, any()) }
-    }
 }
-

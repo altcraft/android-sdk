@@ -44,12 +44,6 @@ import org.junit.Test
  * Negative scenarios:
  *  - test_17: entityInsert with unsupported type → emits Events.error.
  *  - test_18: entityDelete with unsupported type → emits Events.error.
- *
- * Notes:
- *  - Pure JVM unit tests (no Android runtime).
- *  - SDKdb.getDb(context) and DAO are mocked.
- *  - Events.event/error and SubFunction.logger are stubbed.
- *  - Suspend DAO calls are verified with coVerify.
  */
 class RoomRequestUnitTest {
 
@@ -61,14 +55,12 @@ class RoomRequestUnitTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
-        // Mock DB and DAO wiring
         mockkObject(SDKdb)
         sdkDB = mockk(relaxed = true)
         dao = mockk(relaxed = true)
         every { SDKdb.getDb(any()) } returns sdkDB
         every { sdkDB.request() } returns dao
 
-        // Stub Events.event / Events.error
         mockkObject(Events)
         every { Events.event(any(), any<Pair<Int, String>>(), any()) } answers {
             val fn = firstArg<String>()
@@ -79,7 +71,6 @@ class RoomRequestUnitTest {
         every { Events.error(any(), any(), any()) } returns
                 DataClasses.Error("fn", 400, "err", null)
 
-        // Stub logger
         mockkObject(SubFunction)
         every { SubFunction.logger(any()) } returns 0
     }
@@ -87,9 +78,6 @@ class RoomRequestUnitTest {
     @After
     fun tearDown() = unmockkAll()
 
-    // -------- Helpers --------
-
-    // SubscribeEntity factory
     private fun sub(uid: String = "sub-uid", retry: Int = 1, max: Int = 3) = SubscribeEntity(
         userTag = "tag",
         status = SUBSCRIBED,
@@ -105,7 +93,6 @@ class RoomRequestUnitTest {
         maxRetryCount = max
     )
 
-    // PushEventEntity factory
     private fun push(uid: String = "push-uid", retry: Int = 1, max: Int = 3) = PushEventEntity(
         uid = uid,
         type = "opened",
@@ -114,7 +101,6 @@ class RoomRequestUnitTest {
         maxRetryCount = max
     )
 
-    // MobileEventEntity factory — updated to pass matchingType explicitly (and keep altcraftClientID nullable)
     private fun mobile(
         id: Long = 0L,
         name: String = "evt",
@@ -122,24 +108,22 @@ class RoomRequestUnitTest {
         max: Int = 3
     ) = MobileEventEntity(
         id = id,
-        userTag = "tag",            // non-null in entity
+        userTag = "tag",
         timeZone = 0,
         time = System.currentTimeMillis(),
         sid = "sid",
-        altcraftClientID = "cid",   // nullable; provide a value for tests
+        altcraftClientID = "cid",
         eventName = name,
         payload = null,
         matching = null,
-        matchingType = null,        // NEW: pass matchingType to avoid parameter shift
+        matchingType = null,
         profileFields = null,
         subscription = null,
         sendMessageId = "smid",
-        utmTags = null,             // NEW: explicit presence in constructor
+        utmTags = null,
         retryCount = retry,
         maxRetryCount = max
     )
-
-    // ---------- entityInsert ----------
 
     /** test_1: entityInsert inserts SubscribeEntity via DAO */
     @Test
@@ -172,8 +156,6 @@ class RoomRequestUnitTest {
         verify { Events.error(eq("entityInsert"), any(), any()) }
     }
 
-    // ---------- entityDelete ----------
-
     /** test_3: entityDelete deletes SubscribeEntity via DAO */
     @Test
     fun entityDelete_subscribe_callsDao() = runBlocking {
@@ -205,8 +187,6 @@ class RoomRequestUnitTest {
         verify { Events.error(eq("entityDelete"), any(), any()) }
     }
 
-    // ---------- isRetryLimit: SubscribeEntity ----------
-
     /** test_5: isRetryLimit SubscribeEntity over limit → emits event & deletes */
     @Test
     fun isRetryLimit_subscribe_overLimit_deletes_and_emitsEvent() = runBlocking {
@@ -217,7 +197,7 @@ class RoomRequestUnitTest {
         verify {
             Events.event(
                 eq("isRetryLimit"),
-                match<Pair<Int, String>> { it.first == 480 }, // SUBSCRIBE_RETRY_LIMIT
+                match<Pair<Int, String>> { it.first == 480 },
                 any()
             )
         }
@@ -232,8 +212,6 @@ class RoomRequestUnitTest {
         coVerify { dao.increaseSubscribeRetryCount(e.uid, e.retryCount + 1) }
         coVerify(exactly = 0) { dao.deleteSubscribeByUid(any()) }
     }
-
-    // ---------- isRetryLimit: PushEventEntity ----------
 
     /** test_7: isRetryLimit PushEventEntity over limit → emits event & deletes (with uid) */
     @Test
@@ -261,8 +239,6 @@ class RoomRequestUnitTest {
         coVerify(exactly = 0) { dao.deletePushEventByUid(any()) }
     }
 
-    // ---------- isRetryLimit: MobileEventEntity ----------
-
     /** test_13: isRetryLimit MobileEventEntity over limit → emits event & deletes (with name) */
     @Test
     fun isRetryLimit_mobile_overLimit_deletes_and_emitsEvent_withName() = runBlocking {
@@ -288,8 +264,6 @@ class RoomRequestUnitTest {
         coVerify { dao.increaseMobileEventRetryCount(5L, 2) }
         coVerify(exactly = 0) { dao.deleteMobileEventById(any()) }
     }
-
-    // ---------- clearOldPushEventsFromRoom ----------
 
     /** test_9: clearOldPushEventsFromRoom when >500 → deletes oldest 100 and logs */
     @Test
@@ -320,14 +294,11 @@ class RoomRequestUnitTest {
         verify(exactly = 0) { SubFunction.logger(any()) }
     }
 
-    // ---------- clearOldMobileEventsFromRoom ----------
-
     /** test_15: clearOldMobileEventsFromRoom when >500 → deletes oldest 100 and logs */
     @Test
     fun clearOldMobileEventsFromRoom_overThreshold_deletesOldest100_and_logs() = runBlocking {
         coEvery { dao.getMobileEventCount() } returnsMany listOf(700, 350)
 
-        // Build 100 MobileEventEntity instances with the new signature (non-null userTag, added matchingType and utmTags)
         val oldest = (1..100).map {
             MobileEventEntity(
                 id = it.toLong(),
@@ -339,7 +310,7 @@ class RoomRequestUnitTest {
                 eventName = "evt$it",
                 payload = null,
                 matching = null,
-                matchingType = null,       // ensure parameter order stays correct
+                matchingType = null,
                 profileFields = null,
                 subscription = null,
                 sendMessageId = "smid$it",

@@ -22,8 +22,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-
-// SDK
 import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
@@ -35,18 +33,20 @@ import com.altcraft.sdk.workers.periodical.CommonFunctions.pushPeriodicalWorkerC
 /**
  * CommonFunctionsInstrumentedTest
  *
- * Positive scenarios:
- *  - test_1: pushPeriodicalWorkerControl() — when nothing scheduled, it schedules 3 periodic works
- *            (SUB, UPDATE, PUSH_EVENT).
- *  - test_2: pushPeriodicalWorkerControl() — when works are already enqueued, it doesn’t duplicate them.
- *  - test_3: mobileEventPeriodicalWorkerControl() — when none scheduled, it schedules MOBILE_EVENT.
- *  - test_4: mobileEventPeriodicalWorkerControl() — when already enqueued, no duplication.
- *  - test_5: createWorker() — enqueues unique periodic work with UPDATE policy.
- *  - test_6: cancelPeriodicalWorkersTask() — cancels all 4 unique works by name (SUB, UPDATE, PUSH_EVENT, MOBILE_EVENT).
+ * Covers:
+ * - pushPeriodicalWorkerControl() behavior for SUB/UPDATE/PUSH_EVENT periodic works.
+ * - mobileEventPeriodicalWorkerControl() behavior for MOBILE_EVENT periodic work.
+ * - createWorker() unique periodic work enqueue and cancelPeriodicalWorkersTask() bulk cancellation.
  *
- * Notes:
- *  - Uses real test WorkManager via WorkManagerTestInitHelper.
- *  - Asserts by inspecting real WorkManager state (WorkInfo) for each unique work name.
+ * Positive scenarios:
+ * - test_1: pushPeriodicalWorkerControl() — when nothing scheduled, it schedules 3 periodic works (SUB, UPDATE, PUSH_EVENT).
+ * - test_3: mobileEventPeriodicalWorkerControl() — when none scheduled, it schedules MOBILE_EVENT.
+ * - test_5: createWorker() — enqueues unique periodic work with UPDATE policy.
+ *
+ * Negative scenarios:
+ * - test_2: pushPeriodicalWorkerControl() — when works are already enqueued, it doesn’t duplicate them.
+ * - test_4: mobileEventPeriodicalWorkerControl() — when already enqueued, no duplication.
+ * - test_6: cancelPeriodicalWorkersTask() — cancels all 4 unique works by name (SUB, UPDATE, PUSH_EVENT, MOBILE_EVENT).
  */
 @RunWith(AndroidJUnit4::class)
 class CommonFunctionsInstrumentedTest {
@@ -57,15 +57,11 @@ class CommonFunctionsInstrumentedTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-
         val config = Configuration.Builder()
             .setMinimumLoggingLevel(Log.DEBUG)
             .build()
         WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
-
         wm = WorkManager.getInstance(context)
-
-        // Clean slate before each test
         wm.cancelAllWork().result.get()
     }
 
@@ -74,18 +70,14 @@ class CommonFunctionsInstrumentedTest {
         runCatching { wm.cancelAllWork().result.get() }
     }
 
-    // region helpers
-
     private fun stateOf(name: String): WorkInfo.State? =
         wm.getWorkInfosForUniqueWork(name).get().firstOrNull()?.state
 
     private fun enqueueDummyFor(name: String) {
-        // Use a generic periodic request; we don't need a specific Worker class here
         val req: PeriodicWorkRequest = CommonFunctions.createRequest(DummyPeriodicWorker::class.java)
         CommonFunctions.createWorker(context, name, req)
     }
 
-    // Minimal no-op CoroutineWorker for periodic requests
     class DummyPeriodicWorker(
         appContext: Context,
         params: androidx.work.WorkerParameters
@@ -93,20 +85,15 @@ class CommonFunctionsInstrumentedTest {
         override suspend fun doWork(): Result = Result.success()
     }
 
-    // endregion
-
-    /** Schedules SUB/UPDATE/PUSH_EVENT when none exist yet. */
+    /** - test_1: pushPeriodicalWorkerControl() schedules SUB/UPDATE/PUSH_EVENT when none exist. */
     @Test
     fun pushPeriodicalWorkerControl_starts_three_when_none_exist() = runTest {
-        // Pre-condition: nothing scheduled for these work names
         assertThat(wm.getWorkInfosForUniqueWork(UPDATE_P_WORK_NANE).get().isEmpty(), `is`(true))
         assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get().isEmpty(), `is`(true))
         assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NANE).get().isEmpty(), `is`(true))
 
-        // Act
         pushPeriodicalWorkerControl(context)
 
-        // Assert: each unique work name is ENQUEUED (or RUNNING)
         assertThat(
             stateOf(UPDATE_P_WORK_NANE) == WorkInfo.State.ENQUEUED ||
                     stateOf(UPDATE_P_WORK_NANE) == WorkInfo.State.RUNNING,
@@ -124,10 +111,9 @@ class CommonFunctionsInstrumentedTest {
         )
     }
 
-    /** Does not duplicate SUB/UPDATE/PUSH_EVENT scheduling if already ENQUEUED. */
+    /** - test_2: pushPeriodicalWorkerControl() does nothing if SUB/UPDATE/PUSH_EVENT already enqueued. */
     @Test
     fun pushPeriodicalWorkerControl_noop_when_already_enqueued() = runTest {
-        // Arrange: pre-enqueue all three names
         enqueueDummyFor(UPDATE_P_WORK_NANE)
         enqueueDummyFor(PUSH_EVENT_P_WORK_NANE)
         enqueueDummyFor(SUB_P_WORK_NANE)
@@ -138,10 +124,8 @@ class CommonFunctionsInstrumentedTest {
             SUB_P_WORK_NANE to wm.getWorkInfosForUniqueWork(SUB_P_WORK_NANE).get().size,
         )
 
-        // Act
         pushPeriodicalWorkerControl(context)
 
-        // Assert: counts stay the same
         val afterCounts = mapOf(
             UPDATE_P_WORK_NANE to wm.getWorkInfosForUniqueWork(UPDATE_P_WORK_NANE).get().size,
             PUSH_EVENT_P_WORK_NANE to wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get().size,
@@ -153,16 +137,13 @@ class CommonFunctionsInstrumentedTest {
         assertThat(afterCounts[SUB_P_WORK_NANE], `is`(beforeCounts[SUB_P_WORK_NANE]))
     }
 
-    /** Schedules MOBILE_EVENT periodic work when none exists yet. */
+    /** - test_3: mobileEventPeriodicalWorkerControl() schedules MOBILE_EVENT when none exist. */
     @Test
     fun mobileEventPeriodicalWorkerControl_starts_when_none_exist() = runTest {
-        // Pre-condition: nothing scheduled for mobile event
         assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().isEmpty(), `is`(true))
 
-        // Act
         mobileEventPeriodicalWorkerControl(context)
 
-        // Assert
         assertThat(
             stateOf(MOBILE_EVENT_P_WORK_NANE) == WorkInfo.State.ENQUEUED ||
                     stateOf(MOBILE_EVENT_P_WORK_NANE) == WorkInfo.State.RUNNING,
@@ -170,54 +151,45 @@ class CommonFunctionsInstrumentedTest {
         )
     }
 
-    /** Does not duplicate MOBILE_EVENT scheduling if already ENQUEUED. */
+    /** - test_4: mobileEventPeriodicalWorkerControl() does nothing if MOBILE_EVENT already enqueued. */
     @Test
     fun mobileEventPeriodicalWorkerControl_noop_when_already_enqueued() = runTest {
-        // Arrange
         enqueueDummyFor(MOBILE_EVENT_P_WORK_NANE)
         val before = wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().size
 
-        // Act
         mobileEventPeriodicalWorkerControl(context)
 
-        // Assert
         val after = wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().size
         assertThat(after, `is`(before))
     }
 
-    /** Enqueues unique periodic work with UPDATE policy. */
+    /** - test_5: createWorker() enqueues unique periodic work with UPDATE policy. */
     @Test
     fun createWorker_enqueues_unique_periodic_work() {
         val req = CommonFunctions.createRequest(DummyPeriodicWorker::class.java)
 
-        // Act
         CommonFunctions.createWorker(context, "TEST_UNIQUE_NAME", req)
 
-        // Assert
         val infos = wm.getWorkInfosForUniqueWork("TEST_UNIQUE_NAME").get()
         assertThat(infos.isNotEmpty(), `is`(true))
         assertThat(infos.first().state, `is`(WorkInfo.State.ENQUEUED))
     }
 
-    /** Cancels all 4 unique works by name (SUB, UPDATE, PUSH_EVENT, MOBILE_EVENT). */
+    /** - test_6: cancelPeriodicalWorkersTask() cancels SUB/UPDATE/PUSH_EVENT/MOBILE_EVENT unique works. */
     @Test
     fun cancelPeriodicalWorkersTask_cancels_all_unique_works() {
-        // Arrange: enqueue dummies under expected names
         enqueueDummyFor(UPDATE_P_WORK_NANE)
         enqueueDummyFor(PUSH_EVENT_P_WORK_NANE)
         enqueueDummyFor(SUB_P_WORK_NANE)
         enqueueDummyFor(MOBILE_EVENT_P_WORK_NANE)
 
-        // Sanity
         assertThat(wm.getWorkInfosForUniqueWork(UPDATE_P_WORK_NANE).get().isEmpty(), `is`(false))
         assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get().isEmpty(), `is`(false))
         assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NANE).get().isEmpty(), `is`(false))
         assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().isEmpty(), `is`(false))
 
-        // Act
         CommonFunctions.cancelPeriodicalWorkersTask(context)
 
-        // Assert: cancelled or removed
         fun cancelled(name: String): Boolean {
             val infos = wm.getWorkInfosForUniqueWork(name).get()
             return infos.isEmpty() || infos.all { it.state == WorkInfo.State.CANCELLED }

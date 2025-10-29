@@ -56,7 +56,7 @@ internal object InitBarrier {
  * @param function Logical source tag (e.g., caller name) used for event logging
  *                 when emitting `initAwait` / `initAwaitFailure`.
  * @param gate The gate to wait for (defaults to a snapshot of `InitBarrier.current()`).
- * @param timeoutMs Max wait in milliseconds; `null` = wait indefinitely.
+ * @param timeoutMs Max wait in milliseconds.
  */
 internal suspend fun awaitInit(
     function: String,

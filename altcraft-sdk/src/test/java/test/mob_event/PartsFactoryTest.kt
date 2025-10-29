@@ -33,12 +33,6 @@ import org.junit.Test
  * - test_1: createMobileEventParts builds 16 parts (11 text + 5 JSON) when all values are present.
  * - test_2: with all optional JSONs and utmTags = null → only 5 text parts remain (tz, t, aci, wn, mm).
  * - test_3: order is stable: [tz, t, aci, wn, mm, cn, cc, ck, cm, cs, ct, wd, mi, ma, sn, pf].
- *
- * Notes:
- * - Pure JVM unit tests (no Android runtime).
- * - RequestBody content is read via okio.Buffer in UTF-8.
- * - TIME_MOB = entity.time / 1000 (seconds) serialized as a string.
- * - UTM values are parsed from entity.utmTags (JSON) into DataClasses.UTM; null values are skipped.
  */
 
 private val TEXT_CT = "text/plain; charset=utf-8".toMediaType()
@@ -53,10 +47,8 @@ class PartsFactoryTest {
     /** test_1: all fields are present → 16 parts with correct headers/types/bodies. */
     @Test
     fun test_1_all_fields_present() {
-        // Fixed timestamp to get deterministic TIME_MOB (seconds)
         val fixedMs = 1_700_000_000_000L
 
-        // Full set of values, including matchingType and utmTags
         val utmJson = """{
           "campaign":"camp-1",
           "content":"cont-2",
@@ -69,7 +61,7 @@ class PartsFactoryTest {
         val entity = MobileEventEntity(
             id = 0L,
             userTag = "tag-1",
-            timeZone = 180,                    // +03:00 in minutes (domain-specific)
+            timeZone = 180,
             time = fixedMs,
             sid = "pixel-42",
             altcraftClientID = "ac-123",
@@ -78,112 +70,109 @@ class PartsFactoryTest {
             matching = """{"m":"v"}""",
             profileFields = """{"age":30}""",
             subscription = """{"channel":"email"}""",
-            sendMessageId = """"sm-777"""",    // JSON string by design (sent as application/json)
+            sendMessageId = """"sm-777"""",
             retryCount = 0,
             maxRetryCount = 3,
-            matchingType = "email",            // NEW required text part
-            utmTags = utmJson                  // NEW source for UTM text parts
+            matchingType = "email",
+            utmTags = utmJson
         )
 
         val parts = PartsFactory.createMobileEventParts(entity)
         assertNotNull(parts)
         parts!!
 
-        // 11 text + 5 JSON = 16
         assertEquals(16, parts.size)
 
-        // 1) TIME_ZONE (text)
         parts[0].also {
             assertEquals("""form-data; name="$TIME_ZONE"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("180", bodyUtf8(it))
         }
-        // 2) TIME_MOB (text) = time/1000
+
         parts[1].also {
             assertEquals("""form-data; name="$TIME_MOB"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals((fixedMs / 1000).toString(), bodyUtf8(it))
         }
-        // 3) ALTCRAFT_CLIENT_ID (text)
+
         parts[2].also {
             assertEquals("""form-data; name="$ALTCRAFT_CLIENT_ID"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("ac-123", bodyUtf8(it))
         }
-        // 4) MOB_EVENT_NAME (text)
+
         parts[3].also {
             assertEquals("""form-data; name="$MOB_EVENT_NAME"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("purchase", bodyUtf8(it))
         }
-        // 5) MATCHING_TYPE (text)
+
         parts[4].also {
             assertEquals("""form-data; name="$MATCHING_TYPE"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("email", bodyUtf8(it))
         }
-        // 6) UTM_CAMPAIGN (text)
+
         parts[5].also {
             assertEquals("""form-data; name="$UTM_CAMPAIGN"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("camp-1", bodyUtf8(it))
         }
-        // 7) UTM_CONTENT (text)
+
         parts[6].also {
             assertEquals("""form-data; name="$UTM_CONTENT"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("cont-2", bodyUtf8(it))
         }
-        // 8) UTM_KEYWORD (text)
+
         parts[7].also {
             assertEquals("""form-data; name="$UTM_KEYWORD"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("key-3", bodyUtf8(it))
         }
-        // 9) UTM_MEDIUM (text)
+
         parts[8].also {
             assertEquals("""form-data; name="$UTM_MEDIUM"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("med-4", bodyUtf8(it))
         }
-        // 10) UTM_SOURCE (text)
+
         parts[9].also {
             assertEquals("""form-data; name="$UTM_SOURCE"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("src-5", bodyUtf8(it))
         }
-        // 11) UTM_TEMP (text)
+
         parts[10].also {
             assertEquals("""form-data; name="$UTM_TEMP"""", it.headers?.get("Content-Disposition"))
             assertEquals(TEXT_CT, it.body.contentType())
             assertEquals("tmp-6", bodyUtf8(it))
         }
 
-        // 12) PAYLOAD (JSON)
         parts[11].also {
             assertEquals("""form-data; name="$PAYLOAD"""", it.headers?.get("Content-Disposition"))
             assertEquals(JSON_CT, it.body.contentType())
             assertEquals("""{"sum":9.99,"ok":true}""", bodyUtf8(it))
         }
-        // 13) SMID_MOB (JSON)
+
         parts[12].also {
             assertEquals("""form-data; name="$SMID_MOB"""", it.headers?.get("Content-Disposition"))
             assertEquals(JSON_CT, it.body.contentType())
             assertEquals(""""sm-777"""", bodyUtf8(it))
         }
-        // 14) MATCHING_MOB (JSON)
+
         parts[13].also {
             assertEquals("""form-data; name="$MATCHING_MOB"""", it.headers?.get("Content-Disposition"))
             assertEquals(JSON_CT, it.body.contentType())
             assertEquals("""{"m":"v"}""", bodyUtf8(it))
         }
-        // 15) SUBSCRIPTION_MOB (JSON)
+
         parts[14].also {
             assertEquals("""form-data; name="$SUBSCRIPTION_MOB"""", it.headers?.get("Content-Disposition"))
             assertEquals(JSON_CT, it.body.contentType())
             assertEquals("""{"channel":"email"}""", bodyUtf8(it))
         }
-        // 16) PROFILE_FIELDS_MOB (JSON)
+
         parts[15].also {
             assertEquals("""form-data; name="$PROFILE_FIELDS_MOB"""", it.headers?.get("Content-Disposition"))
             assertEquals(JSON_CT, it.body.contentType())
@@ -219,7 +208,6 @@ class PartsFactoryTest {
         assertNotNull(parts)
         parts!!
 
-        // Only required text fields + matchingType remain: 5 parts
         assertEquals(5, parts.size)
 
         val expectedNames = listOf(
@@ -232,7 +220,6 @@ class PartsFactoryTest {
             assertEquals(TEXT_CT, p.body.contentType())
         }
 
-        // Bodies
         assertEquals("-120", bodyUtf8(parts[0]))
         assertEquals((fixedMs / 1000).toString(), bodyUtf8(parts[1]))
         assertEquals("ac-0", bodyUtf8(parts[2]))

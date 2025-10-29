@@ -37,15 +37,14 @@ import org.junit.Test
  * WorkersInstrumentedTest
  *
  * Verifies periodic workers behavior in foreground/background:
- *
- *  test_1: RetryPushEventWorker (background) → calls awaitCancel, PushEvent.isRetry, clearOldPushEventsFromRoom → success.
- *  test_2: RetrySubscribeWorker (background) → calls awaitCancel, PushSubscribe.isRetry → success.
- *  test_3: RetryUpdateWorker (background) → calls awaitCancel, TokenUpdate.tokenUpdate → success.
- *  test_4: RetryMobileEventWorker (background) → calls awaitCancel, MobileEvent.isRetry, clearOldMobileEventsFromRoom → success.
- *  test_5: RetryPushEventWorker (foreground) → skips body → success.
- *  test_6: RetrySubscribeWorker (foreground) → skips body → success.
- *  test_7: RetryUpdateWorker (foreground) → skips body → success.
- *  test_8: RetryMobileEventWorker (foreground) → skips body → success.
+ * - test_1: RetryPushEventWorker (background) calls awaitCancel, PushEvent.isRetry, clearOldPushEventsFromRoom → success.
+ * - test_2: RetrySubscribeWorker (background) calls awaitCancel, PushSubscribe.isRetry → success.
+ * - test_3: RetryUpdateWorker (background) calls awaitCancel, TokenUpdate.tokenUpdate → success.
+ * - test_4: RetryMobileEventWorker (background) calls awaitCancel, MobileEvent.isRetry, clearOldMobileEventsFromRoom → success.
+ * - test_5: RetryPushEventWorker (foreground) skips body → success.
+ * - test_6: RetrySubscribeWorker (foreground) skips body → success.
+ * - test_7: RetryUpdateWorker (foreground) skips body → success.
+ * - test_8: RetryMobileEventWorker (foreground) skips body → success.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkersInstrumentedTest {
@@ -55,33 +54,25 @@ class WorkersInstrumentedTest {
     @Before
     fun setUp() {
         ctx = ApplicationProvider.getApplicationContext()
-
-        // Mock dependent singletons/objects
         mockkObject(
-            SubFunction,          // isAppInForegrounded()
-            CommonFunctions,      // awaitCancel()
-            PushEvent,            // isRetry()
-            PushSubscribe,        // isRetry()
-            TokenUpdate,          // tokenUpdate()
-            MobileEvent,          // isRetry()
-            RoomRequest,          // clearOld*FromRoom()
-            CancelWork,           // cancel*WorkerTask()
-            Events                // error() to silence logs
+            SubFunction,
+            CommonFunctions,
+            PushEvent,
+            PushSubscribe,
+            TokenUpdate,
+            MobileEvent,
+            RoomRequest,
+            CancelWork,
+            Events
         )
-
-        // Default: make awaitCancel a no-op that immediately resumes.
         coEvery { CommonFunctions.awaitCancel(any(), any()) } returns Unit
-
-        // Silence Events.error during tests.
         every { Events.error(any(), any(), any()) } returns mockk(relaxed = true)
     }
 
     @After
     fun tearDown() = unmockkAll()
 
-    // ---------- test_1 ----------
-
-    /** RetryPushEventWorker (background) performs awaitCancel, push retry, and cleanup. */
+    /** - test_1: RetryPushEventWorker (background) calls retry and cleanup, returns success. */
     @Test
     fun retryPushEventWorker_background_callsRetryAndCleanup_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -97,9 +88,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { RoomRequest.clearOldPushEventsFromRoom(any()) }
     }
 
-    // ---------- test_2 ----------
-
-    /** RetrySubscribeWorker (background) performs awaitCancel and subscription retry. */
+    /** - test_2: RetrySubscribeWorker (background) calls retry, returns success. */
     @Test
     fun retrySubscribeWorker_background_callsRetry_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -113,9 +102,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { PushSubscribe.isRetry(ctx) }
     }
 
-    // ---------- test_3 ----------
-
-    /** RetryUpdateWorker (background) performs awaitCancel and tokenUpdate. */
+    /** - test_3: RetryUpdateWorker (background) calls tokenUpdate, returns success. */
     @Test
     fun retryUpdateWorker_background_callsTokenUpdate_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -129,9 +116,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { TokenUpdate.tokenUpdate(ctx) }
     }
 
-    // ---------- test_4 ----------
-
-    /** RetryMobileEventWorker (background) performs awaitCancel, mobile retry, and cleanup. */
+    /** - test_4: RetryMobileEventWorker (background) calls retry and cleanup, returns success. */
     @Test
     fun retryMobileEventWorker_background_callsRetryAndCleanup_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -147,9 +132,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { RoomRequest.clearOldMobileEventsFromRoom(any()) }
     }
 
-    // ---------- test_5 ----------
-
-    /** RetryPushEventWorker (foreground) skips body, returns success. */
+    /** - test_5: RetryPushEventWorker (foreground) skips body, returns success. */
     @Test
     fun retryPushEventWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -163,9 +146,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 0) { RoomRequest.clearOldPushEventsFromRoom(any()) }
     }
 
-    // ---------- test_6 ----------
-
-    /** RetrySubscribeWorker (foreground) skips body, returns success. */
+    /** - test_6: RetrySubscribeWorker (foreground) skips body, returns success. */
     @Test
     fun retrySubscribeWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -178,9 +159,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 0) { PushSubscribe.isRetry(any()) }
     }
 
-    // ---------- test_7 ----------
-
-    /** RetryUpdateWorker (foreground) skips body, returns success. */
+    /** - test_7: RetryUpdateWorker (foreground) skips body, returns success. */
     @Test
     fun retryUpdateWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -193,9 +172,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 0) { TokenUpdate.tokenUpdate(any()) }
     }
 
-    // ---------- test_8 ----------
-
-    /** RetryMobileEventWorker (foreground) skips body, returns success. */
+    /** - test_8: RetryMobileEventWorker (foreground) skips body, returns success. */
     @Test
     fun retryMobileEventWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true

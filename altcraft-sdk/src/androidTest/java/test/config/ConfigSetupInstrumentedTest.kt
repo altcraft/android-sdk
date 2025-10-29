@@ -38,50 +38,20 @@ import java.util.UUID
  * ConfigSetupInstrumentedEventsTest
  *
  * Positive scenarios:
- *  - test_1: setConfig writes into a real in-memory Room DB and emits a real Events.event
- *            delivered to the active subscriber.
- *  - test_4: setConfig overwrites an existing configuration row when values are changed
- *            (ensures persisted record reflects the latest config).
+ * - test_1: setConfig writes into real in-memory Room DB and emits a real Events.event delivered
+ * to the active subscriber.
+ * - test_4: setConfig overwrites an existing configuration row when values are changed (persisted
+ * record reflects the latest config).
  *
  * Negative scenarios:
- *  - test_2: setConfig when AltcraftConfiguration.toEntity() throws → emits a real Events.error
- *            delivered to the active subscriber and returns null.
+ * - test_2: setConfig when AltcraftConfiguration.toEntity() throws → emits a real Events.error to
+ * the subscriber and returns null.
  *
  * Behavioral scenarios:
- *  - test_3: getConfig (background branch) returns the row from the real DB without emitting events.
- *  - test_5: rToken change triggers DAO.deleteAllSubscriptions() and DAO.deleteAllMobileEvents()
- *            → both tables become empty and configIsSet event is emitted.
- *
- * Notes:
- *  - Instrumented tests use ApplicationProvider.getApplicationContext() and a REAL Room DB (in-memory).
- *  - Only the SDKdb factory and SubFunction.isAppInForegrounded() are mocked.
- *  - Events are NOT mocked: we subscribe using Events.subscribe(probe) to capture real emissions.
+ * - test_3: getConfig (background branch) returns the row from the real DB without emitting events.
+ * - test_5: rToken change triggers DAO.deleteAllSubscriptions() and DAO.deleteAllMobileEvents();
+ * both tables become empty and configIsSet event is emitted.
  */
-
-// ---------- Provider constants ----------
-private const val FCM_PROVIDER: String = "android-firebase"
-private const val HMS_PROVIDER: String = "android-huawei"
-private const val RUS_PROVIDER: String = "android-rustore"
-
-// ---------- Defaults for builder fields ----------
-private const val API_URL = "https://api.example.com"
-private const val PUSH_CHANNEL_NAME = "Altcraft"
-private const val PUSH_CHANNEL_DESCRIPTION = "Altcraft notifications channel"
-
-// ---------- Test messages ----------
-private const val MSG_RESULT_NOT_NULL = "Resulting configuration must not be null"
-private const val MSG_CACHE_UPDATED = "In-memory cache must be updated"
-private const val MSG_DB_MATCH = "DB value must match the expected configuration"
-private const val MSG_EVENT_CAPTURED = "Expected to capture Events.event"
-private const val MSG_ERROR_CAPTURED = "Expected to capture Events.error"
-private const val MSG_GET_CONFIG_MATCH = "getConfig must return the configuration stored in DB"
-private const val MSG_NOT_NULL = "Value must not be null"
-private const val MSG_SUB_ROWS_INSERTED = "Rows must be inserted into subscribeTable for test setup"
-private const val MSG_SUB_ROWS_CLEARED = "subscribeTable must be empty after rToken change"
-private const val MSG_ME_ROWS_INSERTED = "Rows must be inserted into mobileEventTable for test setup"
-private const val MSG_ME_ROWS_CLEARED = "mobileEventTable must be empty after rToken change"
-private const val MSG_OVERWRITE_OK = "Persisted configuration must reflect the latest values"
-
 @RunWith(AndroidJUnit4::class)
 class ConfigSetupInstrumentedEventsTest {
 
@@ -94,27 +64,21 @@ class ConfigSetupInstrumentedEventsTest {
     @Before
     fun setUp() {
         appContext = ApplicationProvider.getApplicationContext()
-
-        // Build REAL in-memory Room DB (uses production entities and converters)
         db = Room.inMemoryDatabaseBuilder(appContext, TestRoom::class.java)
             .allowMainThreadQueries()
             .build()
         realDao = db.request()
 
-        // Mock SDKdb factory to return wrapper whose request() returns the REAL DAO
         mockkObject(SDKdb)
         val sdkDBWrapper = mockk<SDKdb>(relaxed = true)
         every { SDKdb.getDb(any()) } returns sdkDBWrapper
         every { sdkDBWrapper.request() } returns realDao
 
-        // Mock foreground/background switch (background by default)
         mockkObject(SubFunction)
         every { SubFunction.isAppInForegrounded() } returns false
 
-        // Clean in-memory cache in ConfigSetup
         ConfigSetup.configuration = null
 
-        // Subscribe to real events
         Events.subscribe(probe)
         probe.clear()
     }
@@ -125,8 +89,6 @@ class ConfigSetupInstrumentedEventsTest {
         unmockkAll()
         db.close()
     }
-
-    // ---------- Helpers ----------
 
     private fun cfg(
         rToken: String?,
@@ -165,7 +127,6 @@ class ConfigSetupInstrumentedEventsTest {
         maxRetryCount = 5
     )
 
-    // Builds a minimal MobileEventEntity row for seeding DB.
     private fun me(
         userTag: String,
         eventName: String = "event_${System.nanoTime()}",
@@ -193,13 +154,10 @@ class ConfigSetupInstrumentedEventsTest {
         maxRetryCount = maxRetryCount
     )
 
-    // ----------------- TESTS -----------------
-
-    /** setConfig → writes to real DB, updates cache, and emits Events.event to subscriber */
+    /** - test_1: setConfig writes to real DB, updates cache, and emits Events.event to subscriber. */
     @Test
     fun setConfig_emitsRealEvent_andWritesToDb() = runBlocking {
         val newEntity = cfg(rToken = "rt-NEW")
-
         val newConfig = mockk<AltcraftConfiguration>()
         every { newConfig.toEntity() } returns newEntity
 
@@ -220,7 +178,7 @@ class ConfigSetupInstrumentedEventsTest {
         assertEquals(EventList.configIsSet.second, last.eventMessage)
     }
 
-    /** setConfig with failing toEntity() → emits a REAL Events.error and returns null. */
+    /** - test_2: setConfig emits a real Events.error and returns null when toEntity() throws. */
     @Test
     fun setConfig_emitsRealError_onException() = runBlocking {
         val newConfig = mockk<AltcraftConfiguration>()
@@ -237,7 +195,7 @@ class ConfigSetupInstrumentedEventsTest {
         assertTrue(last.eventMessage?.contains("boom") == true)
     }
 
-    /** getConfig (background) → returns from real DB (no event expected here) */
+    /** - test_3: getConfig (background) returns configuration from real DB without emitting events. */
     @Test
     fun getConfig_returnsFromDb_inBackground() = runBlocking {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -253,7 +211,7 @@ class ConfigSetupInstrumentedEventsTest {
         assertEquals(MSG_GET_CONFIG_MATCH, fromDb, got)
     }
 
-    /** setConfig overwrites existing configuration when values change (update path). */
+    /** - test_4: setConfig overwrites existing configuration when values change (update path). */
     @Test
     fun setConfig_overwritesExistingConfig_whenChanged() = runBlocking {
         val old = cfg(rToken = "rt-NEW", serviceMessage = "old")
@@ -273,59 +231,72 @@ class ConfigSetupInstrumentedEventsTest {
         assertEquals(MSG_OVERWRITE_OK, updated.copy(id = fromDb!!.id), fromDb)
     }
 
-    /**
-     * rToken change → pending subscriptions AND mobile events are cleared via REAL DAO
-     * and configIsSet event is emitted.
-     */
+    /** - test_5: rToken change clears subscriptions and mobile events via real DAO and emits configIsSet event. */
     @Test
     fun setConfig_rTokenChange_clearsSubscriptionsAndMobileEvents_andEmitsEvent() = runBlocking {
         val tag = "test-tag"
 
-        // Seed subscriptions for a known tag
         realDao.insertSubscribe(sub(tag))
         realDao.insertSubscribe(sub(tag))
         realDao.insertSubscribe(sub(tag))
         val subsBefore = realDao.allSubscriptionsByTag(tag).size
         assertTrue(MSG_SUB_ROWS_INSERTED, subsBefore >= 1)
 
-        // Seed mobile events for the same tag
         realDao.insertMobileEvent(me(tag))
         realDao.insertMobileEvent(me(tag))
         val meBefore = realDao.getMobileEventCount()
         assertTrue(MSG_ME_ROWS_INSERTED, meBefore >= 1)
 
-        // Old config in DB
         val old = cfg(rToken = "rt-OLD")
         realDao.insertConfig(old)
 
-        // New config with different rToken
         val fresh = cfg(rToken = "rt-NEW")
         val newConfig = mockk<AltcraftConfiguration>()
         every { newConfig.toEntity() } returns fresh
 
         probe.clear()
 
-        // Act
         val result = ConfigSetup.setConfig(appContext, newConfig)
 
-        // Subscriptions cleared (by tag query should be empty)
         val subsAfter = realDao.allSubscriptionsByTag(tag).size
         assertEquals(MSG_SUB_ROWS_CLEARED, 0, subsAfter)
 
-        // Mobile events cleared (global clear)
         val meAfter = realDao.getMobileEventCount()
         assertEquals(MSG_ME_ROWS_CLEARED, 0, meAfter)
 
-        // Config updated and cache set
         assertEquals(MSG_RESULT_NOT_NULL, fresh, result)
         assertEquals(MSG_CACHE_UPDATED, fresh, ConfigSetup.configuration)
 
-        // Event emitted
         val events = probe.snapshot()
         assertTrue(MSG_EVENT_CAPTURED, events.isNotEmpty())
         val last = events.last()
         assertEquals("setConfig", last.function)
         assertEquals(EventList.configIsSet.first, last.eventCode)
         assertEquals(EventList.configIsSet.second, last.eventMessage)
+    }
+
+    companion object {
+        private const val FCM_PROVIDER: String = "android-firebase"
+        private const val HMS_PROVIDER: String = "android-huawei"
+        private const val RUS_PROVIDER: String = "android-rustore"
+        private const val API_URL = "https://api.example.com"
+        private const val PUSH_CHANNEL_NAME = "Altcraft"
+        private const val PUSH_CHANNEL_DESCRIPTION = "Altcraft notifications channel"
+        private const val MSG_RESULT_NOT_NULL = "Resulting configuration must not be null"
+        private const val MSG_CACHE_UPDATED = "In-memory cache must be updated"
+        private const val MSG_DB_MATCH = "DB value must match the expected configuration"
+        private const val MSG_EVENT_CAPTURED = "Expected to capture Events.event"
+        private const val MSG_ERROR_CAPTURED = "Expected to capture Events.error"
+        private const val MSG_GET_CONFIG_MATCH =
+            "getConfig must return the configuration stored in DB"
+        private const val MSG_NOT_NULL = "Value must not be null"
+        private const val MSG_SUB_ROWS_INSERTED =
+            "Rows must be inserted into subscribeTable for test setup"
+        private const val MSG_SUB_ROWS_CLEARED = "subscribeTable must be empty after rToken change"
+        private const val MSG_ME_ROWS_INSERTED =
+            "Rows must be inserted into mobileEventTable for test setup"
+        private const val MSG_ME_ROWS_CLEARED = "mobileEventTable must be empty after rToken change"
+        private const val MSG_OVERWRITE_OK =
+            "Persisted configuration must reflect the latest values"
     }
 }

@@ -16,33 +16,25 @@ import org.junit.runner.RunWith
  * SubFunctionInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: fromAssets() with an existing asset returns a non-null Bitmap with positive width/height.
+ *  - test_1: fromAssets() with an existing asset returns a non-null Bitmap with positive size.
  *
  * Negative scenarios:
  *  - test_2: fromAssets() with a missing asset returns null without crashing.
- *
- * Notes:
- *  - Use targetContext to read assets bundled with the app-under-test (src/main/assets).
- *  - Asset filenames and assertion messages are defined as constants below.
  */
 @RunWith(AndroidJUnit4::class)
 class SubFunctionInstrumentedTest {
 
-    // -------- Constants --------
     private companion object {
-        // Asset filenames
         private const val ASSET_EXISTING = "test.jpg"
-        private const val ASSET_MISSING  = "no_such_file.png"
+        private const val ASSET_MISSING = "no_such_file.png"
 
-        // Assertion messages
-        private const val MSG_BITMAP_NOT_NULL   = "Expected bitmap from test asset"
-        private const val MSG_BITMAP_NON_EMPTY  = "Bitmap must have positive size"
+        private const val MSG_BITMAP_NOT_NULL = "Expected bitmap from test asset"
+        private const val MSG_BITMAP_NON_EMPTY = "Bitmap must have positive size"
     }
 
-    /** fromAssets(): returns Bitmap for existing asset file. */
+    /** - test_1: fromAssets() returns Bitmap for existing asset. */
     @Test
     fun fromAssets_success() {
-        // Use targetContext to read assets from app-under-test (src/main/assets)
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val bmp: Bitmap? = SubFunction.fromAssets(ctx, ASSET_EXISTING)
 
@@ -51,7 +43,7 @@ class SubFunctionInstrumentedTest {
         assertTrue(MSG_BITMAP_NON_EMPTY, nonNull.width > 0 && nonNull.height > 0)
     }
 
-    /** fromAssets(): returns null for non-existing asset file without crashing. */
+    /** - test_2: fromAssets() returns null for missing asset. */
     @Test
     fun fromAssets_missing_returnsNull() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext

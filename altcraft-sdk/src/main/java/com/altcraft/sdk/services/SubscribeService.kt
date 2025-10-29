@@ -18,20 +18,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * ImageLoaderService - the foreground service used to access the Internet
- * during the receipt of a medium priority push notification for devices with API level < 31.
- * During the operation of the service, images are uploaded for push notifications.
+ * Foreground service that keeps a stable network connection during a push subscription flow
+ * for up to 60 seconds, even if the app is closed or running in the background.
+ *
+ * A persistent notification is displayed while the service is active (Android requirement).
+ * Therefore, the use of this service is optional and can be configured in the SDK settings.
+ *
+ * Purpose: ensure that subscription requests and related network I/O can complete reliably
+ * by keeping the process alive as a foreground service for a short time window.
  */
 @Keep
 internal class SubscribeService : Service() {
 
     /**
-     * Called when the service is first created.
-     *
-     * This method initializes the service and immediately attempts to start it in the foreground.
-     * If the foreground start fails, the service stops itself.
-     * Additionally, a coroutine is launched to automatically stop the service after 60 seconds.
-     *
+     * Promotes the service to the foreground; stops itself if the start fails.
+     * Automatically stops after 60 seconds.
      */
     override fun onCreate() {
         super.onCreate()
@@ -43,8 +44,8 @@ internal class SubscribeService : Service() {
     }
 
     /**
-     * Called when the service is started. This method handles the start command, checks the service's
-     * completion status, and starts an asynchronous task that stops the service after 60 seconds.
+     * Handles the start command — runs the subscription worker if needed
+     * and processes stop requests from the intent.
      *
      * @param intent The intent that was used to start the service.
      * @param flags Flags associated with the start request.
@@ -58,13 +59,9 @@ internal class SubscribeService : Service() {
     }
 
     /**
-     * Called when a client binds to the service with `bindService()`.
-     * The implementation of a communication channel for the service is not required.
+     * Binding is not supported.
      *
-     * @param intent The `Intent` that was used to bind to this service.
-     * @return The `IBinder` interface for interacting with the service.
+     * @return Always returns null to indicate that binding is not supported.
      */
-    override fun onBind(intent: Intent): IBinder {
-        TODO("Not used in the current implementation.")
-    }
+    override fun onBind(intent: Intent): IBinder? = null
 }

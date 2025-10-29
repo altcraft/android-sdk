@@ -42,32 +42,26 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * PeriodicalLaunchFunctionsE2EInstrumentedTest
+ * PeriodicalLaunchFunctionsInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: startPeriodicalPushEventWorker() — schedules periodic work; run once and verify:
- *             PushEvent.isRetry(...) and RoomRequest.clearOldPushEventsFromRoom(...) are called.
- *  - test_2: startPeriodicalSubscribeWorker() — schedules periodic work; run once and verify:
- *             PushSubscribe.isRetry(...) is called.
- *  - test_3: startPeriodicalUpdateWorker() — schedules periodic work; run once and verify:
- *             TokenUpdate.tokenUpdate(...) is called.
- *  - test_4: startPeriodicalMobileEventWorker() — schedules periodic work; run once and verify:
- *             MobileEvent.isRetry(...) and RoomRequest.clearOldMobileEventsFromRoom(...) are called.
+ *  - test_1: startPeriodicalPushEventWorker() schedules periodic work and invokes PushEvent & cleanup.
+ *  - test_2: startPeriodicalSubscribeWorker() schedules periodic work and invokes PushSubscribe.
+ *  - test_3: startPeriodicalUpdateWorker() schedules periodic work and invokes TokenUpdate.
+ *  - test_4: startPeriodicalMobileEventWorker() schedules periodic work and invokes MobileEvent & cleanup.
  */
 @RunWith(AndroidJUnit4::class)
-class PeriodicalLaunchFunctionsE2EInstrumentedTest {
+class PeriodicalLaunchFunctionsInstrumentedTest {
 
     private lateinit var context: Context
     private lateinit var workManager: WorkManager
     private var testDriver: TestDriver? = null
-
     private lateinit var ctxSlot: CapturingSlot<Context>
 
     @Before
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext
 
-        // Real WorkManager in test mode with synchronous executor
         val config = Configuration.Builder()
             .setExecutor(SynchronousExecutor())
             .setMinimumLoggingLevel(android.util.Log.DEBUG)
@@ -76,7 +70,6 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         workManager = WorkManager.getInstance(context)
         testDriver = WorkManagerTestInitHelper.getTestDriver(context)
 
-        // Mock collaborators used inside workers
         mockkObject(
             SubFunction,
             CommonFunctions,
@@ -87,14 +80,11 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
             RoomRequest
         )
 
-        // Workers execute their body only when app is NOT foregrounded.
         every { SubFunction.isAppInForegrounded() } returns false
 
-        // Do not actually cancel anything; just let awaitCancel return immediately.
         ctxSlot = slot()
         coEvery { CommonFunctions.awaitCancel(capture(ctxSlot), any()) } returns Unit
 
-        // Business operations inside workers — make them no-op/success
         coEvery { PushEvent.isRetry(any()) } returns false
         coEvery { RoomRequest.clearOldPushEventsFromRoom(any()) } returns Unit
 
@@ -110,32 +100,26 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         unmockkAll()
     }
 
-    /** test_1: EVENT periodic worker runs and invokes PushEvent + cleanup */
+    /** - test_1: startPeriodicalPushEventWorker() runs and invokes PushEvent + cleanup. */
     @Test
     fun test_1_startPeriodicalPushEventWorker_runs() {
-        // Enqueue periodic worker via LaunchFunctions API
         LaunchFunctions.startPeriodicalPushEventWorker(context)
 
-        // Ensure unique work exists
         val infos = workManager.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get()
         assertEquals(1, infos.size)
         assertTrue(infos.first().state == WorkInfo.State.ENQUEUED)
 
-        // Trigger constraints + period to run the worker once
         val id = infos.first().id
         testDriver!!.setAllConstraintsMet(id)
         testDriver!!.setPeriodDelayMet(id)
 
-        // Verify business effects happened inside the worker
         coVerify(exactly = 1) { PushEvent.isRetry(any()) }
         coVerify(exactly = 1) { RoomRequest.clearOldPushEventsFromRoom(any()) }
-        // awaitCancel must be used in this worker path
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
-        // Context sanity: same package as test app
         assertEquals(context.packageName, ctxSlot.captured.packageName)
     }
 
-    /** test_2: SUBSCRIBE periodic worker runs and invokes PushSubscribe.isRetry(...) */
+    /** - test_2: startPeriodicalSubscribeWorker() runs and invokes PushSubscribe.isRetry(...). */
     @Test
     fun test_2_startPeriodicalSubscribeWorker_runs() {
         LaunchFunctions.startPeriodicalSubscribeWorker(context)
@@ -152,7 +136,7 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
     }
 
-    /** test_3: UPDATE periodic worker runs and invokes TokenUpdate.tokenUpdate(...) */
+    /** - test_3: startPeriodicalUpdateWorker() runs and invokes TokenUpdate.tokenUpdate(...). */
     @Test
     fun test_3_startPeriodicalUpdateWorker_runs() {
         LaunchFunctions.startPeriodicalUpdateWorker(context)
@@ -169,23 +153,19 @@ class PeriodicalLaunchFunctionsE2EInstrumentedTest {
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
     }
 
-    /** test_4: MOBILE EVENT periodic worker runs and invokes MobileEvent + cleanup */
+    /** - test_4: startPeriodicalMobileEventWorker() runs and invokes MobileEvent + cleanup. */
     @Test
     fun test_4_startPeriodicalMobileEventWorker_runs() {
-        // Enqueue periodic worker via LaunchFunctions API
         LaunchFunctions.startPeriodicalMobileEventWorker(context)
 
-        // Ensure unique work exists
         val infos = workManager.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get()
         assertEquals(1, infos.size)
         assertTrue(infos.first().state == WorkInfo.State.ENQUEUED)
 
-        // Trigger constraints + period to run the worker once
         val id = infos.first().id
         testDriver!!.setAllConstraintsMet(id)
         testDriver!!.setPeriodDelayMet(id)
 
-        // Verify business effects happened inside the worker
         coVerify(exactly = 1) { MobileEvent.isRetry(any()) }
         coVerify(exactly = 1) { RoomRequest.clearOldMobileEventsFromRoom(any()) }
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }

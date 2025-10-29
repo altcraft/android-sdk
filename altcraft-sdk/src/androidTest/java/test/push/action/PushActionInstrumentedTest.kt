@@ -40,9 +40,12 @@ import org.junit.runner.RunWith
  * PushActionInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: IntentUtil.getIntent returns a PendingIntent that starts AltcraftPushActionActivity and carries extras.
- *  - test_2: PushAction.handleExtras with URL opens ACTION_VIEW and sends an "open" event once per unique UID.
- *  - test_3: PushAction.handleExtras without URL launches the app via PackageManager launch intent (fallback).
+ *  - test_1: IntentUtil.getIntent returns a PendingIntent that starts AltcraftPushActionActivity
+ *  and carries extras.
+ *  - test_2: PushAction.handleExtras with URL opens ACTION_VIEW and sends an "open" event
+ *  once per unique UID.
+ *  - test_3: PushAction.handleExtras without URL launches the app via PackageManager
+ *  launch intent (fallback).
  *
  * Negative scenarios:
  *  - test_4: PushAction.openLink failure falls back to launchApp.
@@ -60,10 +63,8 @@ class PushActionInstrumentedTest {
         const val MONITOR_TIMEOUT_MS = 3000L
     }
 
-    /** Fake launch-able activity for fallback app launch. */
     class TestLaunchActivity : Activity()
 
-    /** Context wrapper that captures startActivity calls. */
     private class CapturingContext(base: Context, private val launchComponent: ComponentName)
         : ContextWrapper(base) {
 
@@ -107,8 +108,6 @@ class PushActionInstrumentedTest {
         unmockkAll()
     }
 
-    // ---------- Intent.getIntent ----------
-
     /**
      * test_1: getIntent returns PendingIntent with correct target and extras
      */
@@ -144,8 +143,6 @@ class PushActionInstrumentedTest {
         instr.removeMonitor(monitor)
     }
 
-    // ---------- PushAction.handleExtras ----------
-
     /**
      * test_2: handleExtras with URL opens link and sends event once per UID
      */
@@ -162,11 +159,9 @@ class PushActionInstrumentedTest {
 
         coVerify(exactly = 1) { PushEvent.sendPushEvent(capturingCtx, OPEN, UID_1) }
 
-        // same UID again → no duplicate event
         handleExtras(capturingCtx, bundleOf(URL to DUMMY_URL_2, UID to UID_1))
         coVerify(exactly = 1) { PushEvent.sendPushEvent(capturingCtx, OPEN, UID_1) }
 
-        // new UID → new event
         handleExtras(capturingCtx, bundleOf(URL to DUMMY_URL, UID to UID_2))
         coVerify(exactly = 1) { PushEvent.sendPushEvent(capturingCtx, OPEN, UID_2) }
     }

@@ -21,9 +21,6 @@ import java.lang.reflect.Type
  * Positive:
  *  - test_1: Empty body -> null
  *  - test_2: Non-empty body -> delegated to ScalarsConverterFactory
- *
- * Notes:
- *  - Pure JVM unit tests, Retrofit 2.x, OkHttp 4.x.
  */
 class NullOnEmptyConverterFactoryTest {
 

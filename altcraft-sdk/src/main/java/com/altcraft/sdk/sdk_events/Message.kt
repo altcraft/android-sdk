@@ -12,7 +12,6 @@ internal object Message {
     //periodical worker
     const val SUB_WORK_START = "::RetryPushSubscribeWorker is started"
     const val UPDATE_WORK_START = "::RetryTokenUpdateWorker is started"
-    const val TOKEN_CHECK_WORK_START = "::TokenCheckWorker is started"
     const val PUSH_EVENT_WORK_START = "::RetryPushEventWorker is started"
     const val MOBILE_EVENT_WORK_START = "::RetryMobileEventWorker is started"
 

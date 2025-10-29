@@ -3,6 +3,7 @@
 package test.mob_event
 
 //  Created by Andrey Pogodin.
+//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
@@ -49,19 +50,11 @@ import org.junit.Test
  * Negative/behavioral:
  *  - test_2: sendMobileEvent — invalid payload (nested objects) → emits error and DOES NOT insert.
  *  - test_6: isRetry — exception during processing → retry event is emitted and function returns true.
- *
- * Notes:
- *  - Pure JVM unit tests (MockK).
- *  - CommandQueue.MobileEventCommandQueue is short-circuited to execute submitted blocks immediately.
- *  - InitBarrier.current() returns an already completed gate so withInitReady proceeds instantly.
- *  - All singletons/objects are mocked (ConfigSetup, AuthManager, DeviceInfo, RoomRequest, SDKdb/DAO,
- *    Request, Events, LaunchFunctions).
  */
 class MobileEventUnitTest {
 
     private lateinit var ctx: Context
 
-    // Shared config/tag stubs
     private val config = ConfigurationEntity(
         id = 1,
         icon = null,
@@ -80,46 +73,43 @@ class MobileEventUnitTest {
     fun setUp() {
         ctx = mockk(relaxed = true)
 
-        // Execute MobileEvent queue commands synchronously
         mockkObject(CommandQueue.MobileEventCommandQueue)
         every { CommandQueue.MobileEventCommandQueue.submit(any()) } answers {
             runBlocking { firstArg<suspend () -> Unit>().invoke() }
         }
 
-        // Init gate already completed
         mockkObject(InitBarrier)
         val done = CompletableDeferred<Unit>().also { it.complete(Unit) }
         every { InitBarrier.current() } returns done
 
-        // Config/user tag
         mockkObject(ConfigSetup, AuthManager)
         coEvery { ConfigSetup.getConfig(any()) } returns config
         every { AuthManager.getUserTag(config.rToken) } returns "user-tag"
 
-        // Timezone for the mobile event
         mockkObject(DeviceInfo)
         every { DeviceInfo.getTimeZoneForMobEvent() } returns 180
 
-        // Room insert/delete through RoomRequest
         mockkObject(RoomRequest)
         coJustRun { RoomRequest.entityInsert(any(), any()) }
         coJustRun { RoomRequest.entityDelete(any(), any()) }
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns false
 
-        // Worker start
         mockkObject(LaunchFunctions)
         justRun { LaunchFunctions.startMobileEventCoroutineWorker(any()) }
 
-        // Network calls for isRetry()
         mockkObject(Request)
         coEvery { Request.mobileEventRequest(any(), any()) } returns DataClasses.Event(
             function = "mobileEventRequest", eventCode = 200, eventMessage = "ok"
         )
 
-        // SDK events logging
         mockkObject(Events)
         every { Events.error(any(), any()) } returns DataClasses.Error("errFn", 500, "err", null)
-        every { Events.retry(any(), any()) } returns DataClasses.RetryError("retryFn", 102, "retry", null)
+        every { Events.retry(any(), any()) } returns DataClasses.RetryError(
+            "retryFn",
+            102,
+            "retry",
+            null
+        )
     }
 
     @After
@@ -143,15 +133,14 @@ class MobileEventUnitTest {
             context = ctx,
             sid = "pixel-1",
             eventName = "purchase",
-            sendMessageId = "smid-1",                // now nullable in API
+            sendMessageId = "smid-1",
             payloadFields = mapOf("amount" to 9.99, "ok" to true),
-            // matching is now a Map<String, Any?>?
             matching = mapOf("device_id" to "d-123"),
-            matchingType = "device",                  // new field in entity
+            matchingType = "device",
             profileFields = mapOf("age" to 30),
             subscription = null,
-            utmTags = utm,                            // new: UTM tags
-            altcraftClientID = "cid-1",               // now nullable in entity
+            utmTags = utm,
+            altcraftClientID = "cid-1",
         )
 
         coVerify {
@@ -164,8 +153,6 @@ class MobileEventUnitTest {
                 assertEquals("device", me.matchingType)
                 assertEquals(180, me.timeZone)
                 assertEquals("cid-1", me.altcraftClientID)
-                // We don't parse JSON strings here; presence is enough
-                // payload/matching/profileFields/subscription/utmTags are serialized JSON strings
             })
         }
         io.mockk.verify { LaunchFunctions.startMobileEventCoroutineWorker(ctx) }
@@ -179,7 +166,7 @@ class MobileEventUnitTest {
             sid = "px",
             eventName = "bad",
             sendMessageId = "smid-bad",
-            payloadFields = mapOf("complex" to mapOf("x" to 1)) // nested object → invalid
+            payloadFields = mapOf("complex" to mapOf("x" to 1))
         )
 
         io.mockk.verify { Events.error(eq("sendMobileEvent"), any()) }
@@ -194,7 +181,8 @@ class MobileEventUnitTest {
     fun test_3_isRetry_success_deletes_and_returnsFalse() = runBlocking {
         val sdkDb = mockk<SDKdb>(relaxed = true)
         val dao = mockk<DAO>(relaxed = true)
-        mockkObject(SDKdb)
+
+        mockkObject(SDKdb.Companion)
         every { SDKdb.getDb(any()) } returns sdkDb
         every { sdkDb.request() } returns dao
 
@@ -228,7 +216,8 @@ class MobileEventUnitTest {
     fun test_4_isRetry_retry_and_notLimit_returnsTrue() = runBlocking {
         val sdkDb = mockk<SDKdb>(relaxed = true)
         val dao = mockk<DAO>(relaxed = true)
-        mockkObject(SDKdb)
+
+        mockkObject(SDKdb.Companion)
         every { SDKdb.getDb(any()) } returns sdkDb
         every { sdkDb.request() } returns dao
 
@@ -267,7 +256,8 @@ class MobileEventUnitTest {
     fun test_5_isRetry_retry_and_limitReached_returnsFalse() = runBlocking {
         val sdkDb = mockk<SDKdb>(relaxed = true)
         val dao = mockk<DAO>(relaxed = true)
-        mockkObject(SDKdb)
+
+        mockkObject(SDKdb.Companion)
         every { SDKdb.getDb(any()) } returns sdkDb
         every { sdkDb.request() } returns dao
 

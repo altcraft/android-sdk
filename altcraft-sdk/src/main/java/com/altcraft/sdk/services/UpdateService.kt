@@ -18,22 +18,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * TokenUpdateService is an foreground service designed to ensure the guaranteed completion of the
- * token renewal process. The service is activated after calling the tokenUpdate() function.
- * The service shuts down after the tokenUpdate() function is completed or 60 seconds after the
- * service starts working. If the application user closes the application before the update function
- * is completed,TokenUpdateService will allow this process to be completed.
+ * Foreground service that keeps a stable network connection during a token update flow
+ * for up to 60 seconds, even if the app is closed or running in the background.
+ *
+ * A persistent notification is shown while the service is active (Android requirement).
+ * Therefore, using this service is optional and can be configured in the SDK settings.
+ *
+ * Purpose: ensure token refresh requests and related network I/O can finish reliably
+ * by keeping the process alive for a short window.
  */
 @Keep
 internal class UpdateService : Service() {
 
     /**
-     * Called when the service is first created.
-     *
-     * This method initializes the service and immediately attempts to start it in the foreground.
-     * If the foreground start fails, the service stops itself.
-     * Additionally, a coroutine is launched to automatically stop the service after 60 seconds.
-     *
+     * Promotes the service to the foreground; stops itself if the start fails.
+     * Automatically stops after 60 seconds.
      */
     override fun onCreate() {
         super.onCreate()
@@ -45,8 +44,8 @@ internal class UpdateService : Service() {
     }
 
     /**
-     * Called when the service is started. This method handles the start command, checks the service's
-     * completion status, and starts an asynchronous task that stops the service after 60 seconds.
+     * Handles the start command — runs the token update worker if needed
+     * and processes stop requests from the intent.
      *
      * @param intent The intent that was used to start the service.
      * @param flags Flags associated with the start request.
@@ -60,13 +59,9 @@ internal class UpdateService : Service() {
     }
 
     /**
-     * Not used in the current implementation.
-     * Returns the communication channel to the service (not implemented in this case).
+     * Binding is not supported.
      *
-     * @param intent The intent used for binding to the service.
-     * @return Returns an IBinder for communicating with the service, or null if binding is not required.
+     * @return Always returns null to indicate that binding is not supported.
      */
-    override fun onBind(intent: Intent?): IBinder? {
-        TODO("Not used in the current implementation.")
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 }

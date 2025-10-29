@@ -6,20 +6,27 @@ package test.workers.coroutine
 
 import android.util.Log
 import android.content.Context
+import androidx.arch.core.executor.TaskExecutor
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.work.*
+import androidx.work.Configuration
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
-import io.mockk.*
+import io.mockk.MockKAnnotations
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.MatcherAssert.assertThat
-import org.junit.*
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-// SDK imports
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
@@ -67,12 +74,8 @@ class CancelWorkInstrumentedTest {
     fun tearDown() {
         runCatching { wm.cancelAllWork().result.get() }
         unmockkAll()
-        runCatching { unmockkStatic(WorkManager::class) }
+        runCatching {TaskExecutor::class }
     }
-
-    // ---------------------------
-    // helpers
-    // ---------------------------
 
     private fun enqueueSubscribe() { wm.enqueue(Request.subscribeRequest()).result.get() }
     private fun enqueueUpdate() { wm.enqueue(Request.updateRequest()).result.get() }
@@ -86,11 +89,7 @@ class CancelWorkInstrumentedTest {
         }
     }
 
-    // ---------------------------
-    // Positive tests
-    // ---------------------------
-
-    /** cancelSubscribeWorkerTask() cancels jobs with SUBSCRIBE_C_WORK_TAG and calls onComplete */
+    /** - test_1: cancelSubscribeWorkerTask() cancels SUBSCRIBE_C_WORK_TAG and calls onComplete. */
     @Test
     fun cancelSubscribeWorkerTask_cancels_and_calls_onComplete() {
         enqueueSubscribe()
@@ -103,7 +102,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(SUBSCRIBE_C_WORK_TAG)
     }
 
-    /** cancelUpdateWorkerTask() cancels jobs with UPDATE_C_WORK_TAG and calls onComplete */
+    /** - test_2: cancelUpdateWorkerTask() cancels UPDATE_C_WORK_TAG and calls onComplete. */
     @Test
     fun cancelUpdateWorkerTask_cancels_and_calls_onComplete() {
         enqueueUpdate()
@@ -116,7 +115,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(UPDATE_C_WORK_TAG)
     }
 
-    /** cancelPushEventWorkerTask() cancels jobs with PUSH_EVENT_C_WORK_TAG and calls onComplete */
+    /** - test_3: cancelPushEventWorkerTask() cancels PUSH_EVENT_C_WORK_TAG and calls onComplete. */
     @Test
     fun cancelPushEventWorkerTask_cancels_and_calls_onComplete() {
         enqueuePushEvent()
@@ -129,7 +128,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(PUSH_EVENT_C_WORK_TAG)
     }
 
-    /** cancelMobileEventWorkerTask() cancels jobs with MOBILE_EVENT_C_WORK_TAG and calls onComplete */
+    /** - test_4: cancelMobileEventWorkerTask() cancels MOBILE_EVENT_C_WORK_TAG and calls onComplete. */
     @Test
     fun cancelMobileEventWorkerTask_cancels_and_calls_onComplete() {
         enqueueMobileEvent()
@@ -142,7 +141,7 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(MOBILE_EVENT_C_WORK_TAG)
     }
 
-    /** cancelCoroutineWorkersTask() cancels all four tags and calls onComplete */
+    /** - test_5: cancelCoroutineWorkersTask() cancels all tags and calls onComplete. */
     @Test
     fun cancelCoroutineWorkersTask_cancels_all_and_calls_onComplete() {
         enqueueSubscribe()

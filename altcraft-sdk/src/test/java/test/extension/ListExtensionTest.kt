@@ -20,10 +20,6 @@ import org.junit.Test
  *  - test_2: addJsonPart adds exactly one part with correct headers, content type, and body.
  *  - test_3: addJsonPart is skipped when value is null (list unchanged).
  *  - test_4: multiple calls preserve order (text then json).
- *
- * Notes:
- *  - Pure JVM unit tests (no Android runtime).
- *  - Body verification is done by writing the RequestBody into an okio.Buffer.
  */
 class ListExtensionTest {
 
@@ -93,12 +89,10 @@ class ListExtensionTest {
         val first = parts[0]
         val second = parts[1]
 
-        // First part assertions
         assertEquals("""form-data; name="first"""", first.headers?.get("Content-Disposition"))
         assertEquals("text/plain; charset=utf-8".toMediaType(), first.body.contentType())
         Buffer().also { first.body.writeTo(it); assertEquals("one", it.readUtf8()) }
 
-        // Second part assertions
         assertEquals("""form-data; name="second"""", second.headers?.get("Content-Disposition"))
         assertEquals("application/json; charset=utf-8".toMediaType(), second.body.contentType())
         Buffer().also { second.body.writeTo(it); assertEquals("""{"k":2}""", it.readUtf8()) }

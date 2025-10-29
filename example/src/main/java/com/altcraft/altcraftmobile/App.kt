@@ -12,13 +12,14 @@ import com.altcraft.altcraftmobile.providers.fcm.FCMProvider
 import com.altcraft.altcraftmobile.providers.hms.HMSProvider
 import com.altcraft.altcraftmobile.providers.rustore.RuStoreProvider
 import com.altcraft.sdk.AltcraftSDK
+import ru.rustore.sdk.pushclient.RuStorePushClient
 
 val icon = R.drawable.ic_altcraft_label
 
-//set the JWT value for the anonymous user as anonJWT or in the application IU interface (config)
+//set the JWT value for the anonymous user as anonJWT or in the application interface (config)
 internal val anonJWT: String? = null
 
-//set the JWT value for the registered user as regJWT or in the application IU interface (config)
+//set the JWT value for the registered user as regJWT or in the application interface (config)
 internal val regJWT: String? = null
 
 class App : Application() {
@@ -41,10 +42,10 @@ class App : Application() {
         alias(libs.plugins.kotlin.android)
         ```
          * ```
-        alias(libs.plugins.google.gms.google.services) // uncomment
+        id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
         ```
          * ```
-        id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
+        alias(libs.plugins.google.gms.google.services) // uncomment
         ```
          * ```
         id("com.huawei.agconnect") // uncomment
@@ -55,7 +56,7 @@ class App : Application() {
          */
 
         //Initialize the Rustore client by specifying your ProjectID
-        //RuStorePushClient.init(this, "your_rustore_project_id")
+        // RuStorePushClient.init(this, "your_rustore_project_id")
 
         EventReceiver.init(this)
         AltcraftSDK.setJWTProvider(JWTProvider(this))
@@ -106,5 +107,3 @@ class App : Application() {
          */
     }
 }
-
-

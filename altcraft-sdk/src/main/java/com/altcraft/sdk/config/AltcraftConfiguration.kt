@@ -14,7 +14,7 @@ import com.altcraft.sdk.sdk_events.Events.error
  * Altcraft SDK configuration initialization class.
  *
  * This class is responsible for initializing parameters for the Altcraft SDK,
- * including the API URL, resource token authentication, app information, icon ID,
+ * including the API URL, role token authentication, app information, icon ID,
  * whether foreground services are used, and push notification settings.
  *
  * @property apiUrl The URL to the Altcraft API endpoint.
@@ -26,7 +26,7 @@ import com.altcraft.sdk.sdk_events.Events.error
  * @property serviceMessage The message text that will be displayed as the content of the notification
  * when foreground services are active. Default is `null`.
  * @property providerPriorityList A list of provider names in priority order for push notifications.
- * @property appInfo Contains application details such as ID, instance ID, and version.
+ * @property appInfo Contains app details used by Firebase Analytics (App ID, instance ID, version).
  * @property pushReceiverModules A list of strings representing package names of modules where the
  * `PushReceiver` class can be overridden.
  * @property pushChannelName The name of the push notification channel shown to the user.
@@ -96,7 +96,7 @@ class AltcraftConfiguration private constructor(
     /** Returns the custom message for foreground service notifications. */
     fun getServiceMessage(): String? = serviceMessage
 
-    /** Returns additional app metadata if provided. */
+    /** Returns app metadata used by Firebase Analytics, if provided. */
     fun getAppInfo(): DataClasses.AppInfo? = appInfo
 
     /** Defines the priority order of providers for push notifications. */

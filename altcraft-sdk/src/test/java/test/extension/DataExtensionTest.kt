@@ -18,9 +18,6 @@ import org.junit.Test
  *
  * Negative scenarios:
  *  - test_3: Empty Data returns empty map.
- *
- * Notes:
- *  - Pure JVM unit tests.
  */
 class DataExtensionTest {
 

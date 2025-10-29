@@ -225,7 +225,7 @@ internal object SubFunction {
         private val counter = AtomicInteger(0)
 
         /**
-         * Produces a (mostly) unique, non-negative requestCode for PendingIntent.
+         * Produces a unique, non-negative requestCode for PendingIntent.
          * Combines uid hash with an ever-increasing counter to reduce collisions.
          */
         fun uniqueCode(uid: String) =

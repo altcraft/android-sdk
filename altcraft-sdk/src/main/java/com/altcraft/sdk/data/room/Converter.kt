@@ -30,7 +30,7 @@ internal class Converter {
     fun toStringList(value: String?): List<String>? = value.fromStringJson("toStringList")
 
     /**
-     * Converts an [DataClasses.AppInfo] object to a JSON string for database storage.
+     * Converts a [DataClasses.AppInfo] object to a JSON string for database storage.
      */
     @TypeConverter
     fun fromAppInfo(appInfo: DataClasses.AppInfo?): String? = appInfo.toStringJson("fromAppInfo")

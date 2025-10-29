@@ -36,8 +36,10 @@ import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.push.action.Intent.getIntent
 
 /**
- *  The DataFactory object is designed to convert JSON objects into Data classes,
- *  to work with the Data type of the androidx.work package.
+ * Builds request data for SDK network calls and composes notification payloads.
+ *
+ * Centralizes retrieval of config/auth/token data and assembles strongly-typed
+ * request models for subscriptions, updates, push events, mobile events, and status checks.
  */
 internal object Repository {
 
@@ -219,7 +221,7 @@ internal object Repository {
      * @param context The application context.
      * @return A [DataClasses.UnSuspendRequestData] object or `null` if an error occurs.
      */
-    suspend fun getUnSubscribeRequestData(
+    suspend fun getUnSuspendRequestData(
         context: Context,
     ): DataClasses.UnSuspendRequestData? {
         return try {
@@ -322,19 +324,19 @@ internal object Repository {
     }
 
     /**
-     * Resolves the push token to be used in requests.
+     * Resolves the token data to be used in requests.
      *
-     * Falls back to `null` in case of any unexpected exception.
+     * If `config.rToken` is present, prefers the saved token; otherwise returns the saved
+     * token from preferences (may fall back to `null`). Never throws.
      *
-     * @param context The Android context used to access saved token storage.
-     * @param data The common data object containing config and device token.
-     * @return A resolved token string or `null` if unavailable or on error.
+     * @param context Android context used to access saved token storage.
+     * @param data The common data object containing config and the current token.
+     * @return A [DataClasses.TokenData] or `null` if unavailable.
      */
     private fun getToken(context: Context, data: DataClasses.CommonData): DataClasses.TokenData? {
         return try {
-            if (data.config.rToken != null) {
-                data.savedToken ?: data.currentToken
-            } else getSavedToken(context)
+            if (data.config.rToken != null) { data.savedToken ?: data.currentToken } else
+                getSavedToken(context)
         } catch (_: Exception) {
             null
         }

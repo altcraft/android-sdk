@@ -23,7 +23,6 @@ import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.Executors
 
-// SDK imports
 import com.altcraft.sdk.data.Constants
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
@@ -37,17 +36,18 @@ import com.altcraft.sdk.network.Request
 import com.altcraft.sdk.data.room.RoomRequest
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.push.subscribe.PushSubscribe
+import com.altcraft.sdk.auth.AuthManager
 
 /**
  * PushSubscribeInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: pushSubscribe enqueues a OneTimeWorkRequest with SUBSCRIBE_C_WORK_TAG and inserts a SubscribeEntity.
- *  - test_2: isRetry returns true when Request.subscribeRequest -> Retry event and RoomRequest.isRetryLimit == false.
+ *  - test_1: pushSubscribe enqueues OneTimeWork with SUBSCRIBE_C_WORK_TAG and inserts SubscribeEntity.
+ *  - test_2: isRetry returns true when subscribeRequest → Retry and isRetryLimit == false.
  *
  * Negative scenarios:
- *  - test_3: pushSubscribe with invalid customFields triggers Events.error and does NOT insert.
- *  - test_4: isRetry returns false when Request.subscribeRequest -> Retry event and RoomRequest.isRetryLimit == true.
+ *  - test_3: pushSubscribe with invalid customFields triggers Events.error and does not insert.
+ *  - test_4: isRetry returns false when subscribeRequest → Retry and isRetryLimit == true.
  */
 @RunWith(AndroidJUnit4::class)
 class PushSubscribeInstrumentedTest {
@@ -61,14 +61,12 @@ class PushSubscribeInstrumentedTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
 
-        // WorkManager test environment.
         val wmConfig = WMConfiguration.Builder()
             .setMinimumLoggingLevel(Log.DEBUG)
             .setExecutor(Executors.newSingleThreadExecutor())
             .build()
         WorkManagerTestInitHelper.initializeTestWorkManager(context, wmConfig)
 
-        // REAL in-memory DB of type SDKdb.
         db = Room.inMemoryDatabaseBuilder(context, SDKdb::class.java)
             .allowMainThreadQueries()
             .build()
@@ -76,54 +74,71 @@ class PushSubscribeInstrumentedTest {
 
         MockKAnnotations.init(this, relaxUnitFun = true)
 
-        // SDKdb.getDb(context) -> our in-memory instance
         mockkObject(SDKdb.Companion)
         every { SDKdb.getDb(any()) } returns db
 
-        // CommandQueue: run submitted suspend blocks immediately
         mockkObject(CommandQueue.SubscribeCommandQueue)
         every { CommandQueue.SubscribeCommandQueue.submit(any()) } answers {
             val block = firstArg<suspend () -> Unit>()
             runBlocking { block() }
         }
 
-        // Config
         mockkObject(ConfigSetup)
-        coEvery { ConfigSetup.getConfig(any()) } returns
-                ConfigurationEntity(
-                    id = 0,
-                    icon = null,
-                    apiUrl = "https://api.example.com",
-                    rToken = testUserTag,
-                    appInfo = null,
-                    usingService = false, // force CoroutineWorker path, not Android Service
-                    serviceMessage = null,
-                    pushReceiverModules = null,
-                    providerPriorityList = null,
-                    pushChannelName = null,
-                    pushChannelDescription = null
-                )
+        coEvery { ConfigSetup.getConfig(any()) } returns ConfigurationEntity(
+            id = 0,
+            icon = null,
+            apiUrl = "https://api.example.com",
+            rToken = testUserTag,
+            appInfo = null,
+            usingService = false,
+            serviceMessage = null,
+            pushReceiverModules = null,
+            providerPriorityList = null,
+            pushChannelName = null,
+            pushChannelDescription = null
+        )
 
-        // Environment helpers
+        mockkObject(AuthManager)
+        every { AuthManager.getUserTag(any()) } returns testUserTag
+
         mockkObject(SubFunction)
         every { SubFunction.isOnline(any()) } returns true
         every { SubFunction.isAppInForegrounded() } returns false
 
-        // Events stubs (return real objects, not Unit)
         mockkObject(Events)
         every { Events.error(any(), any()) } answers { DataClasses.Error(function = firstArg()) }
-        every { Events.retry(any(), any()) } answers { DataClasses.RetryError(function = firstArg()) }
+        every {
+            Events.retry(
+                any(),
+                any()
+            )
+        } answers { DataClasses.RetryError(function = firstArg()) }
         every { Events.event(any(), any()) } answers { DataClasses.Event(function = firstArg()) }
-        every { Events.error(any(), any(), any()) } answers { DataClasses.Error(function = firstArg()) }
-        every { Events.retry(any(), any(), any()) } answers { DataClasses.RetryError(function = firstArg()) }
-        every { Events.event(any(), any(), any()) } answers { DataClasses.Event(function = firstArg()) }
+        every {
+            Events.error(
+                any(),
+                any(),
+                any()
+            )
+        } answers { DataClasses.Error(function = firstArg()) }
+        every {
+            Events.retry(
+                any(),
+                any(),
+                any()
+            )
+        } answers { DataClasses.RetryError(function = firstArg()) }
+        every {
+            Events.event(
+                any(),
+                any(),
+                any()
+            )
+        } answers { DataClasses.Event(function = firstArg()) }
 
-        // Network default: success (non-retry)
         mockkObject(Request)
-        coEvery { Request.subscribeRequest(any(), any()) } returns DataClasses.Event("ok")
+        coEvery { Request.pushSubscribeRequest(any(), any()) } returns DataClasses.Event("ok")
 
-        // IMPORTANT: Do NOT call the real isRetryLimit by default — it triggers increaseRetryCount
-        // which uses suspend DAO updates and can blow up in coroutine machinery here.
         mockkObject(RoomRequest)
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns false
     }
@@ -134,12 +149,9 @@ class PushSubscribeInstrumentedTest {
         unmockkAll()
     }
 
-    /**
-     * test_1: Ensures pushSubscribe creates a DB row and enqueues Work with SUBSCRIBE_C_WORK_TAG.
-     */
+    /** - test_1: pushSubscribe enqueues work and inserts a row. */
     @Test
     fun pushSubscribe_enqueues_and_inserts() = runTest {
-        // Act
         PushSubscribe.pushSubscribe(
             context = context,
             sync = 1,
@@ -151,41 +163,18 @@ class PushSubscribeInstrumentedTest {
             skipTriggers = false
         )
 
-        // Assert DB insert happened for user tag
         val subscriptions = dao.allSubscriptionsByTag(testUserTag)
         assertThat(subscriptions.isNotEmpty(), `is`(true))
 
-        // Assert WorkManager enqueued a job with the subscribe tag
         val infos = WorkManager.getInstance(context)
-            .getWorkInfosByTag(Constants.SUBSCRIBE_C_WORK_TAG)
-            .get()
+            .getWorkInfosByTag(Constants.SUBSCRIBE_C_WORK_TAG).get()
         assertThat(infos.isNotEmpty(), `is`(true))
         assertThat(infos.first().state, `is`(WorkInfo.State.ENQUEUED))
     }
 
-    /**
-     * test_3: Invalid customFields (nested object) → Events.error and no DB insert.
-     */
-    @Test
-    fun pushSubscribe_invalid_custom_fields_triggers_error_no_insert() = runTest {
-        // Act
-        PushSubscribe.pushSubscribe(
-            context = context,
-            customFields = mapOf("bad" to mapOf("nested" to 123))
-        )
-
-        // Assert: error signaled and no rows for user tag
-        verify { Events.error(eq("pushSubscribe"), any()) }
-        val subscriptions = dao.allSubscriptionsByTag(testUserTag)
-        assertThat(subscriptions.isEmpty(), `is`(true))
-    }
-
-    /**
-     * test_2: isRetry returns true when network returns Retry and isRetryLimit == false.
-     */
+    /** - test_2: isRetry returns true when Retry and isRetryLimit == false. */
     @Test
     fun isRetry_under_limit_returns_true() = runTest {
-        // Arrange: insert real SubscribeEntity
         dao.insertSubscribe(
             SubscribeEntity(
                 userTag = testUserTag,
@@ -198,23 +187,31 @@ class PushSubscribeInstrumentedTest {
                 skipTriggers = null
             )
         )
-        // Network → Retry event
-        coEvery { Request.subscribeRequest(any(), any()) } returns com.altcraft.sdk.data.retry(
-            function = "subscribeRequest"
-        )
-        // Under limit for this test
+        coEvery { Request.pushSubscribeRequest(any(), any()) } returns
+                com.altcraft.sdk.data.retry(function = "subscribeRequest")
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns false
 
-        // Act
         val shouldRetry = PushSubscribe.isRetry(context)
 
-        // Assert
         assertThat(shouldRetry, `is`(true))
+        val subscriptions = dao.allSubscriptionsByTag(testUserTag)
+        assertThat(subscriptions.isNotEmpty(), `is`(true))
     }
 
-    /**
-     * test_4: isRetry returns false when network returns Retry and isRetryLimit == true.
-     */
+    /** - test_3: invalid customFields triggers Events.error and no insert. */
+    @Test
+    fun pushSubscribe_invalid_custom_fields_triggers_error_no_insert() = runTest {
+        PushSubscribe.pushSubscribe(
+            context = context,
+            customFields = mapOf("bad" to mapOf("nested" to 123))
+        )
+
+        verify { Events.error(eq("pushSubscribe"), any()) }
+        val subscriptions = dao.allSubscriptionsByTag(testUserTag)
+        assertThat(subscriptions.isEmpty(), `is`(true))
+    }
+
+    /** - test_4: isRetry returns false when Retry and isRetryLimit == true. */
     @Test
     fun isRetry_over_limit_returns_false() = runTest {
         dao.insertSubscribe(
@@ -229,11 +226,14 @@ class PushSubscribeInstrumentedTest {
                 skipTriggers = null
             )
         )
-        coEvery { Request.subscribeRequest(any(), any()) } returns com.altcraft.sdk.data.retry(
-            function = "subscribeRequest"
-        )
+        coEvery { Request.pushSubscribeRequest(any(), any()) } returns
+                com.altcraft.sdk.data.retry(function = "subscribeRequest")
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns true
+
         val shouldRetry = PushSubscribe.isRetry(context)
+
         assertThat(shouldRetry, `is`(false))
+        val subscriptions = dao.allSubscriptionsByTag(testUserTag)
+        assertThat(subscriptions.isNotEmpty(), `is`(true))
     }
 }

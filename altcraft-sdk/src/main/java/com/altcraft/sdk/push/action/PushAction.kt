@@ -21,8 +21,8 @@ import kotlinx.coroutines.launch
 import kotlin.String
 
 /**
- * The `PushAction` object is needed to create actions that will be performed after clicking
- * on a push notification.
+ * Handles actions triggered by tapping a push notification:
+ * sends an "open" event, cancels the notification, and either opens a link or launches the app.
  */
 internal object PushAction {
 
@@ -43,21 +43,28 @@ internal object PushAction {
     }
 
     /**
-     * Closes (cancels) a notification by its ID if provided.
+     * Cancels a notification by its ID, if provided.
      *
      * @param context Application context.
-     * @param id Notification ID to cancel; ignored if null.
+     * @param id Notification ID to cancel; ignored if `null`.
      */
     private fun closeNotification(context: Context, id: Int?) = id?.let {
         NotificationManagerCompat.from(context).cancel(it)
     }
 
     /**
-     * Handles extras received from the notification and performs the appropriate action:
-     * creates an open event and navigates to a link or launches the app.
+     * Processes extras from a notification tap:
+     * - sends the "open" event;
+     * - cancels the notification;
+     * - opens a URL (if present) or launches the app.
      *
-     * @param context The application context.
-     * @param extras A bundle containing the UID and optional URL.
+     * Deduplicates actions by tracking the last handled [uid].
+     *
+     * @param context Application context.
+     * @param extras Bundle with keys:
+     *  - [UID] (String),
+     *  - [URL] (String, optional),
+     *  - [MESSAGE_ID] (Int, optional).
      */
     fun handleExtras(context: Context, extras: Bundle?) {
         try {
@@ -79,11 +86,10 @@ internal object PushAction {
     }
 
     /**
-     * Attempts to open the provided link in a browser.
-     * Falls back to launching the app if the link fails to open.
+     * Attempts to open the given URL in a browser; falls back to launching the app on failure.
      *
-     * @param context The application context.
-     * @param link The URL to open.
+     * @param context Application context.
+     * @param link URL to open.
      */
     private fun openLink(context: Context, link: String) {
         try {
@@ -95,10 +101,9 @@ internal object PushAction {
     }
 
     /**
-     * Launches the app using its package name.
-     * Used as a fallback when no URL is provided or opening fails.
+     * Launches the app’s main activity.
      *
-     * @param context The application context.
+     * @param context Application context.
      */
     internal fun launchApp(context: Context) {
         context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {

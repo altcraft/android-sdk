@@ -10,6 +10,7 @@ package com.altcraft.sdk.extension
  * Provides a custom `SDKException` class and a method to throw it from error pairs.
  */
 internal object ExceptionExtension {
+
     /**
      * Throws an `SDKException` using the provided error pair.
      *
@@ -26,10 +27,11 @@ internal object ExceptionExtension {
      * @property error A pair containing the error code and message.
      */
     class SDKException(private val error: Pair<Int, String>) : Exception(error.second) {
+
         /**
          * Retrieves the error pair containing the code and message.
          *
-         * @return The original error pair (`Pair<String, String>`).
+         * @return The original error pair (`Pair<Int, String>`).
          */
         fun info(): Pair<Int, String> = error
     }

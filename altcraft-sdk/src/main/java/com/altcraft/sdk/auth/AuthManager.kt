@@ -36,7 +36,7 @@ internal object AuthManager {
     /**
      * Returns a user tag based on JWT or the provided `rToken`.
      *
-     * @param rToken The fallback token if JWT is unavailable.
+     * @param rToken The role token.
      * @return The user tag, or `null` if an error occurs.
      */
     fun getUserTag(rToken: String?): String? {
@@ -73,7 +73,6 @@ internal object AuthManager {
     private fun decodeJwtPayload(jwt: String): String? {
         return try {
             val body = jwt.split('.').getOrNull(1) ?: exception(payloadIsMissing)
-
             if (jwtSizeExceeded(body)) exception(jwtTooLarge)
 
             val pad = (4 - (body.length % 4)) % 4

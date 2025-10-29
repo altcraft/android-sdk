@@ -19,7 +19,7 @@ Copyright © 2024 Altcraft LLC. All rights reserved.
 8. **COPYRIGHT NOTICE AND THIRD-PARTY COMPONENTS**:
    This Software may include components released under other licenses. A complete list of these components and their respective licenses is provided below:
 
-**Apache License 2.0**  
+  **Apache License 2.0**  
 Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).  
 You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
@@ -41,3 +41,4 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
 
 USE OF THE SOFTWARE INDICATES YOUR ACCEPTANCE OF THE TERMS OF THIS LICENSE AGREEMENT.
+с 
