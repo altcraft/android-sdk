@@ -115,19 +115,19 @@ Elements:
 * preview of the notification rendered by the builder (top of the screen);
 * **Text setting**:
 
-  * "X" button — clear the entered information;
+  * "x" button — clear the entered information;
   * "+" button — save the entered information;
   * set title;
   * set body.
 * **Image setting**:
 
-  * "X" button — clear the entered information;
+  * "x" button — clear the entered information;
   * "+" button — load and save an image by the provided link;
   * set small image — enter a link to load the image;
   * set large image (banner) — enter a link to load the image.
 * **Buttons setting**:
 
-  * "X" button — remove created notification buttons;
+  * "x" button — remove created notification buttons;
   * "+" button — create a new notification button.
 * **Send push** button — sends the created notification to the system notification panel.
 
@@ -145,7 +145,7 @@ This section allows configuring SDK parameters, JWT tokens, and push subscriptio
 
 * **Config setting**:
 
-  * "X" button — clear the entered information;
+  * "x" button — clear the entered information;
   * "+" button — save the entered information;
   * API url field — set the `apiUrl` configuration parameter (required);
   * RToken field — set the `rToken` configuration parameter (used for role token authorization);
@@ -153,7 +153,7 @@ This section allows configuring SDK parameters, JWT tokens, and push subscriptio
   * S.Msg field — if set, the SDK will use foreground services for subscription and token update requests, displaying a system notification with the specified text while running.
 * **JWT setting**:
 
-  * "X" button — clear the entered information;
+  * "x" button — clear the entered information;
   * "+" button — save the entered information;
   * Anon.JWT field — set the JWT token for anonymous users;
   * Reg.JWT field — set the JWT token for registered users.
