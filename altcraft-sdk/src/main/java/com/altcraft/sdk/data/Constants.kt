@@ -47,7 +47,6 @@ object Constants {
     internal val validProviders = setOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
 
     //auth
-
     internal const val MATCHING = "matching"
     internal const val SHA256 = "SHA-256"
     internal const val DB_ID = "db_id"

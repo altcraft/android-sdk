@@ -41,4 +41,3 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
 
 USE OF THE SOFTWARE INDICATES YOUR ACCEPTANCE OF THE TERMS OF THIS LICENSE AGREEMENT.
-с 

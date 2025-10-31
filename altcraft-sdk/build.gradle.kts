@@ -99,13 +99,12 @@ configurations.matching {
     exclude(group = "org.junit.platform")
 }
 
-
 mavenPublishing {
     publishToMavenCentral()
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "0.0.1")
+    coordinates("com.altcraft", "android-sdk", "0.0.2")
 
     pom {
         name = "Altcraft Android SDK"
@@ -132,4 +131,3 @@ mavenPublishing {
         }
     }
 }
-

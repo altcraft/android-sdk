@@ -51,11 +51,11 @@ internal object MobileEvent {
      * @param sid The string ID of the pixel.
      * @param eventName Event name.
      * @param sendMessageId Optional internal message ID to link the event.
-     * @param payloadFields Optional event payload; serialized to JSON.
-     * @param matching Optional matching parameters; serialized to JSON.
+     * @param payloadFields Optional event payload.
+     * @param matching Optional matching parameters.
      * @param matchingType Optional matching mode used for the request.
-     * @param profileFields Optional profile fields; serialized to JSON.
-     * @param subscription Optional subscription to attach to the profile; serialized to JSON.
+     * @param profileFields Optional profile fields.
+     * @param subscription Optional subscription to attach to the profile.
      * @param utmTags Optional UTM tags for attribution.
      * @param altcraftClientID Optional Altcraft client identifier.
      */
