@@ -64,7 +64,7 @@ object PublicPushTokenFunctions {
      * or `null` if no token is available.
      */
     suspend fun getPushToken(context: Context): DataClasses.TokenData? {
-        return TokenManager.getCurrentToken(context)
+        return TokenManager.getCurrentPushToken(context)
     }
 
     /**

@@ -8,15 +8,15 @@ import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.network.Request.tokenUpdateRequest
-import com.altcraft.sdk.push.token.TokenManager.getCurrentToken
-import com.altcraft.sdk.data.Preferenses.getSavedToken
+import com.altcraft.sdk.push.token.TokenManager.getCurrentPushToken
+import com.altcraft.sdk.data.Preferenses.getSavedPushToken
 import com.altcraft.sdk.data.Preferenses.setCurrentToken
 import com.altcraft.sdk.data.error
 import com.altcraft.sdk.data.retry
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.sdk_events.EventList.configIsNull
-import com.altcraft.sdk.sdk_events.EventList.currentTokenIsNull
+import com.altcraft.sdk.sdk_events.EventList.pushTokenIsNull
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.services.manager.ServiceManager.startUpdateWorker
 import com.altcraft.sdk.push.token.TokenManager.tokenLogShow
@@ -48,8 +48,8 @@ internal object TokenUpdate {
         tokenUpdateMutex.withLock {
             try {
                 val config = getConfig(context) ?: exception(configIsNull)
-                val currentToken = getCurrentToken(context) ?: exception(currentTokenIsNull)
-                val savedToken = getSavedToken(context)
+                val currentToken = getCurrentPushToken(context) ?: exception(pushTokenIsNull)
+                val savedToken = getSavedPushToken(context)
 
                 if (savedToken == currentToken) return
 
@@ -81,7 +81,7 @@ internal object TokenUpdate {
     ): Boolean {
         return try {
             updateProcessMutex.withLock {
-                val token = getCurrentToken(context) ?: exception(currentTokenIsNull)
+                val token = getCurrentPushToken(context) ?: exception(pushTokenIsNull)
 
                 val response = tokenUpdateRequest(context, requestID)
 

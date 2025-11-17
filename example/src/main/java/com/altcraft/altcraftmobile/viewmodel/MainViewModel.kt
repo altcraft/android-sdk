@@ -30,6 +30,7 @@ import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppDataClasses
 import com.altcraft.altcraftmobile.event.EventReceiver
 import com.altcraft.altcraftmobile.functions.app.Formatter.formatDate
+import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.altcraftmobile.functions.app.SubFunction.loadImage
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.data.DataClasses

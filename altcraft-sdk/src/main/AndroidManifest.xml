@@ -38,6 +38,7 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync|remoteMessaging"
             android:exported="false" />
+
     </application>
 </manifest>
 

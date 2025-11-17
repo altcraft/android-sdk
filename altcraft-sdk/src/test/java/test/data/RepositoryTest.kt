@@ -84,7 +84,7 @@ class RepositoryTest {
 
         every { Events.error(any(), any(), any()) } returns DataClasses.Error("fn", 400, "err", null)
         coEvery { ConfigSetup.getConfig(any()) } returns config
-        coEvery { TokenManager.getCurrentToken(any()) } returns token
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns token
         every { AuthManager.getAuthHeaderAndMatching(any()) } returns ("hdr" to "strict")
         every { Intent.getIntent(any(), any(), any(), any()) } returns mockk(relaxed = true)
     }
@@ -119,7 +119,7 @@ class RepositoryTest {
     @Test
     fun test_2_getUpdateRequestData_success() = runBlocking {
         mockkObject(com.altcraft.sdk.data.Preferenses)
-        every { com.altcraft.sdk.data.Preferenses.getSavedToken(any()) } returns savedToken
+        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } returns savedToken
 
         val data = Repository.getUpdateRequestData(ctx, "uid-2")
 
@@ -195,7 +195,7 @@ class RepositoryTest {
     /** - test_8: getUpdateRequestData returns null when token is missing. */
     @Test
     fun test_8_getUpdateRequestData_tokenNull_returnsNull() = runBlocking {
-        coEvery { TokenManager.getCurrentToken(any()) } returns null
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns null
 
         val data = Repository.getUpdateRequestData(ctx, "uidX")
 
@@ -230,7 +230,7 @@ class RepositoryTest {
     @Test
     fun test_11_getStatusRequestData_exception_returnsNull() = runBlocking {
         mockkObject(com.altcraft.sdk.data.Preferenses)
-        every { com.altcraft.sdk.data.Preferenses.getSavedToken(any()) } throws RuntimeException("err")
+        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } throws RuntimeException("err")
 
         val data = Repository.getStatusRequestData(ctx)
 

@@ -67,11 +67,11 @@ class PreferensesInstrumentedTest {
 
     /** setCurrentToken + getSavedToken round-trip. */
     @Test
-    fun setCurrentToken_and_getSavedToken_roundTrip_ok() {
+    fun setCurrentToken_and_getSavedPushToken_roundTrip_ok() {
         val td = TokenData("android-huawei", "abc-456")
         Preferenses.setCurrentToken(context, td)
 
-        val saved = Preferenses.getSavedToken(context)
+        val saved = Preferenses.getSavedPushToken(context)
         Assert.assertNotNull(saved)
         Assert.assertEquals(td.provider, saved!!.provider)
         Assert.assertEquals(td.token, saved.token)
@@ -82,20 +82,20 @@ class PreferensesInstrumentedTest {
     fun setCurrentToken_null_doesNotClear_existingValue() {
         val first = TokenData("android-rustore", "777")
         Preferenses.setCurrentToken(context, first)
-        Assert.assertNotNull(Preferenses.getSavedToken(context))
+        Assert.assertNotNull(Preferenses.getSavedPushToken(context))
 
         Preferenses.setCurrentToken(context, null)
-        val after = Preferenses.getSavedToken(context)
+        val after = Preferenses.getSavedPushToken(context)
         Assert.assertNotNull(after)
         Assert.assertEquals(first.token, after!!.token)
     }
 
     /** getSavedToken returns null for malformed JSON. */
     @Test
-    fun getSavedToken_malformedJson_returnsNull() {
+    fun getSavedPushToken_malformedJson_returnsNull() {
         val key = getPrivateField("TOKEN_KEY")
         Preferenses.getPreferences(context).edit().putString(key, "{\"provider\":1}").commit()
-        Assert.assertNull(Preferenses.getSavedToken(context))
+        Assert.assertNull(Preferenses.getSavedPushToken(context))
     }
 
     /** getMessageId returns 1 first, then increments sequentially. */
@@ -119,12 +119,12 @@ class PreferensesInstrumentedTest {
         Preferenses.setCurrentToken(context, c)
 
         Assert.assertNotNull(Preferenses.getManualToken(context))
-        Assert.assertNotNull(Preferenses.getSavedToken(context))
+        Assert.assertNotNull(Preferenses.getSavedPushToken(context))
 
         Preferenses.getPreferences(context).edit().clear().commit()
 
         Assert.assertNull(Preferenses.getManualToken(context))
-        Assert.assertNull(Preferenses.getSavedToken(context))
+        Assert.assertNull(Preferenses.getSavedPushToken(context))
         Assert.assertEquals(
             "After clear, first messageId should restart from 1",
             1,
@@ -141,7 +141,7 @@ class PreferensesInstrumentedTest {
         val raw = json.encodeToString(td)
         Preferenses.getPreferences(context).edit().putString(key, raw).commit()
 
-        val loaded = Preferenses.getSavedToken(context)
+        val loaded = Preferenses.getSavedPushToken(context)
         Assert.assertNotNull(loaded)
         Assert.assertEquals(td.provider, loaded!!.provider)
         Assert.assertEquals(td.token, loaded.token)

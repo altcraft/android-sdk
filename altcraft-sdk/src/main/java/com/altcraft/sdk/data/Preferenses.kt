@@ -110,7 +110,7 @@ internal object Preferenses {
      * @return A deserialized [DataClasses.TokenData] instance or `null` if unavailable or failed
      * to parse.
      */
-    fun getSavedToken(context: Context): DataClasses.TokenData? {
+    fun getSavedPushToken(context: Context): DataClasses.TokenData? {
         return try {
             getPreferences(context).getString(TOKEN_KEY, null)?.let {
                 json.decodeFromString<DataClasses.TokenData>(it)

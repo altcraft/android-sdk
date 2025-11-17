@@ -6,21 +6,20 @@ package com.altcraft.sdk.data
 
 import android.content.Context
 import com.altcraft.sdk.additional.StringBuilder.eventPushUrl
-import com.altcraft.sdk.additional.StringBuilder.profileUrl
+import com.altcraft.sdk.additional.StringBuilder.statusUrl
 import com.altcraft.sdk.additional.StringBuilder.subscribeUrl
 import com.altcraft.sdk.additional.StringBuilder.unSuspendUrl
 import com.altcraft.sdk.additional.StringBuilder.updateUrl
 import com.altcraft.sdk.auth.AuthManager.getAuthHeaderAndMatching
 import com.altcraft.sdk.config.ConfigSetup.getConfig
-import com.altcraft.sdk.push.token.TokenManager.getCurrentToken
+import com.altcraft.sdk.push.token.TokenManager.getCurrentPushToken
 import com.altcraft.sdk.data.Preferenses.getMessageId
-import com.altcraft.sdk.data.Preferenses.getSavedToken
+import com.altcraft.sdk.data.Preferenses.getSavedPushToken
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.sdk_events.EventList.authDataIsNull
-import com.altcraft.sdk.sdk_events.EventList.commonDataIsNull
 import com.altcraft.sdk.sdk_events.EventList.configIsNull
-import com.altcraft.sdk.sdk_events.EventList.currentTokenIsNull
+import com.altcraft.sdk.sdk_events.EventList.pushTokenIsNull
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.push.PushData
@@ -31,7 +30,6 @@ import com.altcraft.altcraftsdk.R
 import com.altcraft.sdk.additional.StringBuilder.eventMobileUrl
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
 import com.altcraft.sdk.additional.SubFunction.getIconColor
-import com.altcraft.sdk.data.DataClasses.MobileEventRequestData
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.push.action.Intent.getIntent
 
@@ -44,34 +42,18 @@ import com.altcraft.sdk.push.action.Intent.getIntent
 internal object Repository {
 
     /**
-     * Retrieves common data required for the subscription process.
+     * Return SDK Configuration, Auth header and MatchingMode.
      *
-     * This function gathers the necessary configuration, authentication, and device token data
-     * needed for constructing a subscription request. If any of the required data is missing,
-     * an appropriate event is logged, and `null` is returned.
-     *
-     * @param context The application context used for retrieving configuration and device token.
-     * @return A `CommonData` object containing configuration, provider, device token,
-     *         authentication header, and matching mode, or `null` if any required data is missing.
+     * @param context Application context .
+     * @return [DataClasses.RequestData] containing config, auth, and tokens, or empty if failed.
      */
-    private suspend fun getCommonData(context: Context): DataClasses.CommonData? {
+    private suspend fun getRequestData(context: Context): DataClasses.RequestData {
         return try {
-            val config = getConfig(context) ?: exception(configIsNull)
-            val tokenData = getCurrentToken(context) ?: exception(currentTokenIsNull)
-            val authData = getAuthHeaderAndMatching(config) ?: exception(authDataIsNull)
-
-            val savedToken = getSavedToken(context)
-
-            DataClasses.CommonData(
-                config = config,
-                currentToken = tokenData,
-                savedToken = savedToken,
-                authHeader = authData.first,
-                matchingMode = authData.second
-            )
+            val config = getConfig(context)
+            DataClasses.RequestData(config, config?.let { getAuthHeaderAndMatching(config) })
         } catch (e: Exception) {
-            error("getCommonData", e)
-            null
+            error("getRequestData", e)
+            DataClasses.RequestData()
         }
     }
 
@@ -84,35 +66,38 @@ internal object Repository {
      * Returns `null` if required data is missing or an error occurs.
      *
      * @param context The context for accessing configuration and token data.
-     * @param item The subscription details (status, custom fields, settings).
+     * @param subscription The subscription details (status, custom fields, settings).
      * @return A `SubscribeRequestData` object or `null` if data retrieval fails.
      */
     suspend fun getSubscribeRequestData(
         context: Context,
-        item: SubscribeEntity
+        subscription: SubscribeEntity
     ): DataClasses.SubscribeRequestData? {
         return try {
-            val commonData = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = subscribeUrl(commonData.config.apiUrl)
+            val data = getRequestData(context)
+            val pushToken = getCurrentPushToken(context)
+
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+            if (pushToken == null) exception(pushTokenIsNull)
 
             DataClasses.SubscribeRequestData(
-                url = url,
-                uid = item.uid,
-                time = item.time,
-                rToken = commonData.config.rToken,
-                authHeader = commonData.authHeader,
-                matchingMode = commonData.matchingMode,
-                provider = commonData.currentToken.provider,
-                deviceToken = commonData.currentToken.token,
-                status = item.status,
-                sync = item.sync,
-                profileFields = item.profileFields,
-                fields = item.customFields,
-                cats = item.cats,
-                replace = item.replace,
-                skipTriggers = item.skipTriggers
+                url = subscribeUrl(data.config.apiUrl),
+                time = subscription.time,
+                rToken = data.config.rToken,
+                uid = subscription.uid,
+                authHeader = data.auth.first,
+                matchingMode = data.auth.second,
+                provider = pushToken.provider,
+                deviceToken = pushToken.token,
+                status = subscription.status,
+                sync = subscription.sync,
+                profileFields = subscription.profileFields,
+                fields = subscription.customFields,
+                cats = subscription.cats,
+                replace = subscription.replace,
+                skipTriggers = subscription.skipTriggers
             )
-
         } catch (e: Exception) {
             error("getSubscribeData", e)
             null
@@ -134,20 +119,62 @@ internal object Repository {
         uid: String,
     ): DataClasses.UpdateRequestData? {
         return try {
-            val commonData = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = updateUrl(commonData.config.apiUrl)
+            val data = getRequestData(context)
+            val savedToken = getSavedPushToken(context)
+            val currentToken = getCurrentPushToken(context)
+
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+            if (currentToken == null) exception(pushTokenIsNull)
+
+            val url = updateUrl(data.config.apiUrl)
 
             DataClasses.UpdateRequestData(
                 url = url,
                 uid = uid,
-                authHeader = commonData.authHeader,
-                oldToken = commonData.savedToken?.token,
-                newToken = commonData.currentToken.token,
-                oldProvider = commonData.savedToken?.provider,
-                newProvider = commonData.currentToken.provider
+                authHeader = data.auth.first,
+                oldToken = savedToken?.token,
+                newToken = currentToken.token,
+                oldProvider = savedToken?.provider,
+                newProvider = currentToken.provider,
             )
         } catch (e: Exception) {
             error("getUpdateData", e)
+            null
+        }
+    }
+
+    /**
+     * Builds request data for the unSuspend request.
+     *
+     * @param context The application context.
+     * @return A [DataClasses.UnSuspendRequestData] object or `null` if an error occurs.
+     */
+    suspend fun getUnSuspendRequestData(
+        context: Context,
+    ): DataClasses.UnSuspendRequestData? {
+        return try {
+
+            val data = getRequestData(context)
+            val pushToken = getCurrentPushToken(context)
+
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+            if (pushToken == null) exception(pushTokenIsNull)
+
+            val url = unSuspendUrl(data.config.apiUrl)
+            val uid = UUID.randomUUID().toString()
+
+            DataClasses.UnSuspendRequestData(
+                url = url,
+                uid = uid,
+                provider = pushToken.provider,
+                token = pushToken.token,
+                authHeader = data.auth.first,
+                matchingMode = data.auth.second
+            )
+        } catch (e: Exception) {
+            error("getProfileData", e)
             null
         }
     }
@@ -167,16 +194,20 @@ internal object Repository {
         event: PushEventEntity
     ): DataClasses.PushEventRequestData? {
         return try {
-            val commonData = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = eventPushUrl(commonData.config.apiUrl, event.type)
+            val data = getRequestData(context)
+
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+
+            val url = eventPushUrl(data.config.apiUrl, event.type)
 
             DataClasses.PushEventRequestData(
                 url = url,
                 uid = event.uid,
                 time = event.time,
                 type = event.type,
-                authHeader = commonData.authHeader,
-                matchingMode = commonData.matchingMode
+                authHeader = data.auth.first,
+                matchingMode = data.auth.second
             )
         } catch (e: Exception) {
             error("getPushEventData", e)
@@ -193,52 +224,29 @@ internal object Repository {
      *
      * @param context The application context.
      * @param event   The mobile event entity containing event details.
-     * @return A [MobileEventRequestData] object with all required data, or null if an error occurs.
+     * @return A [DataClasses.MobileEventRequestData] object with all required data,
+     * or null if an error occurs.
      */
     suspend fun getMobileEventRequestData(
         context: Context,
         event: MobileEventEntity
-    ): MobileEventRequestData? {
+    ): DataClasses.MobileEventRequestData? {
         return try {
-            val common = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = eventMobileUrl(common.config.apiUrl)
+            val data = getRequestData(context)
 
-            MobileEventRequestData(
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+
+            val url = eventMobileUrl(data.config.apiUrl)
+
+            DataClasses.MobileEventRequestData(
                 url = url,
                 sid = event.sid,
                 name = event.eventName,
-                authHeader = common.authHeader
+                authHeader = data.auth.first
             )
         } catch (e: Exception) {
             error("getMobileEventRequestData", e)
-            null
-        }
-    }
-
-    /**
-     * Builds request data for the unSuspend request.
-     *
-     * @param context The application context.
-     * @return A [DataClasses.UnSuspendRequestData] object or `null` if an error occurs.
-     */
-    suspend fun getUnSuspendRequestData(
-        context: Context,
-    ): DataClasses.UnSuspendRequestData? {
-        return try {
-            val commonData = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = unSuspendUrl(commonData.config.apiUrl)
-            val uid = UUID.randomUUID().toString()
-
-            DataClasses.UnSuspendRequestData(
-                url = url,
-                uid = uid,
-                provider = commonData.currentToken.provider,
-                token = commonData.currentToken.token,
-                authHeader = commonData.authHeader,
-                matchingMode = commonData.matchingMode
-            )
-        } catch (e: Exception) {
-            error("getProfileData", e)
             null
         }
     }
@@ -256,18 +264,24 @@ internal object Repository {
         context: Context,
     ): DataClasses.StatusRequestData? {
         return try {
-            val commonData = getCommonData(context) ?: exception(commonDataIsNull)
-            val url = profileUrl(commonData.config.apiUrl)
-            val tokenData = getToken(context, commonData)
+            val data = getRequestData(context)
+            val savedToken = getSavedPushToken(context)
+            val currentToken = getCurrentPushToken(context)
+
+            if (data.config == null) exception(configIsNull)
+            if (data.auth == null) exception(authDataIsNull)
+
+            val url = statusUrl(data.config.apiUrl)
             val uid = UUID.randomUUID().toString()
+            val pushToken = savedToken ?: currentToken
 
             DataClasses.StatusRequestData(
                 url = url,
                 uid = uid,
-                provider = tokenData?.provider,
-                token = tokenData?.token,
-                authHeader = commonData.authHeader,
-                matchingMode = commonData.matchingMode
+                provider = pushToken?.provider,
+                token = pushToken?.token,
+                authHeader = data.auth.first,
+                matchingMode = data.auth.second
             )
         } catch (e: Exception) {
             error("getProfileData", e)
@@ -319,25 +333,6 @@ internal object Repository {
             )
         } catch (e: Exception) {
             error("getNotificationData", e)
-            null
-        }
-    }
-
-    /**
-     * Resolves the token data to be used in requests.
-     *
-     * If `config.rToken` is present, prefers the saved token; otherwise returns the saved
-     * token from preferences (may fall back to `null`). Never throws.
-     *
-     * @param context Android context used to access saved token storage.
-     * @param data The common data object containing config and the current token.
-     * @return A [DataClasses.TokenData] or `null` if unavailable.
-     */
-    private fun getToken(context: Context, data: DataClasses.CommonData): DataClasses.TokenData? {
-        return try {
-            if (data.config.rToken != null) { data.savedToken ?: data.currentToken } else
-                getSavedToken(context)
-        } catch (_: Exception) {
             null
         }
     }

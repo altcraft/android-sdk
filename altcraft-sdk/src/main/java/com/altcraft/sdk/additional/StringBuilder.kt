@@ -34,7 +34,7 @@ internal object StringBuilder {
      * @param apiUrl The base API URL.
      * @return The complete URL for fetching push subscription status.
      */
-    fun profileUrl(apiUrl: String) = "$apiUrl/subscription/push/status/"
+    fun statusUrl(apiUrl: String) = "$apiUrl/subscription/push/status/"
 
     /**
      * Generates the URL for unSuspend request.

@@ -14,7 +14,6 @@ import com.altcraft.sdk.data.Constants.MATCHING_ID
 import com.altcraft.sdk.data.Constants.PROVIDER
 import com.altcraft.sdk.data.Constants.TOKEN
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.interfaces.RequestData
 import com.altcraft.sdk.json.serializer.subscription.SubscriptionSerializer
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
@@ -33,62 +32,28 @@ typealias retry = DataClasses.RetryError
 object DataClasses {
 
     //public
-    /**
-     * Represents a general event with associated details.
-     *
-     * @property function The name or identifier of the function where the event occurred.
-     * @property eventCode An optional code identifying the event type.
-     * @property eventMessage An optional message providing additional details about the event.
-     * @property eventValue An optional value associated with the event.
-     * @property date The date and time when the event occurred.
-     */
-    @Keep
-    @Suppress("MemberVisibilityCanBePrivate")
-    open class Event(
-        val function: String,
-        val eventCode: Int? = null,
-        val eventMessage: String? = null,
-        val eventValue: Map<String, Any?>? = null,
-        val date: Date = Date(),
-    )
 
     /**
-     * Represents an error event, extending the general event class.
-     * Used for storing information about errors.
+     * A data class representing token data used for push notifications.
      *
-     * @param function The name or identifier of the function where the error occurred.
-     * @param eventCode An optional code identifying the error type.
-     * @param eventMessage An optional message providing details about the error.
-     * @param eventValue An optional value associated with the error.
-     * @param date The date and time when the error occurred.
+     * @property provider The push notification provider (
+     * android-firebase, android-huawei, android-rustore
+     * ).
+     * @property token The device-specific token used for push notifications.
      */
     @Keep
-    open class Error(
-        function: String,
-        eventCode: Int? = 0,
-        eventMessage: String? = null,
-        eventValue: Map<String, Any?>? = null,
-        date: Date = Date(),
-    ) : Event(function, eventCode, eventMessage, eventValue, date)
-
-    /**
-     * Represents a retryable error event.
-     * This class extends `Error` and is used for errors that support retry mechanisms.
-     *
-     * @param function The name or identifier of the function where the retryable error occurred.
-     * @param eventCode An optional code identifying the retryable error type.
-     * @param eventMessage An optional message providing details about the retryable error.
-     * @param eventValue An optional value associated with the retryable error.
-     * @param date The date and time when the retryable error occurred.
-     */
-    @Keep
-    class RetryError(
-        function: String,
-        eventCode: Int? = 0,
-        eventMessage: String? = null,
-        eventValue: Map<String, Any?>? = null,
-        date: Date = Date(),
-    ) : Error(function, eventCode, eventMessage, eventValue, date)
+    @Serializable
+    data class TokenData(
+        val provider: String,
+        val token: String
+    ) {
+        internal fun toMap(): Map<String, String> {
+            return mapOf(
+                PROVIDER to provider,
+                TOKEN to token
+            )
+        }
+    }
 
     /**
      * Holds basic metadata about the application for Firebase analytics.
@@ -205,28 +170,6 @@ object DataClasses {
         val steady: Boolean? = null,
         val active: Boolean?
     )
-
-    /**
-     * A data class representing token data used for push notifications.
-     *
-     * @property provider The push notification provider (
-     * android-firebase, android-huawei, android-rustore
-     * ).
-     * @property token The device-specific token used for push notifications.
-     */
-    @Keep
-    @Serializable
-    data class TokenData(
-        val provider: String,
-        val token: String
-    ) {
-        internal fun toMap(): Map<String, String> {
-            return mapOf(
-                PROVIDER to provider,
-                TOKEN to token
-            )
-        }
-    }
 
     /**
      * Base interface for all subscription types added to a profile via mobile events.
@@ -386,6 +329,63 @@ object DataClasses {
         val temp: String? = null
     )
 
+    /**
+     * Represents a general event with associated details.
+     *
+     * @property function The name or identifier of the function where the event occurred.
+     * @property eventCode An optional code identifying the event type.
+     * @property eventMessage An optional message providing additional details about the event.
+     * @property eventValue An optional value associated with the event.
+     * @property date The date and time when the event occurred.
+     */
+    @Keep
+    @Suppress("MemberVisibilityCanBePrivate")
+    open class Event(
+        val function: String,
+        val eventCode: Int? = null,
+        val eventMessage: String? = null,
+        val eventValue: Map<String, Any?>? = null,
+        val date: Date = Date(),
+    )
+
+    /**
+     * Represents an error event, extending the general event class.
+     * Used for storing information about errors.
+     *
+     * @param function The name or identifier of the function where the error occurred.
+     * @param eventCode An optional code identifying the error type.
+     * @param eventMessage An optional message providing details about the error.
+     * @param eventValue An optional value associated with the error.
+     * @param date The date and time when the error occurred.
+     */
+    @Keep
+    open class Error(
+        function: String,
+        eventCode: Int? = 0,
+        eventMessage: String? = null,
+        eventValue: Map<String, Any?>? = null,
+        date: Date = Date(),
+    ) : Event(function, eventCode, eventMessage, eventValue, date)
+
+    /**
+     * Represents a retryable error event.
+     * This class extends `Error` and is used for errors that support retry mechanisms.
+     *
+     * @param function The name or identifier of the function where the retryable error occurred.
+     * @param eventCode An optional code identifying the retryable error type.
+     * @param eventMessage An optional message providing details about the retryable error.
+     * @param eventValue An optional value associated with the retryable error.
+     * @param date The date and time when the retryable error occurred.
+     */
+    @Keep
+    class RetryError(
+        function: String,
+        eventCode: Int? = 0,
+        eventMessage: String? = null,
+        eventValue: Map<String, Any?>? = null,
+        date: Date = Date(),
+    ) : Error(function, eventCode, eventMessage, eventValue, date)
+
     //internal
     /**
      * Data model for the JWT "matching" claim.
@@ -450,20 +450,14 @@ object DataClasses {
     }
 
     /**
-     * Contains the data needed to create all types of SDK requests.
+     * Holds the common data needed to construct SDK network requests.
      *
-     * @property config The configuration entity containing SDK settings.
-     * @property currentToken The current device token with provider.
-     * @property savedToken The last saved token with provider.
-     * @property authHeader The authentication header required for secure API requests.
-     * @property matchingMode The type of matching for profile search.
+     * @property config SDK configuration containing API endpoints and rToken.
+     * @property auth Pair of (authorization header, matching mode) for secure API calls.
      */
-    internal data class CommonData(
-        val config: ConfigurationEntity,
-        val currentToken: TokenData,
-        val savedToken: TokenData?,
-        val authHeader: String,
-        val matchingMode: String
+    internal data class RequestData(
+        val config: ConfigurationEntity? = null,
+        val auth: Pair<String, String>? = null
     )
 
     /**
@@ -501,7 +495,7 @@ object DataClasses {
         val cats: List<CategoryData>?,
         val replace: Boolean?,
         val skipTriggers: Boolean?,
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Contains the data required to send a token update request.
@@ -525,7 +519,7 @@ object DataClasses {
         val oldProvider: String?,
         val newProvider: String,
         val authHeader: String
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Data class representing the necessary data for sending a push event request.
@@ -544,7 +538,7 @@ object DataClasses {
         val uid: String,
         val authHeader: String,
         val matchingMode: String
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Data class representing the necessary data for sending a mobile event request.
@@ -559,7 +553,7 @@ object DataClasses {
         val sid: String,
         val name: String,
         val authHeader: String
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Represents the data required for a profile status request.
@@ -578,7 +572,7 @@ object DataClasses {
         val matchingMode: String,
         val provider: String?,
         val token: String?
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Data model for the unSuspend request payload.
@@ -597,7 +591,7 @@ object DataClasses {
         val token: String,
         val authHeader: String,
         val matchingMode: String,
-    ) : RequestData
+    ) : com.altcraft.sdk.interfaces.RequestData
 
     /**
      * Holds all contextual data extracted from a processed response.

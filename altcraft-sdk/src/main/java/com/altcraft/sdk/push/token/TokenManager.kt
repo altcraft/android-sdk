@@ -91,29 +91,6 @@ internal object TokenManager {
         rustoreProvider?.deleteToken(result)
 
     /**
-     * Lazily retrieves the FCM (Firebase Cloud Messaging) token.
-     */
-    private fun getFCMTokenData() = SuspendLazy {
-        getNonEmptyToken(FCM_PROVIDER) { fcmProvider?.getToken() }
-    }
-
-    /**
-     * Lazily retrieves the HMS (Huawei Mobile Services) token.
-     *
-     * @param context Android [Context] used for accessing HMS services.
-     */
-    private fun getHMSTokenData(context: Context) = SuspendLazy {
-        getNonEmptyToken(HMS_PROVIDER) { hmsProvider?.getToken(context) }
-    }
-
-    /**
-     * Lazily retrieves the RuStore token.
-     */
-    private fun getRUSTokenData() = SuspendLazy {
-        getNonEmptyToken(RUS_PROVIDER) { rustoreProvider?.getToken() }
-    }
-
-    /**
      * Returns the active push token for the device.
      *
      * First checks if a manual token is set and returns it immediately.
@@ -124,22 +101,39 @@ internal object TokenManager {
      * @param context The application context.
      * @return The selected [DataClasses.TokenData], or `null` if no token could be retrieved.
      */
-    suspend fun getCurrentToken(context: Context): DataClasses.TokenData? {
+    suspend fun getCurrentPushToken(
+        context: Context
+    ): DataClasses.TokenData? {
         return try {
-            getManualToken(context)?.let { return it }
-
-            val fcm = getFCMTokenData()
-            val rus = getRUSTokenData()
-            val hms = getHMSTokenData(context)
-
-            val priority = getConfig(context)?.providerPriorityList
-
-            getPriorityToken(priority, fcm::get, hms::get, rus::get).also {
-                tokenEvent(it)
-            }
+            (getManualToken(context) ?: getTokens(context).let {
+                getPriorityToken(
+                    getConfig(context)?.providerPriorityList,
+                    it.fcm::get, it.hms::get, it.rus::get
+                )
+            }).also { tokenEvent(it) }
         } catch (e: Exception) {
             error("getCurrentToken", e)
             null
+        }
+    }
+
+    /**
+     * Returns lazily initialized push token and provider data for FCM, HMS, and RuStore.
+     *
+     * Tokens are not requested until `get()` is called, enabling prioritized
+     * and deferred initialization.
+     *
+     * @param context Android context required for HMS.
+     */
+    private fun getTokens(context: Context) = object {
+        val fcm = SuspendLazy {
+            getNonEmptyToken(FCM_PROVIDER) { fcmProvider?.getToken() }
+        }
+        val rus = SuspendLazy {
+            getNonEmptyToken(RUS_PROVIDER) { rustoreProvider?.getToken() }
+        }
+        val hms = SuspendLazy {
+            getNonEmptyToken(HMS_PROVIDER) { hmsProvider?.getToken(context) }
         }
     }
 
@@ -212,7 +206,8 @@ internal object TokenManager {
         repeat(3) {
             try {
                 fetch()?.let {
-                    if (it.isNotEmpty()) return DataClasses.TokenData(provider, it) else delay(1000)
+                    if (it.isNotEmpty()) return DataClasses.TokenData(provider, it)
+                    else delay(1000)
                 }
             } catch (e: Exception) {
                 error("getNonEmptyToken", e)

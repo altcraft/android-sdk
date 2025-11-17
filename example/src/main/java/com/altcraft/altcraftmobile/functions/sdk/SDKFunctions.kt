@@ -140,7 +140,7 @@ object SDKFunctions {
                 if (it?.httpCode == 200 && it.response?.profile?.subscription == null) {
                     AltcraftSDK.pushSubscriptionFunctions.pushSubscribe(
                         context,
-                        sync = subscribeSetting?.sync == true,
+                        sync = true,
                         replace = subscribeSetting?.replace == false,
                         skipTriggers = subscribeSetting?.skipTriggers == false,
                         customFields = subscribeSetting?.customFields,

@@ -53,7 +53,6 @@ import com.altcraft.altcraftmobile.functions.app.Formatter.getUserNameForInfo
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.updateProvider
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.text.TextStyle
 import com.altcraft.altcraftmobile.R
 import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
@@ -202,26 +201,26 @@ object InfoComponents {
                 }
             }
 // qa test ui ------------------------------------------------------------------------
-            Text(
-                text = "QA",
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
-                    .offset(x = (-50).dp, y = (-3).dp),
-                style = TextStyle(
-                    color = Color.Black,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-
-            TestSwitch(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
-                    .offset(x = 25.dp, y = 20.dp),
-                viewModel
-            )
+//            Text(
+//                text = "QA",
+//                modifier = Modifier
+//                    .align(Alignment.BottomEnd)
+//                    .padding(16.dp)
+//                    .offset(x = (-50).dp, y = (-3).dp),
+//                style = TextStyle(
+//                    color = Color.Black,
+//                    fontSize = 12.sp,
+//                    fontWeight = FontWeight.Bold
+//                )
+//            )
+//
+//            TestSwitch(
+//                modifier = Modifier
+//                    .align(Alignment.BottomEnd)
+//                    .padding(16.dp)
+//                    .offset(x = 25.dp, y = 20.dp),
+//                viewModel
+//            )
 // qa test ui ------------------------------------------------------------------------
         }
     }
@@ -405,7 +404,6 @@ object InfoComponents {
     @Suppress("unused")
     @Composable
     fun TestSwitch(modifier: Modifier = Modifier, viewModel: MainViewModel) {
-
         val context = LocalContext.current
         val isChecked = remember { mutableStateOf(false) }
         val switchThumbColor = if (isChecked.value) Color(0xFF33FF5F) else Color.Black

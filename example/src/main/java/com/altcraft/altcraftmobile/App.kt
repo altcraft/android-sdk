@@ -12,7 +12,6 @@ import com.altcraft.altcraftmobile.providers.fcm.FCMProvider
 import com.altcraft.altcraftmobile.providers.hms.HMSProvider
 import com.altcraft.altcraftmobile.providers.rustore.RuStoreProvider
 import com.altcraft.sdk.AltcraftSDK
-import ru.rustore.sdk.pushclient.RuStorePushClient
 
 val icon = R.drawable.ic_altcraft_label
 
@@ -60,6 +59,7 @@ class App : Application() {
 
         EventReceiver.init(this)
         AltcraftSDK.setJWTProvider(JWTProvider(this))
+
         AltcraftSDK.pushTokenFunctions.setFCMTokenProvider(FCMProvider())
         AltcraftSDK.pushTokenFunctions.setHMSTokenProvider(HMSProvider())
         AltcraftSDK.pushTokenFunctions.setRuStoreTokenProvider(RuStoreProvider())

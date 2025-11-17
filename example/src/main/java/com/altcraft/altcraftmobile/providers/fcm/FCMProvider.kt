@@ -9,6 +9,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.messaging
 import kotlinx.coroutines.tasks.await
+
 /**
  * FCM implementation for managing Firebase Cloud Messaging tokens.
  *

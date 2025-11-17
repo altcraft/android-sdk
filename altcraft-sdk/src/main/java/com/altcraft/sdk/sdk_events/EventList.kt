@@ -89,7 +89,7 @@ internal object EventList {
 
     /** 501–506 — Missing SDK state or environment issues */
     val configIsNull = 501 to "config data is null"
-    val currentTokenIsNull = 502 to "current token data is null"
+    val pushTokenIsNull = 502 to "current push token is null"
     val userTagIsNull = 503 to "userTag is null. It is impossible to identify the user"
     val permissionDenied = 504 to "no permission to send notifications"
     val noInternetConnect = 505 to "no internet connection, retry when connection is " +
@@ -98,7 +98,7 @@ internal object EventList {
     /**
      * 520–529 — Missing or null request payloads
      * These indicate that required data for a request is not available at the time of execution.
-     * The SDK will attempt to collect and resend the data automatically.
+     * The SDK will attempt to collect and resend the data= automatically.
      */
     val commonDataIsNull = 529 to "common data is null"
     val pushSubscribeRequestDataIsNull = 520 to "push subscribe request data is null"

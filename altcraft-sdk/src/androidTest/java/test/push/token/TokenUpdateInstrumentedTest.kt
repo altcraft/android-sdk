@@ -92,10 +92,10 @@ class TokenUpdateInstrumentedTest {
         mockkObject(TokenManager)
         mockkObject(Preferenses)
 
-        coEvery { TokenManager.getCurrentToken(any()) } returns TokenData(
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns TokenData(
             provider = Constants.FCM_PROVIDER, token = "tok-NEW"
         )
-        every { Preferenses.getSavedToken(any()) } returns TokenData(
+        every { Preferenses.getSavedPushToken(any()) } returns TokenData(
             provider = Constants.FCM_PROVIDER, token = "tok-OLD"
         )
         every { Preferenses.setCurrentToken(any(), any()) } just Runs
@@ -152,11 +152,11 @@ class TokenUpdateInstrumentedTest {
     @Test
     fun tokenUpdate_foreground_enqueues_update_work() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
-        every { Preferenses.getSavedToken(any()) } returns TokenData(
+        every { Preferenses.getSavedPushToken(any()) } returns TokenData(
             Constants.FCM_PROVIDER,
             "tok-OLD"
         )
-        coEvery { TokenManager.getCurrentToken(any()) } returns TokenData(
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns TokenData(
             Constants.FCM_PROVIDER,
             "tok-NEW"
         )
@@ -175,7 +175,7 @@ class TokenUpdateInstrumentedTest {
      */
     @Test
     fun isRetry_retry_event_returns_true_and_does_not_set_token() = runTest {
-        coEvery { TokenManager.getCurrentToken(any()) } returns TokenData(
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns TokenData(
             Constants.FCM_PROVIDER,
             "tok-NEW"
         )
@@ -197,7 +197,7 @@ class TokenUpdateInstrumentedTest {
     fun isRetry_success_event_returns_false_and_sets_token() = runTest {
         // Arrange
         val tok = TokenData(Constants.FCM_PROVIDER, "tok-NEW")
-        coEvery { TokenManager.getCurrentToken(any()) } returns tok
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns tok
         coEvery {
             Request.tokenUpdateRequest(
                 any(),
@@ -220,8 +220,8 @@ class TokenUpdateInstrumentedTest {
     fun tokenUpdate_same_token_does_not_enqueue_work() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
         val same = TokenData(Constants.FCM_PROVIDER, "tok-SAME")
-        coEvery { TokenManager.getCurrentToken(any()) } returns same
-        every { Preferenses.getSavedToken(any()) } returns same
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns same
+        every { Preferenses.getSavedPushToken(any()) } returns same
 
         TokenUpdate.tokenUpdate(context)
 
