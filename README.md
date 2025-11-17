@@ -31,7 +31,7 @@ Altcraft Android SDK is a library for managing push notifications, user profiles
 
 ## Dependency
 
-`implementation("com.altcraft:sdk:1.0.0")` 
+`implementation("com.altcraft:sdk:1.0.1")` 
 
 ---
 
