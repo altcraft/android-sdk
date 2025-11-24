@@ -74,16 +74,16 @@ Profile lookup is limited to the push token identifier.
 
 Detailed information on SDK setup, functionality, and usage is available on the Altcraft documentation portal. You can navigate to the required section using the links below:
 
-- [**Quick Start**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/quick-start)
-- [**SDK Functionality**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/functionality)
-- [**SDK Configuration**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/setup)
-- [**Classes and Structures**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/api)
+- [**Quick Start**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/quick-start)
+- [**SDK Functionality**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/functionality)
+- [**SDK Configuration**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/setup)
+- [**Classes and Structures**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/api)
 
 **Provider Setup**
 
-- [FCM](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/fcm/)
-- [HMS](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/hms/)
-- [RuStore](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/rustore/)
+- [FCM](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/fcm/)
+- [HMS](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/hms/)
+- [RuStore](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/rustore/)
 
 ---
 
