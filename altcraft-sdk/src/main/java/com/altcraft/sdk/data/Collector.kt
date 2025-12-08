@@ -10,18 +10,12 @@ import com.altcraft.sdk.additional.StringBuilder.statusUrl
 import com.altcraft.sdk.additional.StringBuilder.subscribeUrl
 import com.altcraft.sdk.additional.StringBuilder.unSuspendUrl
 import com.altcraft.sdk.additional.StringBuilder.updateUrl
-import com.altcraft.sdk.auth.AuthManager.getAuthHeaderAndMatching
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.push.token.TokenManager.getCurrentPushToken
 import com.altcraft.sdk.data.Preferenses.getMessageId
-import com.altcraft.sdk.data.Preferenses.getSavedPushToken
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
-import com.altcraft.sdk.sdk_events.EventList.authDataIsNull
-import com.altcraft.sdk.sdk_events.EventList.configIsNull
-import com.altcraft.sdk.sdk_events.EventList.pushTokenIsNull
 import com.altcraft.sdk.sdk_events.Events.error
-import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.push.PushData
 import com.altcraft.sdk.push.PushImage.loadLargeImage
 import com.altcraft.sdk.push.PushImage.loadSmallImage
@@ -30,6 +24,7 @@ import com.altcraft.altcraftsdk.R
 import com.altcraft.sdk.additional.StringBuilder.eventMobileUrl
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
 import com.altcraft.sdk.additional.SubFunction.getIconColor
+import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.push.action.Intent.getIntent
 
@@ -39,23 +34,7 @@ import com.altcraft.sdk.push.action.Intent.getIntent
  * Centralizes retrieval of config/auth/token data and assembles strongly-typed
  * request models for subscriptions, updates, push events, mobile events, and status checks.
  */
-internal object Repository {
-
-    /**
-     * Return SDK Configuration, Auth header and MatchingMode.
-     *
-     * @param context Application context .
-     * @return [DataClasses.RequestData] containing config, auth, and tokens, or empty if failed.
-     */
-    private suspend fun getRequestData(context: Context): DataClasses.RequestData {
-        return try {
-            val config = getConfig(context)
-            DataClasses.RequestData(config, config?.let { getAuthHeaderAndMatching(config) })
-        } catch (e: Exception) {
-            error("getRequestData", e)
-            DataClasses.RequestData()
-        }
-    }
+internal object Collector {
 
     /**
      * Builds a `SubscribeRequestData` object for a push notification subscription request.
@@ -74,22 +53,17 @@ internal object Repository {
         subscription: SubscribeEntity
     ): DataClasses.SubscribeRequestData? {
         return try {
-            val data = getRequestData(context)
-            val pushToken = getCurrentPushToken(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-            if (pushToken == null) exception(pushTokenIsNull)
+            val env = Environment.create(context)
 
             DataClasses.SubscribeRequestData(
-                url = subscribeUrl(data.config.apiUrl),
+                url = subscribeUrl(env.config().apiUrl),
                 time = subscription.time,
-                rToken = data.config.rToken,
+                rToken = env.config().rToken,
                 uid = subscription.uid,
-                authHeader = data.auth.first,
-                matchingMode = data.auth.second,
-                provider = pushToken.provider,
-                deviceToken = pushToken.token,
+                authHeader = env.auth().first,
+                matchingMode = env.auth().second,
+                provider = env.token().provider,
+                deviceToken = env.token().token,
                 status = subscription.status,
                 sync = subscription.sync,
                 profileFields = subscription.profileFields,
@@ -103,6 +77,7 @@ internal object Repository {
             null
         }
     }
+
 
     /**
      * Builds an `UpdateRequestData` object for updating a push notification subscription.
@@ -119,30 +94,23 @@ internal object Repository {
         uid: String,
     ): DataClasses.UpdateRequestData? {
         return try {
-            val data = getRequestData(context)
-            val savedToken = getSavedPushToken(context)
-            val currentToken = getCurrentPushToken(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-            if (currentToken == null) exception(pushTokenIsNull)
-
-            val url = updateUrl(data.config.apiUrl)
+            val env = Environment.create(context)
 
             DataClasses.UpdateRequestData(
-                url = url,
+                url = updateUrl(env.config().apiUrl),
                 uid = uid,
-                authHeader = data.auth.first,
-                oldToken = savedToken?.token,
-                newToken = currentToken.token,
-                oldProvider = savedToken?.provider,
-                newProvider = currentToken.provider,
+                oldToken = env.savedToken?.token,
+                newToken = env.token().token,
+                oldProvider = env.savedToken?.provider,
+                newProvider = env.token().provider,
+                authHeader = env.auth().first
             )
         } catch (e: Exception) {
             error("getUpdateData", e)
             null
         }
     }
+
 
     /**
      * Builds request data for the unSuspend request.
@@ -154,27 +122,19 @@ internal object Repository {
         context: Context,
     ): DataClasses.UnSuspendRequestData? {
         return try {
-
-            val data = getRequestData(context)
-            val pushToken = getCurrentPushToken(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-            if (pushToken == null) exception(pushTokenIsNull)
-
-            val url = unSuspendUrl(data.config.apiUrl)
+            val env = Environment.create(context)
             val uid = UUID.randomUUID().toString()
 
             DataClasses.UnSuspendRequestData(
-                url = url,
+                url = unSuspendUrl(env.config().apiUrl),
                 uid = uid,
-                provider = pushToken.provider,
-                token = pushToken.token,
-                authHeader = data.auth.first,
-                matchingMode = data.auth.second
+                provider = env.token().provider,
+                token = env.token().token,
+                authHeader = env.auth().first,
+                matchingMode = env.auth().second,
             )
         } catch (e: Exception) {
-            error("getProfileData", e)
+            error("getUnSuspendRequestData", e)
             null
         }
     }
@@ -194,27 +154,23 @@ internal object Repository {
         event: PushEventEntity
     ): DataClasses.PushEventRequestData? {
         return try {
-            val data = getRequestData(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-
-            val url = eventPushUrl(data.config.apiUrl, event.type)
+            val env = Environment.create(context)
 
             DataClasses.PushEventRequestData(
-                url = url,
+                url = eventPushUrl(
+                    env.config().apiUrl, event.type
+                ),
                 uid = event.uid,
                 time = event.time,
                 type = event.type,
-                authHeader = data.auth.first,
-                matchingMode = data.auth.second
+                authHeader = env.auth().first,
+                matchingMode = env.auth().second
             )
         } catch (e: Exception) {
             error("getPushEventData", e)
             null
         }
     }
-
     /**
      * Retrieves the necessary data for sending a mobile event to the server.
      *
@@ -232,18 +188,13 @@ internal object Repository {
         event: MobileEventEntity
     ): DataClasses.MobileEventRequestData? {
         return try {
-            val data = getRequestData(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-
-            val url = eventMobileUrl(data.config.apiUrl)
+            val env = Environment.create(context)
 
             DataClasses.MobileEventRequestData(
-                url = url,
+                url = eventMobileUrl(env.config().apiUrl),
                 sid = event.sid,
                 name = event.eventName,
-                authHeader = data.auth.first
+                authHeader = env.auth().first
             )
         } catch (e: Exception) {
             error("getMobileEventRequestData", e)
@@ -264,30 +215,26 @@ internal object Repository {
         context: Context,
     ): DataClasses.StatusRequestData? {
         return try {
-            val data = getRequestData(context)
-            val savedToken = getSavedPushToken(context)
+            val env = Environment.create(context)
+
             val currentToken = getCurrentPushToken(context)
-
-            if (data.config == null) exception(configIsNull)
-            if (data.auth == null) exception(authDataIsNull)
-
-            val url = statusUrl(data.config.apiUrl)
+            val pushToken = env.savedToken ?: currentToken
             val uid = UUID.randomUUID().toString()
-            val pushToken = savedToken ?: currentToken
 
             DataClasses.StatusRequestData(
-                url = url,
+                url = statusUrl(env.config().apiUrl),
                 uid = uid,
                 provider = pushToken?.provider,
                 token = pushToken?.token,
-                authHeader = data.auth.first,
-                matchingMode = data.auth.second
+                authHeader = env.auth().first,
+                matchingMode = env.auth().second
             )
         } catch (e: Exception) {
             error("getProfileData", e)
             null
         }
     }
+
 
     /**
      * Retrieves data required for creating a notification based on the provided message map.

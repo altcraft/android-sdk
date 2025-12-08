@@ -6,25 +6,21 @@ package com.altcraft.sdk.push.token
 
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
-import com.altcraft.sdk.config.ConfigSetup.getConfig
+import com.altcraft.sdk.core.Environment
+import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
 import com.altcraft.sdk.network.Request.tokenUpdateRequest
-import com.altcraft.sdk.push.token.TokenManager.getCurrentPushToken
-import com.altcraft.sdk.data.Preferenses.getSavedPushToken
 import com.altcraft.sdk.data.Preferenses.setCurrentToken
 import com.altcraft.sdk.data.error
 import com.altcraft.sdk.data.retry
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.retry
-import com.altcraft.sdk.sdk_events.EventList.configIsNull
-import com.altcraft.sdk.sdk_events.EventList.pushTokenIsNull
-import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.services.manager.ServiceManager.startUpdateWorker
 import com.altcraft.sdk.push.token.TokenManager.tokenLogShow
+import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Contains the functions necessary to control the updating of the device
@@ -44,21 +40,17 @@ internal object TokenUpdate {
      * @param context The application context used for retrieving configurations and managing
      * token storage.
      */
-    suspend fun tokenUpdate(context: Context) {
+    suspend fun pushTokenUpdate(context: Context) {
         tokenUpdateMutex.withLock {
             try {
-                val config = getConfig(context) ?: exception(configIsNull)
-                val currentToken = getCurrentPushToken(context) ?: exception(pushTokenIsNull)
-                val savedToken = getSavedPushToken(context)
+                val env = Environment.create(context)
 
-                if (savedToken == currentToken) return
+                if (env.savedToken == env.token()) return
 
                 tokenLogShow = AtomicBoolean(false)
 
-                when (isAppInForegrounded()) {
-                    true -> startUpdateWorker(context, config)
-                    else -> isRetry(context, UUID.randomUUID().toString())
-                }
+                if (!isAppInForegrounded()) isRetry(context)
+                else startUpdateWorker(context, env.config())
             } catch (e: Exception) {
                 error("tokenUpdate", e)
             }
@@ -66,34 +58,40 @@ internal object TokenUpdate {
     }
 
     /**
-     * Checks whether the update process should be retried.
+     * Runs the push token update logic and indicates whether a retry is required.
      *
-     * - Extracts `requestId` from `inputData`.SubFunction.logger("update")
-     * - Calls `updateProcess()` to process the update request.
-     * - If `updateProcess()` throws an exception, it logs the error and returns `true`
-     * - If `updateProcess()` returns `RetryError`, the function returns `true`.
+     * @param context Application context used for environment and request execution.
+     * @param workerId Optional identifier of the current work request.
      *
-     * @return `true` if the update process should be retried, otherwise `false`.
+     * @return `true` if the push/update request should be retried, otherwise `false`.
      */
-    suspend fun isRetry(
-        context: Context,
-        requestID: String
-    ): Boolean {
+    suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
-            updateProcessMutex.withLock {
-                val token = getCurrentPushToken(context) ?: exception(pushTokenIsNull)
-
-                val response = tokenUpdateRequest(context, requestID)
-
-                if (response !is error) setCurrentToken(context, token)
-
-                response is retry
-            }
-        } catch (ce: CancellationException) {
-            throw ce
+            updateProcessMutex.withLock { logic(context, workerId) }
         } catch (e: Exception) {
-            retry("performTokenUpdate", e)
-            true
+            retry("isRetry :: pushTokenUpdate", e); true
         }
+    }
+
+    /**
+     * Runs push-token update logic and decides if a retry is needed.
+     *
+     * - Sends a push-token update request.
+     * - On non-error response, saves the latest token.
+     * - Returns `true` only if the response is `retry` and no newer work exists.
+     *
+     * @param context Application context for request and storage access.
+     * @param id Optional work identifier.
+     * @return `true` if the update should be retried; `false` otherwise.
+     */
+    private suspend fun logic(context: Context, id: UUID?): Boolean {
+        val env = Environment.create(context)
+
+        val response = tokenUpdateRequest(context, id.toString())
+
+        if (response !is error) setCurrentToken(context, env.token())
+        return response is retry && !hasNewRequest(
+            context, UPDATE_C_WORK_TAG, id
+        )
     }
 }

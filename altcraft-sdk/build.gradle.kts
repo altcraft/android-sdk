@@ -13,6 +13,7 @@ android {
     defaultConfig {
         minSdk = 23
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -88,6 +89,7 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-intents:3.5.1")
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
     // WorkManager testing
     androidTestImplementation("androidx.work:work-testing:2.9.0")
 }
@@ -104,7 +106,7 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "1.0.1")
+    coordinates("com.altcraft", "android-sdk", "0.0.3")
 
     pom {
         name = "Altcraft Android SDK"

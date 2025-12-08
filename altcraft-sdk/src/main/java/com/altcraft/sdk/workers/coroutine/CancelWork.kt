@@ -6,7 +6,7 @@ package com.altcraft.sdk.workers.coroutine
 
 import android.content.Context
 import androidx.work.WorkManager
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
@@ -63,7 +63,7 @@ internal object CancelWork {
      * @param onComplete Callback when canceled.
      */
     fun cancelMobileEventWorkerTask(context: Context, onComplete: () -> Unit) {
-        cancelWorkerByTag(context, MOBILE_EVENT_C_WORK_TAG, onComplete)
+        cancelWorkerByTag(context, MOB_EVENT_C_WORK_TAG, onComplete)
     }
 
     /**
@@ -99,7 +99,7 @@ internal object CancelWork {
                     async { workManager.cancelAllWorkByTag(UPDATE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(PUSH_EVENT_C_WORK_TAG).result.get() },
-                    async { workManager.cancelAllWorkByTag(MOBILE_EVENT_C_WORK_TAG).result.get() }
+                    async { workManager.cancelAllWorkByTag(MOB_EVENT_C_WORK_TAG).result.get() }
                 )
                 jobs.awaitAll()
             } catch (e: Exception) {

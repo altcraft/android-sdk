@@ -31,9 +31,7 @@ class FCMService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+
        AltcraftSDK.PushReceiver.takePush(this@FCMService, message.data)
     }
 }
-
-
-

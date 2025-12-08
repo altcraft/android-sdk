@@ -29,10 +29,10 @@ import java.util.concurrent.TimeUnit
  *  - test_3: String?.isJsonString() detects JSON object/array (whitespace allowed).
  *  - test_4: String?.isJsonString() returns false for null/blank/non-JSON.
  *  - test_5: altcraftPush() returns true when "_ac_push" is present.
- *  - test_6: getIconColor() stable fallback for null/invalid inputs and no-throw on edge cases.
- *  - test_7: stringContainsHtml() detects <html> tags case-insensitively.
- *  - test_8: stringContainsHtml() returns false for null/empty/non-HTML strings.
- *  - test_9: logger() does not throw and delegates to android.util.Log.
+ *  - test_6: getIconColor() stable fallback for null/invalid inputs.
+ *  - test_7: getIconColor() no-throw on edge cases.
+ *  - test_8: stringContainsHtml() detects <html> tags case-insensitively.
+ *  - test_9: stringContainsHtml() returns false for null/empty/non-HTML strings.
  *  - test_10: UniqueCodeGenerator.uniqueCode() sequential calls are non-negative and unique.
  *  - test_11: UniqueCodeGenerator.uniqueCode() sequences diverge for different UIDs.
  *  - test_12: UniqueCodeGenerator.uniqueCode() is thread-safe with no duplicates.
@@ -119,7 +119,7 @@ class SubFunctionTest {
         }
     }
 
-    /** - test_6: getIconColor() no-throw on edge cases. */
+    /** - test_7: getIconColor() no-throw on edge cases. */
     @Test
     fun getIconColor_noThrow_onEdgeCases() {
         val inputs = listOf<String?>(null, "", "   ", "???", "#", "#0", "#ZZZZZZ")
@@ -132,7 +132,7 @@ class SubFunctionTest {
         }
     }
 
-    /** - test_7: stringContainsHtml() detects <html> tags case-insensitively. */
+    /** - test_8: stringContainsHtml() detects <html> tags case-insensitively. */
     @Test
     fun stringContainsHtml_detectsHtml() {
         assertTrue(SubFunction.stringContainsHtml("<html>content</html>"))
@@ -142,7 +142,7 @@ class SubFunctionTest {
         assertTrue(SubFunction.stringContainsHtml("prefix <html attr=1> suffix"))
     }
 
-    /** - test_8: stringContainsHtml() returns false for null/empty/non-HTML strings. */
+    /** - test_9: stringContainsHtml() returns false for null/empty/non-HTML strings. */
     @Test
     fun stringContainsHtml_nonHtml_false() {
         assertFalse(SubFunction.stringContainsHtml(null))
@@ -151,17 +151,6 @@ class SubFunctionTest {
         assertFalse(SubFunction.stringContainsHtml("<htm>"))
         assertFalse(SubFunction.stringContainsHtml("<body>"))
         assertFalse(SubFunction.stringContainsHtml("text only"))
-    }
-
-    /** - test_9: logger() does not throw and delegates to android.util.Log. */
-    @Test
-    fun logger_noThrow_and_delegates() {
-        try {
-            SubFunction.logger("hello")
-            SubFunction.logger(null)
-        } catch (e: Throwable) {
-            fail("logger must not throw, but threw: $e")
-        }
     }
 
     /** - test_10: uniqueCode() sequential calls are non-negative and unique. */

@@ -100,7 +100,6 @@ internal object EventList {
      * These indicate that required data for a request is not available at the time of execution.
      * The SDK will attempt to collect and resend the data= automatically.
      */
-    val commonDataIsNull = 529 to "common data is null"
     val pushSubscribeRequestDataIsNull = 520 to "push subscribe request data is null"
     val tokenUpdateRequestDataIsNull = 521 to "token update request data is null"
     val pushEventRequestDataIsNull = 524 to "push event request data is null"

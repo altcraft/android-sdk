@@ -22,7 +22,7 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.DataExtension.toStringMap
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.push.PushPresenter.showPush
-import com.altcraft.sdk.services.manager.ServiceManager.createServiceNotification
+import com.altcraft.sdk.services.manager.ServiceManager.createNotification
 import kotlinx.coroutines.guava.await
 
 /**
@@ -111,7 +111,7 @@ internal object Worker {
      */
     private suspend fun createForegroundInfo(context: Context, id: Int): ForegroundInfo? {
         return try {
-            val push = createServiceNotification(context) ?: exception(notificationErr)
+            val push = createNotification(context) ?: exception(notificationErr)
 
             when {
                 Build.VERSION.SDK_INT >= 34 -> ForegroundInfo(id, push, SERVICE_TYPE_MSG)

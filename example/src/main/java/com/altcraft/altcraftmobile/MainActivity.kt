@@ -4,6 +4,7 @@ package com.altcraft.altcraftmobile
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +29,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.altcraft.altcraftmobile.App
 import com.altcraft.altcraftmobile.deeplink.DeepLink.resolveStartDestination
 import com.altcraft.altcraftmobile.view.config.ConfigScreen
 import com.altcraft.altcraftmobile.view.home.HomeScreen
@@ -37,7 +39,12 @@ import com.altcraft.altcraftmobile.ui.theme.AltcraftMobileTheme
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.altcraftmobile.view.example.ExampleScreen
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.config.AltcraftConfiguration
+import com.altcraft.sdk.data.DataClasses
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var navController: NavHostController

@@ -31,6 +31,7 @@ import com.altcraft.sdk.sdk_events.Events.error
  * `PushReceiver` class can be overridden.
  * @property pushChannelName The name of the push notification channel shown to the user.
  * @property pushChannelDescription The description of the push notification channel.
+ * @property enableLogging Flag indicating whether internal SDK logging is enabled. Default is `true`.
  */
 @Suppress("MemberVisibilityCanBePrivate")
 @Keep
@@ -45,6 +46,7 @@ class AltcraftConfiguration private constructor(
     private val pushReceiverModules: List<String>? = null,
     private val pushChannelName: String? = null,
     private val pushChannelDescription: String? = null,
+    private val enableLogging: Boolean? = null
 ) {
     /**
      * Builder for constructing an instance of [AltcraftConfiguration].
@@ -64,6 +66,7 @@ class AltcraftConfiguration private constructor(
         private val pushReceiverModules: List<String>? = null,
         private val pushChannelName: String? = null,
         private val pushChannelDescription: String? = null,
+        private val enableLogging: Boolean? = null,
     ) {
         fun build(): AltcraftConfiguration {
             return AltcraftConfiguration(
@@ -76,7 +79,8 @@ class AltcraftConfiguration private constructor(
                 providerPriorityList,
                 pushReceiverModules,
                 pushChannelName,
-                pushChannelDescription
+                pushChannelDescription,
+                enableLogging
             )
         }
     }
@@ -111,6 +115,9 @@ class AltcraftConfiguration private constructor(
     /** Returns the custom channel description for push notifications. */
     fun getPushChannelDescription(): String? = pushChannelDescription
 
+    /** Indicates whether internal SDK logging is enabled. */
+    fun getEnableLogging(): Boolean? = enableLogging
+
     /**
      * Converts this configuration into a Room entity.
      *
@@ -126,10 +133,10 @@ class AltcraftConfiguration private constructor(
             appInfo = getAppInfo(),
             usingService = getUsingService(),
             serviceMessage = getServiceMessage(),
-            providerPriorityList = getProviderPriorityList(),
-            pushReceiverModules = getPushReceiverModules(),
             pushChannelName = getPushChannelName(),
-            pushChannelDescription = getPushChannelDescription()
+            pushReceiverModules = getPushReceiverModules(),
+            providerPriorityList = getProviderPriorityList(),
+            pushChannelDescription = getPushChannelDescription(),
         )
         return if (entity.isValid()) entity else {
             error("configToEntity", 470 to invalidConfigMsg(entity))

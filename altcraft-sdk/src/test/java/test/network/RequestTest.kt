@@ -10,7 +10,7 @@ import com.altcraft.sdk.data.Constants.LATEST_FOR_PROVIDER
 import com.altcraft.sdk.data.Constants.LATEST_SUBSCRIPTION
 import com.altcraft.sdk.data.Constants.MATCH_CURRENT_CONTEXT
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.data.Repository
+import com.altcraft.sdk.data.Collector
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
@@ -68,7 +68,7 @@ class RequestTest {
         every { Network.getRetrofit() } returns api
 
         mockkObject(Response)
-        mockkObject(Repository)
+        mockkObject(Collector)
         mockkObject(SubFunction)
         mockkObject(Events)
 
@@ -111,7 +111,7 @@ class RequestTest {
             replace = true,
             skipTriggers = false
         )
-        coEvery { Repository.getSubscribeRequestData(ctx, item) } returns req
+        coEvery { Collector.getSubscribeRequestData(ctx, item) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonObject(mapOf()))
         coEvery {
@@ -171,7 +171,7 @@ class RequestTest {
             newProvider = "android-huawei",
             authHeader = "Bearer X"
         )
-        coEvery { Repository.getUpdateRequestData(ctx, "rid") } returns req
+        coEvery { Collector.getUpdateRequestData(ctx, "rid") } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
@@ -200,7 +200,7 @@ class RequestTest {
     /** - test_9: updateRequest — getUpdateRequestData = null → returns RetryError; Api not called. */
     @Test
     fun tokenUpdateRequest_nullData_returnsRetry_noApiCall() = runBlocking {
-        coEvery { Repository.getUpdateRequestData(ctx, any()) } returns null
+        coEvery { Collector.getUpdateRequestData(ctx, any()) } returns null
         val out = Request.tokenUpdateRequest(ctx, "x")
         assertTrue(out is DataClasses.RetryError)
         assertEquals("updateRequest", out.function)
@@ -219,7 +219,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getPushEventRequestData(ctx, ev) } returns req
+        coEvery { Collector.getPushEventRequestData(ctx, ev) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
@@ -248,7 +248,7 @@ class RequestTest {
      *  */
     @Test
     fun pushEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
-        coEvery { Repository.getPushEventRequestData(ctx, any()) } returns null
+        coEvery { Collector.getPushEventRequestData(ctx, any()) } returns null
         val out = Request.pushEventRequest(ctx, PushEventEntity(uid = "e", type = "opened"))
         assertTrue(out is DataClasses.RetryError)
         assertEquals("eventRequest", out.function)
@@ -266,7 +266,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getUnSuspendRequestData(ctx) } returns req
+        coEvery { Collector.getUnSuspendRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonObject(mapOf()))
         coEvery {
@@ -297,7 +297,7 @@ class RequestTest {
      * */
     @Test
     fun unSuspendRequest_nullData_returnsError_noApiCall() = runBlocking {
-        coEvery { Repository.getUnSuspendRequestData(ctx) } returns null
+        coEvery { Collector.getUnSuspendRequestData(ctx) } returns null
         every { Events.error(any(), any(), any()) } returns DataClasses.Error(
             "profileRequest",
             400,
@@ -322,7 +322,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getStatusRequestData(ctx) } returns req
+        coEvery { Collector.getStatusRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
@@ -358,7 +358,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getStatusRequestData(ctx) } returns req
+        coEvery { Collector.getStatusRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
@@ -402,7 +402,7 @@ class RequestTest {
             authHeader = "Bearer X",
             matchingMode = "device"
         )
-        coEvery { Repository.getStatusRequestData(ctx) } returns req
+        coEvery { Collector.getStatusRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
@@ -438,7 +438,7 @@ class RequestTest {
      *  */
     @Test
     fun statusRequest_nullData_returnsError_noApiCall() = runBlocking {
-        coEvery { Repository.getStatusRequestData(ctx) } returns null
+        coEvery { Collector.getStatusRequestData(ctx) } returns null
         every { Events.error(any(), any(), any()) } returns DataClasses.Error(
             "profileRequest",
             400,
@@ -483,7 +483,7 @@ class RequestTest {
             authHeader = "Bearer X"
         )
         mockkObject(PartsFactory)
-        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns req
+        coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns req
         every { PartsFactory.createMobileEventParts(entity) } returns listOf(
             MultipartBody.Part.createFormData("x", "y")
         )
@@ -544,7 +544,7 @@ class RequestTest {
             retryCount = 0,
             maxRetryCount = 3
         )
-        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns null
+        coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns null
 
         val out = Request.mobileEventRequest(ctx, entity)
         assertTrue(out is DataClasses.RetryError)
@@ -583,7 +583,7 @@ class RequestTest {
             authHeader = "Bearer X"
         )
         mockkObject(PartsFactory)
-        coEvery { Repository.getMobileEventRequestData(ctx, entity) } returns req
+        coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns req
         every { PartsFactory.createMobileEventParts(entity) } returns null
 
         val out = Request.mobileEventRequest(ctx, entity)

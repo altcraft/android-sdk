@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "AltcraftMobile"
 include(":example")
 include(":altcraft-sdk")
+

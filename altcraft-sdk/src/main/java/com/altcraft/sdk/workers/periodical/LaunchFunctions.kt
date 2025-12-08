@@ -5,7 +5,7 @@ package com.altcraft.sdk.workers.periodical
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.sdk.additional.SubFunction.logger
+import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
@@ -32,7 +32,6 @@ internal object LaunchFunctions {
     private val updateRequest by lazy {
         createRequest(Workers.RetryUpdateWorker::class.java)
     }
-
 
     /**
      * Lazily initialized `PeriodicWorkRequest` for the **subscription** worker.
@@ -68,7 +67,7 @@ internal object LaunchFunctions {
      */
     fun startPeriodicalPushEventWorker(context: Context) {
         createWorker(context, PUSH_EVENT_P_WORK_NANE, pushEventRequest)
-        logger(PUSH_EVENT_WORK_START)
+        log(PUSH_EVENT_WORK_START)
     }
 
     /**
@@ -78,7 +77,7 @@ internal object LaunchFunctions {
      */
     fun startPeriodicalMobileEventWorker(context: Context) {
         createWorker(context, MOBILE_EVENT_P_WORK_NANE, mobileEventRequest)
-        logger(MOBILE_EVENT_WORK_START)
+        log(MOBILE_EVENT_WORK_START)
     }
 
     /**
@@ -88,7 +87,7 @@ internal object LaunchFunctions {
      */
     fun startPeriodicalUpdateWorker(context: Context) {
         createWorker(context, UPDATE_P_WORK_NANE, updateRequest)
-        logger(UPDATE_WORK_START)
+        log(UPDATE_WORK_START)
     }
 
     /**
@@ -98,6 +97,6 @@ internal object LaunchFunctions {
      */
     fun startPeriodicalSubscribeWorker(context: Context) {
         createWorker(context, SUB_P_WORK_NANE, subscribeRequest)
-        logger(SUB_WORK_START)
+        log(SUB_WORK_START)
     }
 }

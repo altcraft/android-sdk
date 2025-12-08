@@ -184,7 +184,7 @@ class MobileEventInstrumentedTest {
         assertThat(events.isNotEmpty(), `is`(true))
 
         val infos = WorkManager.getInstance(context)
-            .getWorkInfosByTag(Constants.MOBILE_EVENT_C_WORK_TAG)
+            .getWorkInfosByTag(Constants.MOB_EVENT_C_WORK_TAG)
             .get()
         assertThat(infos.isNotEmpty(), `is`(true))
         assertThat(infos.first().state, `is`(WorkInfo.State.ENQUEUED))

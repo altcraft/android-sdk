@@ -15,7 +15,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.app.NotificationManagerCompat
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.data.Repository
+import com.altcraft.sdk.data.Collector
 import com.altcraft.sdk.sdk_events.EventList.pushIsPosted
 import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.push.PushChannel
@@ -60,7 +60,7 @@ class PushPresenterTest {
 
         mockkStatic(NotificationManagerCompat::class)
         mockkObject(SubFunction)
-        mockkObject(Repository)
+        mockkObject(Collector)
         mockkObject(PushChannel)
         mockkObject(Events)
     }
@@ -114,7 +114,7 @@ class PushPresenterTest {
     @Test
     fun test_2_showPush_dataNull_noNotify() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
-        coEvery { Repository.getNotificationData(ctx, any()) } returns null
+        coEvery { Collector.getNotificationData(ctx, any()) } returns null
         every { Events.error(any(), any()) } returns DataClasses.Error("showPush")
         val nm = mockk<NotificationManagerCompat>(relaxed = true)
         every { NotificationManagerCompat.from(ctx) } returns nm
@@ -130,7 +130,7 @@ class PushPresenterTest {
     fun test_3_showPush_channelNotCreated_noNotify() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
         val data = sampleNotificationData()
-        coEvery { Repository.getNotificationData(ctx, any()) } returns data
+        coEvery { Collector.getNotificationData(ctx, any()) } returns data
         every { PushChannel.versionsSupportChannels } returns true
         every { PushChannel.selectAndCreateChannel(ctx, data.channelInfo) } just Runs
         every { PushChannel.isChannelCreated(ctx, data.channelInfo) } returns false
@@ -150,7 +150,7 @@ class PushPresenterTest {
     fun test_4_showPush_success_notifies_and_emitsEvent() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns true
         val data = sampleNotificationData(messageId = 777)
-        coEvery { Repository.getNotificationData(ctx, any()) } returns data
+        coEvery { Collector.getNotificationData(ctx, any()) } returns data
         every { PushChannel.versionsSupportChannels } returns true
         every { PushChannel.selectAndCreateChannel(ctx, data.channelInfo) } just Runs
         every { PushChannel.isChannelCreated(ctx, data.channelInfo) } returns true

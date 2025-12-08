@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Keep
 object AltcraftSDK {
 
-   //  Working with public subscription functions
+    //  Working with public subscription functions
     @Keep
     val pushSubscriptionFunctions = PublicPushSubscriptionFunctions
 

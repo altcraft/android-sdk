@@ -26,7 +26,9 @@ internal object MapExtension {
      */
     fun Map<String, String>.toWorkDataOrNull(): Data? {
         return try {
-            Data.Builder().apply { forEach { (k, v) -> putString(k, v) } }.build()
+            Data.Builder().apply {
+                forEach { (k, v) -> putString(k, v) }
+            }.build()
         } catch (e: Exception) {
             error("toWorkDataOrNull", e)
             null

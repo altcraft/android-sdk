@@ -12,20 +12,16 @@ import android.os.Build
 import androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE
 import androidx.core.app.ServiceCompat.stopForeground
 import com.altcraft.altcraftsdk.R
+import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.additional.StringBuilder.serviceExceptionMessage
-import com.altcraft.sdk.additional.SubFunction.checkingNotificationPermission
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.additional.SubFunction.isOnline
 import com.altcraft.sdk.additional.SubFunction.isServiceRunning
-import com.altcraft.sdk.additional.SubFunction.logger
 import com.altcraft.sdk.config.ConfigSetup.getConfig
-import com.altcraft.sdk.data.Constants
 import com.altcraft.sdk.data.Constants.DEFAULT_SERVICE
 import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.STOP_SERVICE_ACTION
-import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
-import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
 import com.altcraft.sdk.data.Constants.SERVICE_TYPE_DATA
 import com.altcraft.sdk.data.Constants.DEFAULT_SERVICES_MESSAGE_BODY
 import com.altcraft.sdk.data.Constants.SUB_SERVICE_MSG_ID
@@ -46,11 +42,7 @@ import com.altcraft.sdk.services.SubscribeService
 import com.altcraft.sdk.services.UpdateService
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startSubscribeCoroutineWorker
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startUpdateCoroutineWorker
-import com.altcraft.sdk.workers.coroutine.Worker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Provides utility functions for managing and shutting down foreground services.
@@ -59,6 +51,11 @@ import kotlinx.coroutines.launch
  * and manage related notifications and retry logic.
  */
 internal object ServiceManager {
+
+    /**
+     * Atomic flag to control logging of service close event.
+     */
+    private val closingLogAllowed = AtomicBoolean(false)
 
     /**
      * Determines whether a service can be started based on multiple conditions.
@@ -75,10 +72,7 @@ internal object ServiceManager {
         context: Context, config: ConfigurationEntity, service: Class<out Any>
     ): Boolean {
         return try {
-            config.usingService &&
-                    isAppInForegrounded() &&
-                    !isServiceRunning(context, service) &&
-                    checkingNotificationPermission(context)
+            config.usingService && isAppInForegrounded() && !isServiceRunning(context, service)
         } catch (e: Exception) {
             error("startServicePrecondition", e)
             false
@@ -161,7 +155,10 @@ internal object ServiceManager {
         try {
             if (intent != null && intent.action == STOP_SERVICE_ACTION) {
                 stopForeground(service, STOP_FOREGROUND_REMOVE)
-                logger("${getServiceName(service)} is closed")
+
+                if (closingLogAllowed.compareAndSet(true, false)) log(
+                    "${getServiceName(service)} is closed"
+                )
                 service.stopSelf()
             }
         } catch (e: Exception) {
@@ -219,7 +216,7 @@ internal object ServiceManager {
      * @param context Application context for accessing configuration and system services.
      * @return A [Notification] for foreground services, or `null` if creation fails.
      */
-    internal suspend fun createServiceNotification(context: Context): Notification? {
+    internal suspend fun createNotification(context: Context): Notification? {
         return try {
             val config = getConfig(context)
             val info = getChannelInfo(config)
@@ -227,7 +224,6 @@ internal object ServiceManager {
             val body = config?.serviceMessage ?: DEFAULT_SERVICES_MESSAGE_BODY
             if (versionsSupportChannels) selectAndCreateChannel(context, info)
             if (!isChannelCreated(context, info)) exception(channelNotCreated)
-
             createNotification(context, info.first, body, icon)
         } catch (e: Exception) {
             error("createServiceNotification", e)
@@ -247,11 +243,11 @@ internal object ServiceManager {
     suspend fun checkStartForeground(service: Service): Boolean {
         return try {
             if (!isOnline(service)) exception(noInternetConnect)
-            val push = createServiceNotification(service) ?: exception(notificationErr)
+            val push = createNotification(service) ?: exception(notificationErr)
 
             startForegroundService(service, getId(service), push)
-
-            logger("${getServiceName(service)} is started")
+            log("${getServiceName(service)} is started")
+            closingLogAllowed.set(true)
             true
         } catch (e: Exception) {
             error("checkStartForeground", e)
@@ -267,61 +263,13 @@ internal object ServiceManager {
      * @param id The notification ID.
      * @param notification The notification to display.
      */
-    private fun startForegroundService(service: Service, id: Int, notification: Notification) {
+    private fun startForegroundService(
+        service: Service, id: Int, notification: Notification
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             service.startForeground(id, notification, SERVICE_TYPE_DATA)
         } else {
             service.startForeground(id, notification)
-        }
-    }
-
-    /**
-     * Stops the specified background service and resets its retry counter.
-     *
-     * @param context The application context.
-     * @param service The logical service name alias (e.g. [PUSH_SUBSCRIBE_SERVICE]).
-     * @param delay If true, delays the shutdown by 500ms before stopping the service.
-     */
-    fun closeService(context: Context, service: String, delay: Boolean = false) {
-        CoroutineScope(Dispatchers.IO).launch {
-            if (delay) delay(500)
-            when (service) {
-                PUSH_SUBSCRIBE_SERVICE -> {
-                    Worker.retrySubscribe = 0
-                    stopService(context, SUBSCRIBE_SERVICE)
-                }
-
-                TOKEN_UPDATE_SERVICE -> {
-                    Worker.retryUpdate = 0
-                    stopService(context, UPDATE_SERVICE)
-                }
-            }
-        }
-    }
-
-    /**
-     * Checks whether a service should be closed based on retry count and app visibility.
-     * If the retry count reaches [Constants.COUNT_SERVICE_CLOSED], initiates delayed shutdown.
-     *
-     * @param context The application context.
-     * @param service The logical service name alias to evaluate.
-     * @param count Current retry count for the service operation.
-     */
-    fun checkServiceClosed(context: Context, service: String, count: Int) {
-        when (isAppInForegrounded()) {
-            true -> if (count == Constants.COUNT_SERVICE_CLOSED) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(500)
-                    closeService(context, service)
-                }
-            }
-
-            false -> {
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(500)
-                    closeService(context, service)
-                }
-            }
         }
     }
 }

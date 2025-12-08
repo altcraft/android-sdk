@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.workers.coroutine.CancelWork
@@ -138,7 +138,7 @@ class CancelWorkInstrumentedTest {
 
         val completed = latch.await(2, TimeUnit.SECONDS)
         assertThat(completed, `is`(true))
-        assertAllCancelled(MOBILE_EVENT_C_WORK_TAG)
+        assertAllCancelled(MOB_EVENT_C_WORK_TAG)
     }
 
     /** - test_5: cancelCoroutineWorkersTask() cancels all tags and calls onComplete. */
@@ -158,6 +158,6 @@ class CancelWorkInstrumentedTest {
         assertAllCancelled(SUBSCRIBE_C_WORK_TAG)
         assertAllCancelled(UPDATE_C_WORK_TAG)
         assertAllCancelled(PUSH_EVENT_C_WORK_TAG)
-        assertAllCancelled(MOBILE_EVENT_C_WORK_TAG)
+        assertAllCancelled(MOB_EVENT_C_WORK_TAG)
     }
 }

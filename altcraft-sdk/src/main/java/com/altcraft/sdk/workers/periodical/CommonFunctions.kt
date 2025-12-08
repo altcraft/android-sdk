@@ -11,13 +11,14 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
+import androidx.work.WorkInfo.State
 import androidx.work.WorkManager
+import com.altcraft.sdk.core.Retry.pushModuleIsActive
 import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.RETRY_TIME_P_WORK
 import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
 import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
-import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalMobileEventWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalPushEventWorker
@@ -41,32 +42,26 @@ object CommonFunctions {
         .build()
 
     /**
-     * Checks the status of periodic WorkManager tasks responsible for push-related requests.
-     * If a task is cancelled or inactive, it is (re)started.
+     * Ensures that required periodic workers are scheduled.
+     *
+     * Starts the mobile events worker, and, if push is enabled, also
+     * push event, token update, and subscribe workers when they are not running.
      *
      * @param context Application context.
      */
-    internal suspend fun pushPeriodicalWorkerControl(context: Context) {
+    internal suspend fun periodicalWorkerControl(context: Context) {
         try {
-            getPushWorkersState(context)?.let {
-                if (isNotStart(it.subscribeWorkState)) startPeriodicalSubscribeWorker(context)
-                if (isNotStart(it.updateWorkState)) startPeriodicalUpdateWorker(context)
-                if (isNotStart(it.pushEventWorkState)) startPeriodicalPushEventWorker(context)
-            }
-        } catch (e: Exception) {
-            error("periodicalWorkerControl", e)
-        }
-    }
+            if (isNotStart(getWorkData(context, MOBILE_EVENT_P_WORK_NANE)?.firstOrNull()?.state))
+                startPeriodicalMobileEventWorker(context)
 
-    /**
-     * Checks mobile event worker status and restarts it if inactive.
-     *
-     * @param context Application context.
-     */
-    internal suspend fun mobileEventPeriodicalWorkerControl(context: Context) {
-        try {
-            val state = getWorkState(context, MOBILE_EVENT_P_WORK_NANE)?.firstOrNull()?.state
-            if (isNotStart(state)) startPeriodicalMobileEventWorker(context)
+            if (!pushModuleIsActive(context)) return
+
+            if (isNotStart(getWorkData(context, PUSH_EVENT_P_WORK_NANE)?.firstOrNull()?.state))
+                startPeriodicalPushEventWorker(context)
+            if (isNotStart(getWorkData(context, UPDATE_P_WORK_NANE)?.firstOrNull()?.state))
+                startPeriodicalUpdateWorker(context)
+            if (isNotStart(getWorkData(context, SUB_P_WORK_NANE)?.firstOrNull()?.state))
+                startPeriodicalSubscribeWorker(context)
         } catch (e: Exception) {
             error("periodicalWorkerControl", e)
         }
@@ -80,9 +75,7 @@ object CommonFunctions {
      * @param state The current state of the worker.
      * @return True if the worker needs to be started or restarted.
      */
-    private fun isNotStart(state: WorkInfo.State?): Boolean {
-        return state == null || state == WorkInfo.State.CANCELLED
-    }
+    private fun isNotStart(state: State?) = state == null || state == State.CANCELLED
 
     /**
      * Returns a list of WorkInfo for the given work name.
@@ -91,30 +84,11 @@ object CommonFunctions {
      * @param workName Unique work name.
      * @return List of WorkInfo or null if retrieval fails.
      */
-    private suspend fun getWorkState(context: Context, workName: String): List<WorkInfo>? {
+    private suspend fun getWorkData(context: Context, workName: String): List<WorkInfo>? {
         return try {
             return WorkManager.getInstance(context).getWorkInfosForUniqueWork(workName).await()
         } catch (e: Exception) {
             error("getWorkState", e)
-            null
-        }
-    }
-
-    /**
-     * Returns the current state of push-related periodic workers.
-     *
-     * @param context Application context.
-     * @return WorkersState containing individual work states or null on failure.
-     */
-    private suspend fun getPushWorkersState(context: Context): DataClasses.PushWorkersState? {
-        return try {
-            DataClasses.PushWorkersState(
-                getWorkState(context, SUB_P_WORK_NANE)?.firstOrNull()?.state,
-                getWorkState(context, UPDATE_P_WORK_NANE)?.firstOrNull()?.state,
-                getWorkState(context, PUSH_EVENT_P_WORK_NANE)?.firstOrNull()?.state
-            )
-        } catch (e: Exception) {
-            error("getAllWorkerState", e)
             null
         }
     }

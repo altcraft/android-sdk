@@ -51,8 +51,7 @@ internal object AuthManager {
     /**
      * Checks that a Base64URL-encoded JWT payload fits the 16 KiB decoded limit.
      *
-     * The function estimates decoded size without allocating:
-     * it adds Base64 padding to a multiple of 4, then applies the (len * 3 / 4) rule.
+
      *
      * @param b64 Base64URL (no padding) encoded JWT payload (the middle part of JWT).
      * @return `true` if the estimated decoded size ≤ 16 KiB, otherwise `false`.
@@ -103,8 +102,9 @@ internal object AuthManager {
             val raw = root[MATCHING] ?: return null
             val matchingObj = when {
                 raw is JsonObject -> raw
-                raw is JsonPrimitive && raw.isString ->
-                    json.parseToJsonElement(raw.content).jsonObject
+                raw is JsonPrimitive && raw.isString -> json.parseToJsonElement(
+                    raw.content
+                ).jsonObject
 
                 else -> return null
             }

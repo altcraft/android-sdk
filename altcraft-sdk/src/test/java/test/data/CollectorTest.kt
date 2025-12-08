@@ -10,8 +10,8 @@ import android.content.Context
 import android.graphics.Color
 import com.altcraft.sdk.auth.AuthManager
 import com.altcraft.sdk.config.ConfigSetup
+import com.altcraft.sdk.data.Collector
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.data.Repository
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
@@ -33,13 +33,13 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * RepositoryTest
+ * CollectorTest
  *
  * Positive:
  *  - test_1: getSubscribeRequestData builds correct request with all fields.
  *  - test_2: getUpdateRequestData builds correct request with old/new tokens.
  *  - test_3: getPushEventRequestData builds correct request with type and auth.
- *  - test_4: getUnSubscribeRequestData generates uid and correct data.
+ *  - test_4: getUnSuspendRequestData generates uid and correct data.
  *  - test_5: getStatusRequestData builds request with provider/token.
  *  - test_6: getNotificationData builds NotificationData with color, buttons, images.
  *  - test_13: getMobileEventRequestData builds request with url/sid/name/auth.
@@ -48,12 +48,12 @@ import org.junit.Test
  *  - test_7: getSubscribeRequestData returns null when config is null.
  *  - test_8: getUpdateRequestData returns null when token is missing.
  *  - test_9: getPushEventRequestData returns null when auth is missing.
- *  - test_10: getUnSubscribeRequestData returns null on exception.
+ *  - test_10: getUnSuspendRequestData returns null on exception.
  *  - test_11: getStatusRequestData returns null when savedToken missing and exception.
  *  - test_12: getNotificationData returns default (non-null) on malformed input.
  *  - test_14: getMobileEventRequestData returns null when auth/common data missing.
  */
-class RepositoryTest {
+class CollectorTest {
 
     private lateinit var ctx: Context
     private lateinit var config: ConfigurationEntity
@@ -80,12 +80,28 @@ class RepositoryTest {
         token = DataClasses.TokenData("android-firebase", "tok123")
         savedToken = DataClasses.TokenData("android-firebase", "tokOld")
 
-        mockkObject(ConfigSetup, TokenManager, AuthManager, Events, PushChannel, Intent, PushAction)
+        mockkObject(
+            ConfigSetup,
+            TokenManager,
+            AuthManager,
+            Events,
+            PushChannel,
+            Intent,
+            PushAction,
+            com.altcraft.sdk.data.Preferenses
+        )
 
-        every { Events.error(any(), any(), any()) } returns DataClasses.Error("fn", 400, "err", null)
+        every { Events.error(any(), any(), any()) } returns
+                DataClasses.Error("fn", 400, "err", null)
+
         coEvery { ConfigSetup.getConfig(any()) } returns config
         coEvery { TokenManager.getCurrentPushToken(any()) } returns token
         every { AuthManager.getAuthHeaderAndMatching(any()) } returns ("hdr" to "strict")
+
+        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } returns null
+        every { com.altcraft.sdk.data.Preferenses.getMessageId(any()) } returns 1
+
+        every { PushChannel.getChannelInfo(any(), any()) } returns Pair("ch", "desc")
         every { Intent.getIntent(any(), any(), any(), any()) } returns mockk(relaxed = true)
     }
 
@@ -107,25 +123,35 @@ class RepositoryTest {
             uid = "uid-1"
         )
 
-        val data = Repository.getSubscribeRequestData(ctx, item)
+        val data = Collector.getSubscribeRequestData(ctx, item)
 
         assertNotNull(data)
         assertEquals("uid-1", data?.uid)
         assertEquals("subscribed", data?.status)
         assertEquals("android-firebase", data?.provider)
+        assertEquals("hdr", data?.authHeader)
+        assertEquals("strict", data?.matchingMode)
+        assertEquals(
+            "https://api.example.com/subscription/push/subscribe/",
+            data?.url
+        )
     }
 
     /** - test_2: getUpdateRequestData builds correct request with old/new tokens. */
     @Test
     fun test_2_getUpdateRequestData_success() = runBlocking {
-        mockkObject(com.altcraft.sdk.data.Preferenses)
         every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } returns savedToken
 
-        val data = Repository.getUpdateRequestData(ctx, "uid-2")
+        val data = Collector.getUpdateRequestData(ctx, "uid-2")
 
         assertNotNull(data)
+        assertEquals("uid-2", data?.uid)
         assertEquals("tokOld", data?.oldToken)
         assertEquals("tok123", data?.newToken)
+        assertEquals("android-firebase", data?.oldProvider)
+        assertEquals("android-firebase", data?.newProvider)
+        assertEquals("hdr", data?.authHeader)
+        assertTrue(data!!.url.startsWith("https://api.example.com"))
     }
 
     /** - test_3: getPushEventRequestData builds correct request with type and auth. */
@@ -133,31 +159,42 @@ class RepositoryTest {
     fun test_3_getPushEventRequestData_success() = runBlocking {
         val event = PushEventEntity(uid = "uid-3", type = "opened")
 
-        val data = Repository.getPushEventRequestData(ctx, event)
+        val data = Collector.getPushEventRequestData(ctx, event)
 
         assertNotNull(data)
         assertEquals("opened", data?.type)
         assertEquals("uid-3", data?.uid)
+        assertEquals("hdr", data?.authHeader)
+        assertEquals("strict", data?.matchingMode)
+        assertTrue(data!!.url.startsWith("https://api.example.com"))
     }
 
-    /** - test_4: getUnSubscribeRequestData generates uid and correct data. */
+    /** - test_4: getUnSuspendRequestData generates uid and correct data. */
     @Test
     fun test_4_getUnSuspendRequestData_success() = runBlocking {
-        val data = Repository.getUnSuspendRequestData(ctx)
+        val data = Collector.getUnSuspendRequestData(ctx)
 
         assertNotNull(data)
         assertEquals("android-firebase", data?.provider)
         assertEquals("tok123", data?.token)
+        assertEquals("hdr", data?.authHeader)
+        assertEquals("strict", data?.matchingMode)
+        assertTrue(data!!.uid.isNotBlank())
+        assertTrue(data.url.startsWith("https://api.example.com"))
     }
 
     /** - test_5: getStatusRequestData builds request with provider/token. */
     @Test
     fun test_5_getStatusRequestData_success() = runBlocking {
-        val data = Repository.getStatusRequestData(ctx)
+        val data = Collector.getStatusRequestData(ctx)
 
         assertNotNull(data)
         assertEquals("android-firebase", data?.provider)
         assertEquals("tok123", data?.token)
+        assertEquals("hdr", data?.authHeader)
+        assertEquals("strict", data?.matchingMode)
+        assertTrue(data!!.uid.isNotBlank())
+        assertTrue(data.url.startsWith("https://api.example.com"))
     }
 
     /** - test_6: getNotificationData builds NotificationData with color, buttons, images. */
@@ -169,15 +206,17 @@ class RepositoryTest {
             "_body" to "World",
             "_color" to "#FF0000"
         )
-        every { PushChannel.getChannelInfo(any(), any()) } returns Pair("ch", "desc")
 
-        val data = Repository.getNotificationData(ctx, msg)
+        val data = Collector.getNotificationData(ctx, msg)
 
         assertNotNull(data)
         assertEquals("m1", data?.uid)
         assertEquals("Hello", data?.title)
         assertEquals("World", data?.body)
         assertEquals(Color.BLACK, data?.color)
+        assertEquals("ch", data?.channelInfo?.first)
+        assertEquals("desc", data?.channelInfo?.second)
+        assertNotNull(data?.pendingIntent)
     }
 
     /** - test_7: getSubscribeRequestData returns null when config is null. */
@@ -185,8 +224,19 @@ class RepositoryTest {
     fun test_7_getSubscribeRequestData_configNull_returnsNull() = runBlocking {
         coEvery { ConfigSetup.getConfig(any()) } returns null
 
-        val item = SubscribeEntity("tag", "subscribed", null, null, null, null, null, null)
-        val data = Repository.getSubscribeRequestData(ctx, item)
+        val item = SubscribeEntity(
+            userTag = "tag",
+            status = "subscribed",
+            sync = null,
+            profileFields = null,
+            customFields = null,
+            cats = null,
+            replace = null,
+            skipTriggers = null,
+            uid = "uid-x"
+        )
+
+        val data = Collector.getSubscribeRequestData(ctx, item)
 
         assertNull(data)
         io.mockk.verify { Events.error(eq("getSubscribeData"), any(), any()) }
@@ -197,7 +247,7 @@ class RepositoryTest {
     fun test_8_getUpdateRequestData_tokenNull_returnsNull() = runBlocking {
         coEvery { TokenManager.getCurrentPushToken(any()) } returns null
 
-        val data = Repository.getUpdateRequestData(ctx, "uidX")
+        val data = Collector.getUpdateRequestData(ctx, "uidX")
 
         assertNull(data)
         io.mockk.verify { Events.error(eq("getUpdateData"), any(), any()) }
@@ -209,30 +259,29 @@ class RepositoryTest {
         every { AuthManager.getAuthHeaderAndMatching(any()) } returns null
 
         val event = PushEventEntity(uid = "uidE", type = "opened")
-        val data = Repository.getPushEventRequestData(ctx, event)
+        val data = Collector.getPushEventRequestData(ctx, event)
 
         assertNull(data)
         io.mockk.verify { Events.error(eq("getPushEventData"), any(), any()) }
     }
 
-    /** - test_10: getUnSubscribeRequestData returns null on exception. */
+    /** - test_10: getUnSuspendRequestData returns null on exception. */
     @Test
     fun test_10_getUnSuspendRequestData_exception_returnsNull() = runBlocking {
         coEvery { ConfigSetup.getConfig(any()) } throws RuntimeException("boom")
 
-        val data = Repository.getUnSuspendRequestData(ctx)
+        val data = Collector.getUnSuspendRequestData(ctx)
 
         assertNull(data)
-        io.mockk.verify { Events.error(eq("getProfileData"), any(), any()) }
+        io.mockk.verify { Events.error(eq("getUnSuspendRequestData"), any(), any()) }
     }
 
     /** - test_11: getStatusRequestData returns null when savedToken missing and exception. */
     @Test
     fun test_11_getStatusRequestData_exception_returnsNull() = runBlocking {
-        mockkObject(com.altcraft.sdk.data.Preferenses)
         every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } throws RuntimeException("err")
 
-        val data = Repository.getStatusRequestData(ctx)
+        val data = Collector.getStatusRequestData(ctx)
 
         assertNull(data)
         io.mockk.verify { Events.error(eq("getProfileData"), any(), any()) }
@@ -243,7 +292,7 @@ class RepositoryTest {
     fun test_12_getNotificationData_malformed_returnsDefaultNotNull() = runBlocking {
         val msg = mapOf("bad" to "data")
 
-        val data = Repository.getNotificationData(ctx, msg)
+        val data = Collector.getNotificationData(ctx, msg)
 
         assertNotNull(data)
         assertEquals("", data?.uid)
@@ -272,13 +321,13 @@ class RepositoryTest {
             utmTags = null
         )
 
-        val data = Repository.getMobileEventRequestData(ctx, entity)
+        val data = Collector.getMobileEventRequestData(ctx, entity)
 
         assertNotNull(data)
         assertTrue(data!!.url.startsWith("https://api.example.com"))
         assertEquals("sid-123", data.sid)
         assertEquals("purchase", data.name)
-        assertTrue(data.authHeader.isNotBlank())
+        assertEquals("hdr", data.authHeader)
     }
 
     /** - test_14: getMobileEventRequestData returns null when auth/common data missing. */
@@ -301,7 +350,7 @@ class RepositoryTest {
             utmTags = null
         )
 
-        val data = Repository.getMobileEventRequestData(ctx, entity)
+        val data = Collector.getMobileEventRequestData(ctx, entity)
 
         assertNull(data)
         io.mockk.verify { Events.error(eq("getMobileEventRequestData"), any(), any()) }

@@ -97,6 +97,15 @@ internal object StringBuilder {
         "Deleted 100 oldest mobile events. Total count before: $totalCount"
 
     /**
+     * Generates a message about deleted subscriptions.
+     *
+     * @param totalCount The total number of subscriptions before deletion.
+     * @return A summary message indicating deletion count.
+     */
+    fun deletedSubscriptionsMsg(totalCount: Int) =
+        "Deleted 100 oldest subscriptions. Total count before: $totalCount"
+
+    /**
      * Creates a message for an event indicating the presence of invalid fields that are objects in
      * mobile event parameters.
      *

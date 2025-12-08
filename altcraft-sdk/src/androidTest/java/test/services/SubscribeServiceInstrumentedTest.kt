@@ -15,9 +15,18 @@ import com.altcraft.sdk.data.Constants.STOP_SERVICE_ACTION
 import com.altcraft.sdk.services.SubscribeService
 import com.altcraft.sdk.services.manager.ServiceManager
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions
-import io.mockk.*
-import kotlinx.coroutines.runBlocking
-import org.junit.*
+import io.mockk.MockKAnnotations
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkAll
+import io.mockk.unmockkObject
+import io.mockk.verify
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import java.util.concurrent.TimeUnit
@@ -39,18 +48,22 @@ import java.util.concurrent.TimeUnit
 class SubscribeServiceInstrumentedTest {
 
     @get:Rule
-    val serviceRule = ServiceTestRule.withTimeout(10, TimeUnit.SECONDS)!!
+    val serviceRule: ServiceTestRule = ServiceTestRule.withTimeout(10, TimeUnit.SECONDS)
 
-    private val context by lazy { InstrumentationRegistry.getInstrumentation().targetContext }
+    private val context by lazy {
+        InstrumentationRegistry.getInstrumentation().targetContext
+    }
 
     @Before
     fun setUp() {
+        MockKAnnotations.init(this, relaxUnitFun = true)
+
         mockkObject(ServiceManager)
         mockkObject(LaunchFunctions)
 
         coEvery { ServiceManager.checkStartForeground(any()) } returns true
-        every { ServiceManager.closedServiceHandler(any(), any()) } just Runs
-        every { LaunchFunctions.startSubscribeCoroutineWorker(any()) } just Runs
+        every { ServiceManager.closedServiceHandler(any(), any()) } answers { }
+        every { LaunchFunctions.startSubscribeCoroutineWorker(any()) } answers { }
     }
 
     @After
@@ -60,23 +73,23 @@ class SubscribeServiceInstrumentedTest {
         unmockkAll()
     }
 
-    /** test_1: onCreate(): calls checkStartForeground(); when false — service stops itself */
+    /** test_1: onCreate(): calls checkStartForeground(); when false — service stops itself. */
     @Test
     fun test_1_onCreate_callsCheckStartForeground_andStopsWhenFalse() {
-        runBlocking {
-            coEvery { ServiceManager.checkStartForeground(any()) } returns false
+        coEvery { ServiceManager.checkStartForeground(any()) } returns false
 
-            val name: ComponentName =
-                context.startService(Intent(context, SubscribeService::class.java))
-                    ?: error("Service wasn't started")
+        val name: ComponentName =
+            context.startService(Intent(context, SubscribeService::class.java))
+                ?: error("Service wasn't started")
 
-            coVerify(timeout = 1500, exactly = 1) { ServiceManager.checkStartForeground(any()) }
-
-            context.stopService(Intent().setComponent(name))
+        coVerify(timeout = 1500, exactly = 1) {
+            ServiceManager.checkStartForeground(any())
         }
+
+        context.stopService(Intent().setComponent(name))
     }
 
-    /** test_2: onStartCommand() with non-STOP action -> starts worker + calls closedServiceHandler */
+    /** test_2: onStartCommand() with non-STOP action -> starts worker + calls closedServiceHandler. */
     @Test
     fun test_2_onStartCommand_nonStopAction_startsWorker_andCallsClosedHandler() {
         val startIntent = Intent(context, SubscribeService::class.java).apply {
@@ -86,17 +99,22 @@ class SubscribeServiceInstrumentedTest {
         val name: ComponentName =
             context.startService(startIntent) ?: error("Service wasn't started")
 
-        verify(timeout = 1500, exactly = 1) { LaunchFunctions.startSubscribeCoroutineWorker(any()) }
         verify(timeout = 1500, exactly = 1) {
-            ServiceManager.closedServiceHandler(withArg {
-                assertEquals("ANY_ACTION", it.action)
-            }, any())
+            LaunchFunctions.startSubscribeCoroutineWorker(any())
+        }
+        verify(timeout = 1500, exactly = 1) {
+            ServiceManager.closedServiceHandler(
+                withArg {
+                    assertEquals("ANY_ACTION", it.action)
+                },
+                any()
+            )
         }
 
         context.stopService(Intent().setComponent(name))
     }
 
-    /** test_3: onStartCommand() with STOP_SERVICE_ACTION -> worker not started, closedServiceHandler called */
+    /** test_3: onStartCommand() with STOP_SERVICE_ACTION -> worker not started, closedServiceHandler called. */
     @Test
     fun test_3_onStartCommand_stopAction_noWorker_callsClosedHandler() {
         val stopIntent = Intent(context, SubscribeService::class.java).apply {
@@ -106,11 +124,16 @@ class SubscribeServiceInstrumentedTest {
         val name: ComponentName =
             context.startService(stopIntent) ?: error("Service wasn't started")
 
-        verify(timeout = 1500, exactly = 0) { LaunchFunctions.startSubscribeCoroutineWorker(any()) }
+        verify(timeout = 1500, exactly = 0) {
+            LaunchFunctions.startSubscribeCoroutineWorker(any())
+        }
         verify(timeout = 1500, exactly = 1) {
-            ServiceManager.closedServiceHandler(withArg {
-                assertEquals(STOP_SERVICE_ACTION, it.action)
-            }, any())
+            ServiceManager.closedServiceHandler(
+                withArg {
+                    assertEquals(STOP_SERVICE_ACTION, it.action)
+                },
+                any()
+            )
         }
 
         context.stopService(Intent().setComponent(name))

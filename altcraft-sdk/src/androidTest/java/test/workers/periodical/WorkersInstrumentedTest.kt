@@ -106,14 +106,14 @@ class WorkersInstrumentedTest {
     @Test
     fun retryUpdateWorker_background_callsTokenUpdate_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
-        coEvery { TokenUpdate.tokenUpdate(ctx) } returns Unit
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } returns Unit
 
         val worker = TestListenableWorkerBuilder<Workers.RetryUpdateWorker>(ctx).build()
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 1) { CommonFunctions.awaitCancel(ctx, any()) }
-        coVerify(exactly = 1) { TokenUpdate.tokenUpdate(ctx) }
+        coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
     }
 
     /** - test_4: RetryMobileEventWorker (background) calls retry and cleanup, returns success. */
@@ -169,7 +169,7 @@ class WorkersInstrumentedTest {
 
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 0) { CommonFunctions.awaitCancel(any(), any()) }
-        coVerify(exactly = 0) { TokenUpdate.tokenUpdate(any()) }
+        coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
     /** - test_8: RetryMobileEventWorker (foreground) skips body, returns success. */

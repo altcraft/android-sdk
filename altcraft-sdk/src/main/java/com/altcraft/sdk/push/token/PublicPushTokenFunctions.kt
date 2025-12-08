@@ -24,7 +24,7 @@ import com.altcraft.sdk.interfaces.FCMInterface
 import com.altcraft.sdk.interfaces.HMSInterface
 import com.altcraft.sdk.interfaces.RustoreInterface
 import com.altcraft.sdk.push.token.TokenManager.allProvidersValid
-import com.altcraft.sdk.push.token.TokenUpdate.tokenUpdate
+import com.altcraft.sdk.push.token.TokenUpdate.pushTokenUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -125,7 +125,7 @@ object PublicPushTokenFunctions {
      *
      * This function:
      * - Deletes the existing push token using its provider.
-     * - Then performs a full token update via [TokenUpdate.tokenUpdate].
+     * - Then performs a full token update via [TokenUpdate.pushTokenUpdate].
      * - Calls [complete] upon successful completion of the update flow.
      *
      * All operations run on [Dispatchers.IO].
@@ -138,7 +138,7 @@ object PublicPushTokenFunctions {
             try {
                 deleteDeviceToken(context, getPushToken(context)?.provider ?: return@launch) {
                     CoroutineScope(Dispatchers.IO).launch {
-                        tokenUpdate(context)
+                        pushTokenUpdate(context)
                         complete()
                     }
                 }
@@ -167,7 +167,7 @@ object PublicPushTokenFunctions {
 
             updateConfigCache(context)
 
-            tokenUpdate(context)
+            pushTokenUpdate(context)
         } catch (e: Exception) {
             error("providerChange", e)
         }

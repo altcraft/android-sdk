@@ -12,7 +12,27 @@ import android.content.Intent
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import io.mockk.*
+import com.altcraft.sdk.additional.SubFunction
+import com.altcraft.sdk.config.ConfigSetup
+import com.altcraft.sdk.data.Constants
+import com.altcraft.sdk.data.room.ConfigurationEntity
+import com.altcraft.sdk.push.PushChannel
+import com.altcraft.sdk.push.PushPresenter
+import com.altcraft.sdk.services.SubscribeService
+import com.altcraft.sdk.services.UpdateService
+import com.altcraft.sdk.services.manager.ServiceManager
+import com.altcraft.sdk.workers.coroutine.LaunchFunctions
+import io.mockk.MockKAnnotations
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.runs
+import io.mockk.slot
+import io.mockk.unmockkAll
+import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.MatcherAssert.assertThat
@@ -20,22 +40,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-
-import com.altcraft.sdk.additional.SubFunction
-import com.altcraft.sdk.data.Constants
-import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
-import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
-import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.config.ConfigSetup
-import com.altcraft.sdk.push.PushChannel
-import com.altcraft.sdk.push.PushPresenter
-import com.altcraft.sdk.services.SubscribeService
-import com.altcraft.sdk.services.UpdateService
-import com.altcraft.sdk.services.manager.ServiceManager
-import com.altcraft.sdk.workers.coroutine.LaunchFunctions
-import com.altcraft.sdk.workers.coroutine.Worker
 
 /**
  * ServiceManagerInstrumentedTest
@@ -52,23 +56,17 @@ import com.altcraft.sdk.workers.coroutine.Worker
  *  - test_5: stopService() — when running, sends STOP_SERVICE_ACTION to
  *    target service.
  *  - test_6: closedServiceHandler() — with STOP_SERVICE_ACTION, stops
- *    service (stopSelf called).
- *  - test_7: createServiceNotification() — returns Notification when
- *    channel exists.
+ *    service.
+ *  - test_7: createNotification() — returns Notification when channel
+ *    exists.
  *  - test_8: checkStartForeground() — online + valid notification returns
  *    true and calls startForeground().
- *  - test_9: closeService(PUSH_SUBSCRIBE_SERVICE) — resets retrySubscribe
- *    and calls stopService().
- *  - test_10: closeService(TOKEN_UPDATE_SERVICE) — resets retryUpdate and
- *    calls stopService().
- *  - test_11: checkServiceClosed() — app in background triggers delayed
- *    closeService().
  *
  * Negative scenarios:
- *  - test_12: stopService() — not running → no startService call.
- *  - test_13: createServiceNotification() — no channel → returns null.
- *  - test_14: checkStartForeground() — offline → returns false and no
- *    startForeground call.
+ *  - test_9: stopService() — when not running, does nothing.
+ *  - test_10: createNotification() — when no channel, returns null.
+ *  - test_11: checkStartForeground() — offline returns false and does not
+ *    call startForeground().
  */
 @RunWith(AndroidJUnit4::class)
 class ServiceManagerInstrumentedTest {
@@ -91,10 +89,9 @@ class ServiceManagerInstrumentedTest {
 
         every { SubFunction.isAppInForegrounded() } returns true
         every { SubFunction.isServiceRunning(any(), any()) } returns false
-        every { SubFunction.checkingNotificationPermission(any()) } returns true
         every { SubFunction.isOnline(any()) } returns true
 
-        every { PushChannel.selectAndCreateChannel(any(), any()) } just Runs
+        every { PushChannel.selectAndCreateChannel(any(), any()) } just runs
         every { PushChannel.isChannelCreated(any(), any()) } returns true
 
         coEvery { ConfigSetup.getConfig(any()) } returns ConfigurationEntity(
@@ -111,7 +108,7 @@ class ServiceManagerInstrumentedTest {
             pushChannelDescription = "Altcraft channel"
         )
 
-        every { PushChannel.getChannelInfo(any(), any()) } answers { callOriginal() }
+        every { PushChannel.getChannelInfo(any()) } answers { callOriginal() }
 
         val dummyNotification = mockk<Notification>(relaxed = true)
         every {
@@ -147,11 +144,11 @@ class ServiceManagerInstrumentedTest {
             ConfigSetup.getConfig(appContext)
         }).copy(usingService = false)
 
-        every { LaunchFunctions.startSubscribeCoroutineWorker(any()) } just Runs
+        coEvery { LaunchFunctions.startSubscribeCoroutineWorker(any()) } returns Unit
 
         ServiceManager.startSubscribeWorker(ctx, cfg)
 
-        verify(exactly = 1) { LaunchFunctions.startSubscribeCoroutineWorker(ctx) }
+        coVerify(exactly = 1) { LaunchFunctions.startSubscribeCoroutineWorker(ctx) }
         verify(exactly = 0) { ctx.startService(any()) }
     }
 
@@ -178,11 +175,11 @@ class ServiceManagerInstrumentedTest {
             ConfigSetup.getConfig(appContext)
         }).copy(usingService = false)
 
-        every { LaunchFunctions.startUpdateCoroutineWorker(any()) } just Runs
+        coEvery { LaunchFunctions.startUpdateCoroutineWorker(any()) } returns Unit
 
         ServiceManager.startUpdateWorker(ctx, cfg)
 
-        verify(exactly = 1) { LaunchFunctions.startUpdateCoroutineWorker(ctx) }
+        coVerify(exactly = 1) { LaunchFunctions.startUpdateCoroutineWorker(ctx) }
         verify(exactly = 0) { ctx.startService(any()) }
     }
 
@@ -205,7 +202,9 @@ class ServiceManagerInstrumentedTest {
     @Test
     fun stopService_when_not_running_does_nothing() {
         every { SubFunction.isServiceRunning(ctx, UpdateService::class.java) } returns false
+
         ServiceManager.stopService(ctx, UpdateService::class.java)
+
         verify(exactly = 0) { ctx.startService(any()) }
     }
 
@@ -214,23 +213,28 @@ class ServiceManagerInstrumentedTest {
     fun closedServiceHandler_with_stop_action_stops_service() {
         val svc = mockk<Service>(relaxed = true)
         val intent = Intent(Constants.STOP_SERVICE_ACTION)
+
         ServiceManager.closedServiceHandler(intent, svc)
+
         verify(exactly = 1) { svc.stopSelf() }
     }
 
-    /** - test_8: createServiceNotification() returns Notification when channel exists. */
+    /** - test_8: createNotification() returns Notification when channel exists. */
     @Test
-    fun createServiceNotification_returns_notification_on_success() = runBlocking {
-        val n = ServiceManager.createServiceNotification(appContext)
+    fun createNotification_returns_notification_on_success() = runBlocking {
+        val n = ServiceManager.createNotification(appContext)
+
         assertThat(n is Notification, `is`(true))
         verify(atLeast = 1) { PushPresenter.createNotification(any(), any(), any(), any()) }
     }
 
-    /** - test_9: createServiceNotification() returns null when no channel. */
+    /** - test_9: createNotification() returns null when no channel. */
     @Test
-    fun createServiceNotification_returns_null_when_channel_missing() = runBlocking {
+    fun createNotification_returns_null_when_channel_missing() = runBlocking {
         every { PushChannel.isChannelCreated(any(), any()) } returns false
-        val n = ServiceManager.createServiceNotification(appContext)
+
+        val n = ServiceManager.createNotification(appContext)
+
         assertThat(n == null, `is`(true))
     }
 
@@ -241,9 +245,9 @@ class ServiceManagerInstrumentedTest {
         every { PushChannel.isChannelCreated(any(), any()) } returns true
 
         val svc = mockk<Service>(relaxed = true)
-        every { svc.startForeground(any(), any() as Notification) } just Runs
+        every { svc.startForeground(any(), any() as Notification) } just runs
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            every { svc.startForeground(any(), any() as Notification, any()) } just Runs
+            every { svc.startForeground(any(), any() as Notification, any()) } just runs
         }
 
         val ok = ServiceManager.checkStartForeground(svc)
@@ -260,60 +264,15 @@ class ServiceManagerInstrumentedTest {
     @Test
     fun checkStartForeground_offline_returns_false() = runBlocking {
         every { SubFunction.isOnline(any()) } returns false
+
         val svc = mockk<Service>(relaxed = true)
+
         val ok = ServiceManager.checkStartForeground(svc)
+
         assertThat(ok, `is`(false))
         verify(exactly = 0) { svc.startForeground(any(), any() as Notification) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             verify(exactly = 0) { svc.startForeground(any(), any() as Notification, any()) }
         }
-    }
-
-    /** - test_12: closeService(PUSH_SUBSCRIBE_SERVICE) resets retrySubscribe and stops service. */
-    @Test
-    fun closeService_subscribe_resets_retry_and_calls_stop() {
-        mockkObject(ServiceManager)
-        every { ServiceManager.stopService(any(), any()) } just Runs
-        every { ServiceManager.closeService(any(), any(), any()) } answers { callOriginal() }
-
-        Worker.retrySubscribe = 5
-        val latch = CountDownLatch(1)
-        every { ServiceManager.stopService(ctx, any()) } answers { latch.countDown() }
-
-        ServiceManager.closeService(ctx, PUSH_SUBSCRIBE_SERVICE, delay = false)
-        latch.await(1, TimeUnit.SECONDS)
-        assertThat(Worker.retrySubscribe, `is`(0))
-    }
-
-    /** - test_13: closeService(TOKEN_UPDATE_SERVICE) resets retryUpdate and stops service. */
-    @Test
-    fun closeService_update_resets_retry_and_calls_stop() {
-        mockkObject(ServiceManager)
-        every { ServiceManager.stopService(any(), any()) } just Runs
-        every { ServiceManager.closeService(any(), any(), any()) } answers { callOriginal() }
-
-        Worker.retryUpdate = 7
-        val latch = CountDownLatch(1)
-        every { ServiceManager.stopService(ctx, any()) } answers { latch.countDown() }
-
-        ServiceManager.closeService(ctx, TOKEN_UPDATE_SERVICE, delay = false)
-        latch.await(1, TimeUnit.SECONDS)
-        assertThat(Worker.retryUpdate, `is`(0))
-    }
-
-    /** - test_14: checkServiceClosed() schedules closeService when app in background. */
-    @Test
-    fun checkServiceClosed_in_background_schedules_close() {
-        mockkObject(ServiceManager)
-        every { ServiceManager.stopService(any(), any()) } just Runs
-        every { ServiceManager.closeService(any(), any(), any()) } answers { callOriginal() }
-        every { SubFunction.isAppInForegrounded() } returns false
-
-        val latch = CountDownLatch(1)
-        every { ServiceManager.stopService(ctx, any()) } answers { latch.countDown() }
-
-        ServiceManager.checkServiceClosed(ctx, PUSH_SUBSCRIBE_SERVICE, count = 1)
-        val closed = latch.await(2, TimeUnit.SECONDS)
-        assertThat(closed, `is`(true))
     }
 }

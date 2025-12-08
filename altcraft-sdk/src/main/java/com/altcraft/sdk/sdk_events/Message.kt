@@ -21,6 +21,11 @@ internal object Message {
     //pushImage
     const val SUCCESS_IMG_LOAD = "successfully uploading an image for notification"
 
+    //logs
+    const val LOG_HINT = "Altcraft SDK is integrated into the project. " +
+            "Please configure log publishing using the `enableLogging` " +
+            "parameter in the SDK configuration."
+
     //retry limit
     const val SUBSCRIBE_RETRY_LIMIT =
         "exceeded the retry limit for push subscribe operation for id:"

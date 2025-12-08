@@ -146,7 +146,7 @@ class PublicPushTokenFunctionsTest {
             thirdArg<() -> Unit>().invoke()
         }
 
-        coEvery { TokenUpdate.tokenUpdate(ctx) } just Runs
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
 
         val latch = CountDownLatch(1)
 
@@ -157,7 +157,7 @@ class PublicPushTokenFunctionsTest {
         coVerify(exactly = 1) {
             PublicPushTokenFunctions.deleteDeviceToken(eq(ctx), eq(FCM_PROVIDER), any())
         }
-        coVerify(timeout = TIMEOUT_MS, exactly = 1) { TokenUpdate.tokenUpdate(ctx) }
+        coVerify(timeout = TIMEOUT_MS, exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
     }
 
     /** - test_5: forcedTokenUpdate with null getPushToken → no delete, no tokenUpdate, no completion. */
@@ -169,7 +169,7 @@ class PublicPushTokenFunctionsTest {
         } answers { callOriginal() }
 
         coEvery { PublicPushTokenFunctions.getPushToken(ctx) } returns null
-        coEvery { TokenUpdate.tokenUpdate(ctx) } just Runs
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
 
         val latch = CountDownLatch(1)
 
@@ -180,7 +180,7 @@ class PublicPushTokenFunctionsTest {
 
         coVerify(exactly = 1) { PublicPushTokenFunctions.getPushToken(ctx) }
         coVerify(exactly = 0) { PublicPushTokenFunctions.deleteDeviceToken(any(), any(), any()) }
-        coVerify(exactly = 0) { TokenUpdate.tokenUpdate(any()) }
+        coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
     // ---------------- changePushProviderPriorityList ----------------
@@ -211,7 +211,7 @@ class PublicPushTokenFunctionsTest {
 
         coEvery { dao.updateProviderPriorityList(any()) } just Runs
         coEvery { ConfigSetup.updateConfigCache(ctx) } just Runs
-        coEvery { TokenUpdate.tokenUpdate(ctx) } just Runs
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
 
         val newPriority = listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
 
@@ -219,7 +219,7 @@ class PublicPushTokenFunctionsTest {
 
         coVerify(exactly = 1) { dao.updateProviderPriorityList(newPriority) }
         coVerify(exactly = 1) { ConfigSetup.updateConfigCache(ctx) }
-        coVerify(exactly = 1) { TokenUpdate.tokenUpdate(ctx) }
+        coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
     }
 
     /** - test_7: changePushProviderPriorityList with invalid providers → no update, no tokenUpdate. */
@@ -250,7 +250,7 @@ class PublicPushTokenFunctionsTest {
 
         coVerify(exactly = 0) { dao.updateProviderPriorityList(any()) }
         coVerify(exactly = 0) { ConfigSetup.updateConfigCache(any()) }
-        coVerify(exactly = 0) { TokenUpdate.tokenUpdate(any()) }
+        coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
     /** - test_8: changePushProviderPriorityList with no config in DB → no update, no tokenUpdate. */
@@ -269,6 +269,6 @@ class PublicPushTokenFunctionsTest {
 
         coVerify(exactly = 0) { dao.updateProviderPriorityList(any()) }
         coVerify(exactly = 0) { ConfigSetup.updateConfigCache(any()) }
-        coVerify(exactly = 0) { TokenUpdate.tokenUpdate(any()) }
+        coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 }

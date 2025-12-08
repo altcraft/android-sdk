@@ -7,13 +7,11 @@ package com.altcraft.sdk.data
 import android.app.PendingIntent
 import android.graphics.Bitmap
 import androidx.annotation.Keep
-import androidx.work.WorkInfo
 import com.altcraft.sdk.data.Constants.DB_ID
 import com.altcraft.sdk.data.Constants.MATCHING
 import com.altcraft.sdk.data.Constants.MATCHING_ID
 import com.altcraft.sdk.data.Constants.PROVIDER
 import com.altcraft.sdk.data.Constants.TOKEN
-import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.json.serializer.subscription.SubscriptionSerializer
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
@@ -450,17 +448,6 @@ object DataClasses {
     }
 
     /**
-     * Holds the common data needed to construct SDK network requests.
-     *
-     * @property config SDK configuration containing API endpoints and rToken.
-     * @property auth Pair of (authorization header, matching mode) for secure API calls.
-     */
-    internal data class RequestData(
-        val config: ConfigurationEntity? = null,
-        val auth: Pair<String, String>? = null
-    )
-
-    /**
      * Represents the data required to create a subscription request.
      *
      * @property url API endpoint URL.
@@ -649,17 +636,4 @@ object DataClasses {
      */
     @Serializable
     internal data class ButtonStructure(val label: String, val link: String)
-
-    /**
-     * Represents the execution states of periodic workers related to **push notifications**.
-     *
-     * @property subscribeWorkState The state of the push subscription worker.
-     * @property updateWorkState The state of the push token/update worker.
-     * @property pushEventWorkState The state of the push event worker.
-     */
-    internal data class PushWorkersState(
-        val subscribeWorkState: WorkInfo.State?,
-        val updateWorkState: WorkInfo.State?,
-        val pushEventWorkState: WorkInfo.State?
-    )
 }

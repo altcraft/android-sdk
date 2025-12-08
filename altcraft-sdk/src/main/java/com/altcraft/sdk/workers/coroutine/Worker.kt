@@ -5,17 +5,20 @@ package com.altcraft.sdk.workers.coroutine
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import android.os.Process
 import androidx.work.CoroutineWorker
+import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
+import com.altcraft.sdk.data.Constants.COUNT_SERVICE_CLOSED
+import com.altcraft.sdk.data.Constants.PID
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
-import com.altcraft.sdk.data.Constants.PUSH_SUBSCRIBE_SERVICE
-import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_SERVICE
+import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
+import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
 import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.push.token.TokenUpdate
-import com.altcraft.sdk.services.manager.ServiceManager.checkServiceClosed
-import com.altcraft.sdk.services.manager.ServiceManager.closeService
+import com.altcraft.sdk.services.manager.ServiceManager.stopService
 import kotlinx.coroutines.delay
 import java.util.UUID
 
@@ -24,9 +27,6 @@ import java.util.UUID
  * subscribe, and update the push token.
  */
 internal object Worker {
-
-    internal var retryUpdate = 0
-    internal var retrySubscribe = 0
 
     /**
      * Suspends execution if the app is running in the background.
@@ -39,7 +39,20 @@ internal object Worker {
     }
 
     /**
-     * Worker that handles processing of push event data.
+     * Checks whether the app process has changed since the WorkRequest was created.
+     *
+     * If the app is in the foreground and the stored PID differs from the current one,
+     * it is assumed the app was restarted and all retry logic will be handled by the SDK,
+     * so there is no need to rerun this work via WorkManager.
+     *
+     * @param inputData Data containing the original process ID ("pid") captured at enqueue time.
+     */
+    private fun pidChanged(
+        inputData: Data
+    ) = isAppInForegrounded() && inputData.getInt(PID, -1) != Process.myPid()
+
+    /**
+     * Worker that handles processing of push event.
      *
      * @param appContext Application context.
      * @param workerParams Parameters used to initialize the worker.
@@ -53,14 +66,10 @@ internal object Worker {
          * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
-
             awaitInBackground()
-
-            val retry = PushEvent.isRetry(applicationContext)
-
-            return if (retry) {
-                Result.retry()
-            } else Result.success()
+            return if (
+                pidChanged(inputData) || !PushEvent.isRetry(applicationContext, id)
+            ) Result.success() else Result.retry()
         }
     }
 
@@ -79,14 +88,10 @@ internal object Worker {
          * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
-
             awaitInBackground()
-
-            val retry = MobileEvent.isRetry(applicationContext)
-
-            return if (retry) {
-                Result.retry()
-            } else Result.success()
+            return if (
+                pidChanged(inputData) || !MobileEvent.isRetry(applicationContext, id)
+            ) Result.success() else Result.retry()
         }
     }
 
@@ -105,21 +110,14 @@ internal object Worker {
          * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
-
             awaitInBackground()
 
-            val retry = PushSubscribe.isRetry(applicationContext)
-
-            return if (retry) {
-                checkServiceClosed(
-                    applicationContext,
-                    PUSH_SUBSCRIBE_SERVICE,
-                    ++retrySubscribe
-                )
-                Result.retry()
-            } else {
-                closeService(applicationContext, PUSH_SUBSCRIBE_SERVICE, true)
-                Result.success()
+            return (if (
+                pidChanged(inputData) || !PushSubscribe.isRetry(applicationContext, id)
+            ) Result.success() else Result.retry()).also {
+                if (it == Result.success() || runAttemptCount == COUNT_SERVICE_CLOSED) {
+                    stopService(applicationContext, SUBSCRIBE_SERVICE)
+                }
             }
         }
     }
@@ -142,21 +140,14 @@ internal object Worker {
          * Executes background work and returns [Result.retry] or [Result.success].
          */
         override suspend fun doWork(): Result {
-
             awaitInBackground()
 
-            val retry = TokenUpdate.isRetry(applicationContext, uid)
-
-            return if (retry) {
-                checkServiceClosed(
-                    applicationContext,
-                    TOKEN_UPDATE_SERVICE,
-                    ++retryUpdate
-                )
-                Result.retry()
-            } else {
-                closeService(applicationContext, TOKEN_UPDATE_SERVICE, true)
-                Result.success()
+            return (if (
+                pidChanged(inputData) || !TokenUpdate.isRetry(applicationContext, id)
+            ) Result.success() else Result.retry()).also {
+                if (it == Result.success() || runAttemptCount == COUNT_SERVICE_CLOSED) {
+                    stopService(applicationContext, UPDATE_SERVICE)
+                }
             }
         }
     }

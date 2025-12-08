@@ -5,8 +5,8 @@ package com.altcraft.sdk.sdk_events
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import androidx.annotation.Keep
+import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.additional.StringBuilder.eventLogBuilder
-import com.altcraft.sdk.additional.SubFunction.logger
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.extension.ExceptionExtension
 
@@ -51,7 +51,7 @@ object Events {
         event: Pair<Int, String>,
         value: Map<String, Any?>? = null,
     ): DataClasses.Event {
-        logger(eventLogBuilder(function, event.second))
+        log(eventLogBuilder(function, event.second))
 
         return DataClasses.Event(function, event.first, event.second, value).also {
             subscriber?.invoke(it)
@@ -73,7 +73,7 @@ object Events {
     ): DataClasses.Error {
         val (code, message) = extractErrorDetails(error, false)
 
-        logger(eventLogBuilder(function, message))
+        log(eventLogBuilder(function, message))
 
         return DataClasses.Error(function, code, message, value).also {
             subscriber?.invoke(it)
@@ -95,7 +95,7 @@ object Events {
     ): DataClasses.RetryError {
         val (code, message) = extractErrorDetails(error, true)
 
-        logger(eventLogBuilder(function, message))
+        log(eventLogBuilder(function, message))
 
         return DataClasses.RetryError(function, code, message, value).also {
             subscriber?.invoke(it)

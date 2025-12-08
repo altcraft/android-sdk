@@ -50,6 +50,9 @@ internal data class ConfigurationEntity(
     fun isValid() = apiUrl.isNotEmpty() && allProvidersValid(providerPriorityList)
 }
 
+/** Sealed marker interface for Room entities representing persisted request payloads. */
+sealed interface RequestEntity
+
 /**
  * SubscribeEntity — entity for storing subscribe request data.
  */
@@ -80,7 +83,7 @@ internal data class SubscribeEntity(
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
     var maxRetryCount: Int = MAX_RETRY_COUNT,
-)
+): RequestEntity
 
 /**
  * Entity representing a push event stored in the database.
@@ -98,7 +101,7 @@ internal data class PushEventEntity(
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
     var maxRetryCount: Int = MAX_RETRY_COUNT,
-)
+): RequestEntity
 
 /**
  * Entity representing a mobile event stored in the database.
@@ -138,4 +141,4 @@ internal data class MobileEventEntity(
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
     var maxRetryCount: Int = MAX_RETRY_COUNT,
-)
+): RequestEntity

@@ -5,10 +5,13 @@ package com.altcraft.sdk.data.room
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.additional.StringBuilder.deletedMobileEventsMsg
 import com.altcraft.sdk.additional.StringBuilder.deletedPushEventsMsg
+import com.altcraft.sdk.additional.StringBuilder.deletedSubscriptionsMsg
 import com.altcraft.sdk.additional.StringBuilder.errorEntityType
-import com.altcraft.sdk.additional.SubFunction.logger
+import com.altcraft.sdk.core.Retry.mobileEventsDbSnapshotTaken
+import com.altcraft.sdk.core.Retry.pushSubscribeDbSnapshotTaken
 import com.altcraft.sdk.data.Constants.NAME
 import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.sdk_events.EventList.unsupportedEntityType
@@ -18,6 +21,9 @@ import com.altcraft.sdk.sdk_events.Message.PUSH_EVENT_RETRY_LIMIT
 import com.altcraft.sdk.sdk_events.Message.SUBSCRIBE_RETRY_LIMIT
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.sdk_events.Message.MOBILE_EVENT_RETRY_LIMIT
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -155,6 +161,24 @@ internal object RoomRequest {
     }
 
     /**
+     * Cleans up old subscribe entries if count exceeds limit.
+     *
+     * @param room Local database instance.
+     */
+    suspend fun clearOldSubscriptionsFromRoom(room: SDKdb) {
+        try {
+            room.request().apply {
+                if (getSubscribeCount() > 500) {
+                    deleteSubscriptions(getOldestSubscriptions(100))
+                    log(deletedSubscriptionsMsg(getSubscribeCount()))
+                }
+            }
+        } catch (e: Exception) {
+            error("clearOldSubscriptionsFromRoom", e)
+        }
+    }
+
+    /**
      * Cleans up old push events if count exceeds limit.
      *
      * @param room Local database instance.
@@ -164,7 +188,7 @@ internal object RoomRequest {
             room.request().apply {
                 if (getPushEventCount() > 500) {
                     deletePushEvents(getOldestPushEvents(100))
-                    logger(deletedPushEventsMsg(getPushEventCount()))
+                    log(deletedPushEventsMsg(getPushEventCount()))
                 }
             }
         } catch (e: Exception) {
@@ -182,11 +206,58 @@ internal object RoomRequest {
             room.request().apply {
                 if (getMobileEventCount() > 500) {
                     deleteMobileEvents(getOldestMobileEvents(100))
-                    logger(deletedMobileEventsMsg(getMobileEventCount()))
+                    log(deletedMobileEventsMsg(getMobileEventCount()))
                 }
             }
         } catch (e: Exception) {
             error("clearOldMobileEventsFromRoom", e)
+        }
+    }
+
+    /**
+     * Cleans up old subscriptions, push events and mobile events in parallel.
+     *
+     * @param room Local database instance.
+     */
+    suspend fun roomOverflowControl(room: SDKdb) = coroutineScope {
+        awaitAll(
+            async { clearOldSubscriptionsFromRoom(room) },
+            async { clearOldMobileEventsFromRoom(room) },
+            async { clearOldPushEventsFromRoom(room) },
+        )
+    }
+
+    /**
+     * Retrieves all mobile events for the specified user tag
+     * and marks the mobile-events DB snapshot as taken.
+     *
+     * @param room Database instance.
+     * @param tag User tag used to filter events.
+     * @return List of mobile event entities.
+     */
+    suspend fun allMobileEventsByTag(
+        room: SDKdb,
+        tag: String
+    ): List<MobileEventEntity> {
+        return room.request().allMobileEventsByTag(tag).also {
+            mobileEventsDbSnapshotTaken.complete(Unit)
+        }
+    }
+
+    /**
+     * Retrieves all push subscriptions for the specified user tag
+     * and marks the subscription DB snapshot as taken.
+     *
+     * @param room Database instance.
+     * @param tag User tag used to filter subscriptions.
+     * @return List of subscription entities.
+     */
+    suspend fun allSubscriptionsByTag(
+        room: SDKdb,
+        tag: String
+    ): List<SubscribeEntity> {
+        return room.request().allSubscriptionsByTag(tag).also {
+            pushSubscribeDbSnapshotTaken.complete(Unit)
         }
     }
 }

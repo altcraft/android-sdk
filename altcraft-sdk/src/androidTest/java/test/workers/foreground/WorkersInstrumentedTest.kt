@@ -57,7 +57,7 @@ class WorkersInstrumentedTest {
                 .setContentText("fg")
                 .build()
 
-        coEvery { ServiceManager.createServiceNotification(any()) } returns fakeNotification
+        coEvery { ServiceManager.createNotification(any()) } returns fakeNotification
         coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
         coEvery { PushPresenter.showPush(any(), any()) } just Runs
     }
@@ -86,7 +86,7 @@ class WorkersInstrumentedTest {
         assertTrue(result is ListenableWorker.Result.Success)
 
         val ctxSlot = slot<Context>()
-        coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
+        coVerify(exactly = 1) { ServiceManager.createNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
         coVerify(exactly = 1) { PushEvent.sendPushEvent(ctxSlot.captured, DELIVERY, uid) }
     }
@@ -109,7 +109,7 @@ class WorkersInstrumentedTest {
         assertTrue(result is ListenableWorker.Result.Success)
 
         val ctxSlot = slot<Context>()
-        coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
+        coVerify(exactly = 1) { ServiceManager.createNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
         coVerify(exactly = 1) {
             PushPresenter.showPush(ctxSlot.captured, withArg { map ->

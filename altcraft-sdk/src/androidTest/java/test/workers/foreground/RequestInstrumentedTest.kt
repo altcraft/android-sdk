@@ -66,7 +66,7 @@ class ForegroundRequestInstrumentedTest {
                 .setContentText("fg")
                 .build()
 
-        coEvery { ServiceManager.createServiceNotification(any()) } returns fakeNotification
+        coEvery { ServiceManager.createNotification(any()) } returns fakeNotification
         coEvery { PushEvent.sendPushEvent(any(), any(), any()) } returns Unit
         coEvery { PushPresenter.showPush(any(), any()) } returns Unit
     }
@@ -88,7 +88,7 @@ class ForegroundRequestInstrumentedTest {
         Request.startEventForegroundWorker(context, data)
 
         val ctxSlot = slot<Context>()
-        coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
+        coVerify(exactly = 1) { ServiceManager.createNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
 
         coVerify(exactly = 1) { PushEvent.sendPushEvent(ctxSlot.captured, DELIVERY, uid) }
@@ -103,7 +103,7 @@ class ForegroundRequestInstrumentedTest {
         Request.startPushForegroundWorker(context, data)
 
         val ctxSlot = slot<Context>()
-        coVerify(exactly = 1) { ServiceManager.createServiceNotification(capture(ctxSlot)) }
+        coVerify(exactly = 1) { ServiceManager.createNotification(capture(ctxSlot)) }
         assertEquals("Package must match", context.packageName, ctxSlot.captured.packageName)
 
         coVerify(exactly = 1) {

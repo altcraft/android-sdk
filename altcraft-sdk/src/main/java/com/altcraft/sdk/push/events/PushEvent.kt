@@ -6,6 +6,8 @@ package com.altcraft.sdk.push.events
 
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isOnline
+import com.altcraft.sdk.core.Environment
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.network.Request.pushEventRequest
 import com.altcraft.sdk.data.retry
 import com.altcraft.sdk.data.room.PushEventEntity
@@ -18,11 +20,14 @@ import com.altcraft.sdk.sdk_events.EventList.uidIsNull
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.extension.ExceptionExtension.exception
+import com.altcraft.sdk.network.Request.request
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startPushEventCoroutineWorker
+import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -44,55 +49,55 @@ internal object PushEvent {
      * @param type Event type ("delivery" or "open").
      * @param messageUID Unique event identifier. Must not be null or empty.
      */
-    suspend fun sendPushEvent(
-        context: Context,
-        type: String,
-        messageUID: String?,
-    ) {
+    suspend fun sendPushEvent(context: Context, type: String, messageUID: String?) {
         val func = "sendPushEvent"
         try {
             pushEventMutex.withLock {
                 if (messageUID.isNullOrEmpty()) exception(uidIsNull)
                 if (!isOnline(context)) error(func, noInternetConnect)
+                val pushEventEntity = PushEventEntity(messageUID, type)
 
-                val event = PushEventEntity(messageUID, type)
-
-                if (pushEventRequest(context, event) is retry) {
-                    entityInsert(context, event)
+                if (request(context, pushEventEntity) is retry) {
+                    entityInsert(context, pushEventEntity)
                     startPushEventCoroutineWorker(context)
                 }
             }
         } catch (e: Exception) {
-            error(func, e)
+            error("sendPushEvent", e)
         }
     }
 
     /**
-     * Sends all push events and checks whether any remain in the database after sending.
+     * Checks whether pending push events require another retry pass.
      *
-     * If any events are still stored after the attempt (e.g., due to errors or retry limits),
-     * the function returns `true`. The return value is used by WorkManager to decide
-     * whether a retry operation should be scheduled.
-     *
-     * @param context The application context used to access the local database.
-     * @return `true` if there are remaining push events in the database; `false` otherwise.
+     * @param context Application context.
+     * @param workerId Optional worker identifier.
+     * @return `true` if another retry should be scheduled; `false` otherwise.
+     * @throws CancellationException if the coroutine is cancelled.
      */
-    suspend fun isRetry(context: Context): Boolean {
+    suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
-            sendAllPushEventMutex.withLock {
-                val room = SDKdb.getDb(context)
-                val events = room.request().getAllPushEvents()
-
-                sendAllPushEvents(context, room, events)
-
-                room.request().getAllPushEvents().isNotEmpty()
-            }
-        } catch (ce: CancellationException) {
-            throw ce
+            sendAllPushEventMutex.withLock { logic(context, workerId) }
         } catch (e: Exception) {
-            retry("isRetry :: push event", e)
-            true
+            retry("isRetry :: pushEvent", e); true
         }
+    }
+
+    /**
+     * Sends pending push events and decides if further retries are needed.
+     *
+     * @param context Application context.
+     * @param id Optional worker identifier.
+     * @return `true` if events remain and no newer request exists; `false` otherwise.
+     */
+    private suspend fun logic(context: Context, id: UUID?): Boolean {
+        val tag = PUSH_EVENT_C_WORK_TAG
+        val env = Environment.create(context)
+
+        sendAllPushEvents(context, env.room, env.room.request().getAllPushEvents())
+        return env.room.request().getAllPushEvents().isNotEmpty() && !hasNewRequest(
+            context, tag, id
+        )
     }
 
     /**

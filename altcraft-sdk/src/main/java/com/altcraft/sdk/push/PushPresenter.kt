@@ -18,7 +18,7 @@ import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.extension.NotificationExtension.addActions
 import com.altcraft.sdk.extension.NotificationExtension.applyBigPictureStyle
-import com.altcraft.sdk.data.Repository.getNotificationData
+import com.altcraft.sdk.data.Collector.getNotificationData
 import com.altcraft.sdk.sdk_events.EventList.channelNotCreated
 import com.altcraft.sdk.sdk_events.EventList.notificationErr
 import com.altcraft.sdk.push.PushChannel.isChannelCreated

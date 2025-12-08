@@ -7,21 +7,23 @@ package test.mob_event
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.auth.AuthManager
 import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.config.ConfigSetup
+import com.altcraft.sdk.core.Environment
+import com.altcraft.sdk.core.Retry
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
-import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.RoomRequest
-import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.device.DeviceInfo
 import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.network.Request
 import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions
+import com.altcraft.sdk.workers.coroutine.Request as WorkerRequest
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -86,6 +88,13 @@ class MobileEventUnitTest {
         coEvery { ConfigSetup.getConfig(any()) } returns config
         every { AuthManager.getUserTag(config.rToken) } returns "user-tag"
 
+        mockkObject(SubFunction)
+        every { SubFunction.isOnline(any()) } returns true
+        every { SubFunction.fieldsIsObjects(any()) } answers {
+            val map = firstArg<Map<String, Any?>?>()
+            map?.values?.any { it is Map<*, *> } == true
+        }
+
         mockkObject(DeviceInfo)
         every { DeviceInfo.getTimeZoneForMobEvent() } returns 180
 
@@ -93,29 +102,33 @@ class MobileEventUnitTest {
         coJustRun { RoomRequest.entityInsert(any(), any()) }
         coJustRun { RoomRequest.entityDelete(any(), any()) }
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns false
+        coEvery { RoomRequest.allMobileEventsByTag(any(), any()) } returns emptyList()
 
         mockkObject(LaunchFunctions)
         justRun { LaunchFunctions.startMobileEventCoroutineWorker(any()) }
 
         mockkObject(Request)
-        coEvery { Request.mobileEventRequest(any(), any()) } returns DataClasses.Event(
-            function = "mobileEventRequest", eventCode = 200, eventMessage = "ok"
+        coEvery { Request.request(any(), any()) } returns DataClasses.Event(
+            function = "mobileEventRequest",
+            eventCode = 200,
+            eventMessage = "ok"
         )
 
+        mockkObject(WorkerRequest)
+        coEvery { WorkerRequest.hasNewRequest(any(), any(), any()) } returns false
+
+        mockkObject(Retry)
+        coEvery { Retry.awaitMobileEventRetryStarted() } returns Unit
+
         mockkObject(Events)
-        every { Events.error(any(), any()) } returns DataClasses.Error("errFn", 500, "err", null)
-        every { Events.retry(any(), any()) } returns DataClasses.RetryError(
-            "retryFn",
-            102,
-            "retry",
-            null
-        )
+        every { Events.error(any(), any(), any()) } returns
+                DataClasses.Error("errFn", 500, "err", null)
+        every { Events.retry(any(), any(), any()) } returns
+                DataClasses.RetryError("retryFn", 102, "retry", null)
     }
 
     @After
     fun tearDown() = unmockkAll()
-
-    // -------------------- sendMobileEvent --------------------
 
     /** test_1: sendMobileEvent → entityInsert + worker start */
     @Test
@@ -169,22 +182,21 @@ class MobileEventUnitTest {
             payloadFields = mapOf("complex" to mapOf("x" to 1))
         )
 
-        io.mockk.verify { Events.error(eq("sendMobileEvent"), any()) }
+        io.mockk.verify { Events.error(eq("sendMobileEvent"), any(), any()) }
         coVerify(exactly = 0) { RoomRequest.entityInsert(any(), any()) }
         io.mockk.verify(exactly = 0) { LaunchFunctions.startMobileEventCoroutineWorker(any()) }
     }
 
-    // -------------------- isRetry --------------------
-
     /** test_3: isRetry — success → entity deleted, returns false */
     @Test
     fun test_3_isRetry_success_deletes_and_returnsFalse() = runBlocking {
-        val sdkDb = mockk<SDKdb>(relaxed = true)
-        val dao = mockk<DAO>(relaxed = true)
+        val sdkDb = mockk<com.altcraft.sdk.data.room.SDKdb>(relaxed = true)
+        val env = mockk<Environment>(relaxed = true)
 
-        mockkObject(SDKdb.Companion)
-        every { SDKdb.getDb(any()) } returns sdkDb
-        every { sdkDb.request() } returns dao
+        mockkObject(Environment.Companion)
+        every { Environment.create(ctx) } returns env
+        every { env.room } returns sdkDb
+        coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
             id = 10,
@@ -202,7 +214,13 @@ class MobileEventUnitTest {
             sendMessageId = "smid",
             utmTags = null
         )
-        coEvery { dao.allMobileEventsByTag("user-tag") } returns listOf(e)
+
+        coEvery { RoomRequest.allMobileEventsByTag(sdkDb, "user-tag") } returns listOf(e)
+        coEvery { Request.request(ctx, e) } returns DataClasses.Event(
+            function = "mobileEventRequest",
+            eventCode = 200,
+            eventMessage = "ok"
+        )
 
         val res = MobileEvent.isRetry(ctx)
         assertFalse(res)
@@ -214,12 +232,13 @@ class MobileEventUnitTest {
     /** test_4: isRetry — retry response and NOT limit → true, no delete */
     @Test
     fun test_4_isRetry_retry_and_notLimit_returnsTrue() = runBlocking {
-        val sdkDb = mockk<SDKdb>(relaxed = true)
-        val dao = mockk<DAO>(relaxed = true)
+        val sdkDb = mockk<com.altcraft.sdk.data.room.SDKdb>(relaxed = true)
+        val env = mockk<Environment>(relaxed = true)
 
-        mockkObject(SDKdb.Companion)
-        every { SDKdb.getDb(any()) } returns sdkDb
-        every { sdkDb.request() } returns dao
+        mockkObject(Environment.Companion)
+        every { Environment.create(ctx) } returns env
+        every { env.room } returns sdkDb
+        coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
             id = 11,
@@ -237,12 +256,13 @@ class MobileEventUnitTest {
             sendMessageId = "smid",
             utmTags = null
         )
-        coEvery { dao.allMobileEventsByTag("user-tag") } returns listOf(e)
 
-        coEvery { Request.mobileEventRequest(any(), any()) } returns DataClasses.RetryError(
+        coEvery { RoomRequest.allMobileEventsByTag(sdkDb, "user-tag") } returns listOf(e)
+        coEvery { Request.request(ctx, e) } returns DataClasses.RetryError(
             function = "mobileEventRequest"
         )
         coEvery { RoomRequest.isRetryLimit(sdkDb, e) } returns false
+        coEvery { WorkerRequest.hasNewRequest(ctx, any(), any()) } returns false
 
         val res = MobileEvent.isRetry(ctx)
         assertTrue(res)
@@ -254,12 +274,13 @@ class MobileEventUnitTest {
     /** test_5: isRetry — retry response and limit reached → false */
     @Test
     fun test_5_isRetry_retry_and_limitReached_returnsFalse() = runBlocking {
-        val sdkDb = mockk<SDKdb>(relaxed = true)
-        val dao = mockk<DAO>(relaxed = true)
+        val sdkDb = mockk<com.altcraft.sdk.data.room.SDKdb>(relaxed = true)
+        val env = mockk<Environment>(relaxed = true)
 
-        mockkObject(SDKdb.Companion)
-        every { SDKdb.getDb(any()) } returns sdkDb
-        every { sdkDb.request() } returns dao
+        mockkObject(Environment.Companion)
+        every { Environment.create(ctx) } returns env
+        every { env.room } returns sdkDb
+        coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
             id = 12,
@@ -277,9 +298,9 @@ class MobileEventUnitTest {
             sendMessageId = "smid",
             utmTags = null
         )
-        coEvery { dao.allMobileEventsByTag("user-tag") } returns listOf(e)
 
-        coEvery { Request.mobileEventRequest(any(), any()) } returns DataClasses.RetryError(
+        coEvery { RoomRequest.allMobileEventsByTag(sdkDb, "user-tag") } returns listOf(e)
+        coEvery { Request.request(ctx, e) } returns DataClasses.RetryError(
             function = "mobileEventRequest"
         )
         coEvery { RoomRequest.isRetryLimit(sdkDb, e) } returns true
@@ -294,10 +315,11 @@ class MobileEventUnitTest {
     /** test_6: isRetry — on exception emits retry and returns true */
     @Test
     fun test_6_isRetry_onException_emitsRetry_and_returnsTrue() = runBlocking {
-        coEvery { ConfigSetup.getConfig(any()) } throws RuntimeException("boom")
+        mockkObject(Environment.Companion)
+        every { Environment.create(ctx) } throws RuntimeException("boom")
 
         val res = MobileEvent.isRetry(ctx)
         assertTrue(res)
-        io.mockk.verify { Events.retry(eq("isRetry :: mobileEvent"), any()) }
+        io.mockk.verify { Events.retry(eq("isRetry :: MobileEvent"), any(), any()) }
     }
 }

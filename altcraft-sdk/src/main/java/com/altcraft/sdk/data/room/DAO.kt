@@ -54,6 +54,8 @@ internal interface DAO {
 
     // Subscribe
 
+// Subscribe
+
     /** Inserts a subscription entry. */
     @Insert
     suspend fun insertSubscribe(entity: SubscribeEntity): Long
@@ -73,6 +75,18 @@ internal interface DAO {
     /** Updates retry count for a subscription by UID. */
     @Query("UPDATE subscribeTable SET retryCount = :newRetryCount WHERE uid = :uid")
     suspend fun increaseSubscribeRetryCount(uid: String, newRetryCount: Int)
+
+    /** Returns the number of stored subscriptions. */
+    @Query("SELECT COUNT(*) FROM subscribeTable")
+    suspend fun getSubscribeCount(): Int
+
+    /** Deletes the given list of subscriptions. */
+    @Delete
+    suspend fun deleteSubscriptions(subscriptions: List<SubscribeEntity>)
+
+    /** Returns oldest subscriptions up to a limit. */
+    @Query("SELECT * FROM subscribeTable ORDER BY time ASC LIMIT :limit")
+    suspend fun getOldestSubscriptions(limit: Int): List<SubscribeEntity>
 
     // PushEvent
 

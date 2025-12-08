@@ -87,7 +87,8 @@ internal object Preferenses {
      *
      *
      * @param context The application context.
-     * @param tokenData The [DataClasses.TokenData] object to store. If `null`, stores `null` JSON.
+     * @param tokenData The [DataClasses.TokenData] object to store.
+     * If `null`, stores `null` JSON.
      */
     @SuppressLint("ApplySharedPref")
     fun setCurrentToken(context: Context, tokenData: DataClasses.TokenData?) {
@@ -107,8 +108,8 @@ internal object Preferenses {
      *
      *
      * @param context The application context.
-     * @return A deserialized [DataClasses.TokenData] instance or `null` if unavailable or failed
-     * to parse.
+     * @return A deserialized [DataClasses.TokenData] instance or `null` if unavailable
+     * or failed to parse.
      */
     fun getSavedPushToken(context: Context): DataClasses.TokenData? {
         return try {

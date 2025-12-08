@@ -89,7 +89,7 @@ class PeriodicalLaunchFunctionsInstrumentedTest {
         coEvery { RoomRequest.clearOldPushEventsFromRoom(any()) } returns Unit
 
         coEvery { PushSubscribe.isRetry(any()) } returns false
-        coEvery { TokenUpdate.tokenUpdate(any()) } returns Unit
+        coEvery { TokenUpdate.pushTokenUpdate(any()) } returns Unit
 
         coEvery { MobileEvent.isRetry(any()) } returns false
         coEvery { RoomRequest.clearOldMobileEventsFromRoom(any()) } returns Unit
@@ -149,7 +149,7 @@ class PeriodicalLaunchFunctionsInstrumentedTest {
         testDriver!!.setAllConstraintsMet(id)
         testDriver!!.setPeriodDelayMet(id)
 
-        coVerify(exactly = 1) { TokenUpdate.tokenUpdate(any()) }
+        coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(any()) }
         coVerify(atLeast = 1) { CommonFunctions.awaitCancel(any(), any()) }
     }
 

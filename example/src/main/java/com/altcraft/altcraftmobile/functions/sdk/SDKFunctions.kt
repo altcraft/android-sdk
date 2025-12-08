@@ -178,6 +178,13 @@ object SDKFunctions {
 
     }
 
+    /**
+     * Updates the push provider priority list and saves the updated configuration.
+     *
+     * @param context application context
+     * @param viewModel view model used to refresh the token-related UI
+     * @param providerList ordered list of push provider identifiers to use as priority
+     */
     internal fun updateProvider(
         context: Context,
         viewModel: MainViewModel,

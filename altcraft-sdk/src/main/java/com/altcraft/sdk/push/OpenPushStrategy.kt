@@ -67,12 +67,11 @@ internal object OpenPushStrategy {
      */
     fun openPushStrategy(context: Context, message: Map<String, String>) {
         try {
-            val workData = getWorkData(message)
+            val data = getWorkData(message)
 
-            if (workData != null) startPushForegroundWorker(context, workData) else
-                scope.launch {
-                    showPush(context, message)
-                }
+            if (data != null) startPushForegroundWorker(context, data) else scope.launch {
+                showPush(context, message)
+            }
         } catch (e: Exception) {
             error("openPushStrategy", e)
         }
@@ -90,12 +89,11 @@ internal object OpenPushStrategy {
      */
     fun deliveryEventStrategy(context: Context, message: Map<String, String>) {
         try {
-            val workData = getWorkData(message)
+            val data = getWorkData(message)
 
-            if (workData != null) startEventForegroundWorker(context, workData) else
-                scope.launch {
-                    sendPushEvent(context, DELIVERY, message[UID_KEY])
-                }
+            if (data != null) startEventForegroundWorker(context, data) else scope.launch {
+                sendPushEvent(context, DELIVERY, message[UID_KEY])
+            }
         } catch (e: Exception) {
             error("openPushStrategy", e)
         }

@@ -6,7 +6,6 @@ package com.altcraft.sdk.core
 
 import android.annotation.SuppressLint
 import android.content.Context
-import androidx.annotation.Keep
 import androidx.core.content.edit
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
 import com.altcraft.sdk.data.Constants.UPDATE_SERVICE

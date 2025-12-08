@@ -7,6 +7,7 @@ package com.altcraft.sdk.push
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
+import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.sdk_events.EventList
 import com.altcraft.sdk.sdk_events.Events
@@ -65,7 +66,7 @@ internal object PushImage {
                         bitmap: Bitmap,
                         transition: Transition<in Bitmap>?
                     ) {
-                        SubFunction.logger(SUCCESS_IMG_LOAD)
+                        log(SUCCESS_IMG_LOAD)
                         def.complete(bitmap)
                     }
 

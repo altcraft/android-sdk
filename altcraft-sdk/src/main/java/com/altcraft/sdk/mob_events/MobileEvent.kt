@@ -9,31 +9,34 @@ import com.altcraft.sdk.additional.StringBuilder.mobileEventPayloadInvalid
 import com.altcraft.sdk.additional.SubFunction.fieldsIsObjects
 import com.altcraft.sdk.additional.SubFunction.isOnline
 import com.altcraft.sdk.auth.AuthManager.getUserTag
-import com.altcraft.sdk.concurrency.CommandQueue.MobileEventCommandQueue
+import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.concurrency.withInitReady
 import com.altcraft.sdk.config.ConfigSetup.getConfig
+import com.altcraft.sdk.core.Environment
+import com.altcraft.sdk.core.Retry.awaitMobileEventRetryStarted
+import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.retry
+import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.data.room.RoomRequest.allMobileEventsByTag
 import com.altcraft.sdk.data.room.RoomRequest.entityDelete
 import com.altcraft.sdk.data.room.RoomRequest.entityInsert
 import com.altcraft.sdk.data.room.RoomRequest.isRetryLimit
-import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.device.DeviceInfo.getTimeZoneForMobEvent
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.json.Converter.toStringJson
-import com.altcraft.sdk.network.Request.mobileEventRequest
+import com.altcraft.sdk.network.Request.request
 import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
-import com.altcraft.sdk.sdk_events.EventList.configIsNull
 import com.altcraft.sdk.sdk_events.EventList.noInternetConnect
-import com.altcraft.sdk.sdk_events.EventList.userTagIsNull
 import com.altcraft.sdk.sdk_events.EventList.userTagIsNullE
 import com.altcraft.sdk.sdk_events.Events.error
-import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startMobileEventCoroutineWorker
+import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 
 internal object MobileEvent {
@@ -74,9 +77,10 @@ internal object MobileEvent {
     ) {
         val func = "sendMobileEvent"
         val initGate = InitBarrier.current()
-        MobileEventCommandQueue.submit {
+        CommandQueue.MobileEventCommandQueue.submit {
             try {
                 withInitReady(func, gate = initGate) {
+                    awaitMobileEventRetryStarted()
                     mobileEventMutex.withLock {
                         if (!isOnline(context)) error(func, noInternetConnect)
                         val config = getConfig(context) ?: exception(configIsNotSet)
@@ -112,42 +116,45 @@ internal object MobileEvent {
     }
 
     /**
-     * Determines whether mobile event processing should be retried for the current user tag.
+     * Checks whether mobile event sending should be retried.
      *
-     * Iterates through mobile events ordered by time (oldest first):
-     * - If the request succeeds, the entity is deleted and processing continues.
-     * - If it fails with a retry error and the limit is not reached, returns `true`.
-     * - If the limit is reached, logs and deletes the entity. If no more entries remain,
-     *   returns `false`; otherwise continues with the next record.
-     *
-     * Ensures sequential execution via a mutex to prevent concurrent access.
-     *
-     * @param context Application context for config, user tag, and DB access.
-     * @return `true` if another retry is required; `false` otherwise.
+     * @param context Application context.
+     * @param workerId Optional worker identifier.
+     * @return `true` if a retry should be performed; `false` otherwise.
      * @throws CancellationException if the coroutine is cancelled.
      */
-    suspend fun isRetry(context: Context): Boolean {
+    suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
-            sendAllMobileEventMutex.withLock {
-                val config = getConfig(context) ?: exception(configIsNull)
-                val tag = getUserTag(config.rToken) ?: exception(userTagIsNull)
-
-                val room = SDKdb.getDb(context)
-
-                room.request().allMobileEventsByTag(tag).forEach {
-                    if (mobileEventRequest(context, it) is retry) {
-                        if (!isRetryLimit(room, it)) return true
-                    } else {
-                        entityDelete(room, it)
-                    }
-                }
-                false
-            }
-        } catch (ce: CancellationException) {
-            throw ce
+            sendAllMobileEventMutex.withLock { logic(context, workerId) }
         } catch (e: Exception) {
-            retry("isRetry :: mobileEvent", e)
-            true
+            retry("isRetry :: MobileEvent", e); true
         }
     }
+
+    /**
+     * Processes pending mobile events in chronological order.
+     *
+     * - On success, deletes the entity and continues.
+     * - On retry-eligible failure with remaining retries:
+     *   returns `true` if no newer request exists; otherwise `false`.
+     * - On exceeded retry limit, deletes the entity and proceeds.
+     *
+     * @param context Application context for DB and config access.
+     * @param id Optional worker identifier.
+     * @return `true` if another retry pass is required; `false` otherwise.
+     */
+    private suspend fun logic(context: Context, id: UUID?): Boolean {
+        val tag = MOB_EVENT_C_WORK_TAG
+        val env = Environment.create(context)
+        val events = allMobileEventsByTag(env.room, env.userTag())
+
+        events.forEach {
+            if (request(context, it) !is retry) entityDelete(env.room, it)
+            else if (!isRetryLimit(env.room, it)) return !hasNewRequest(
+                context, tag, id
+            )
+        }
+        return false
+    }
 }
+

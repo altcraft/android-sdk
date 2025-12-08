@@ -46,6 +46,9 @@ object Constants {
     //set of valid providers names
     internal val validProviders = setOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
 
+    //retry function name
+    internal const val RETRY_FUNC = "performRetryOperations"
+
     //auth
     internal const val MATCHING = "matching"
     internal const val SHA256 = "SHA-256"
@@ -135,7 +138,7 @@ object Constants {
     internal const val RETRY_TIME_C_WORK: Long = 5 //SECONDS
     internal const val MAX_RETRY_COUNT = 14
     internal const val START_RETRY_COUNT = 0
-    internal const val COUNT_SERVICE_CLOSED = 3
+    internal const val COUNT_SERVICE_CLOSED = 2
 
     //service
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -155,20 +158,16 @@ object Constants {
 
     //coroutine worker
     internal const val PUSH_EVENT_C_WORK_TAG: String = "PUSH_EVENT_CWT"
-    internal const val MOBILE_EVENT_C_WORK_TAG: String = "MOBILE_EVENT_CWT"
+    internal const val MOB_EVENT_C_WORK_TAG: String = "MOBILE_EVENT_CWT"
     internal const val SUBSCRIBE_C_WORK_TAG: String = "SUBSCRIBE_CWT"
     internal const val UPDATE_C_WORK_TAG: String = "UPDATE_CWT"
-
-    internal const val UPDATE_C_WORK_NANE: String = "UPDATE_CW"
-    internal const val SUB_C_WORK_NANE: String = "SUBSCRIBE_CW"
-    internal const val PUSH_EVENT_C_WORK_NAME: String = "PUSH_EVENT_CW"
-    internal const val MOBILE_EVENT_C_WORK_NAME: String = "MOBILE_EVENT_CW"
+    internal const val PID = "pid"
 
     //periodical worker
     internal const val SUB_P_WORK_NANE: String = "SUB_PW"
     internal const val UPDATE_P_WORK_NANE: String = " UPDATE_PW"
     internal const val PUSH_EVENT_P_WORK_NANE: String = "PUSH_EVENT_PW"
-    internal const val MOBILE_EVENT_P_WORK_NANE: String = "PUSH_EVENT_PW"
+    internal const val MOBILE_EVENT_P_WORK_NANE: String = "MOBILE_EVENT_PW"
 
     //push map keys
     internal const val UID_KEY = "_uid"

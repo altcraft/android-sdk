@@ -16,7 +16,6 @@ import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
-import android.util.Log
 import com.altcraft.sdk.sdk_events.Events.error
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
@@ -26,8 +25,6 @@ import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.altcraft.sdk.data.Constants.AC_PUSH
-import com.altcraft.sdk.data.Constants.LOG_NULL
-import com.altcraft.sdk.data.Constants.LOG_TAG
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -36,13 +33,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * service checks, permissions, and asset handling.
  */
 internal object SubFunction {
-
-    /**
-     * function outputs SDK logs with the altcraft_lib tag.
-     *
-     * @param log The message to be logged. If `null`, a default message is logged.
-     */
-    fun logger(log: String?) = Log.d(LOG_TAG, log ?: LOG_NULL)
 
     /**
      * Checks whether the map contains at least one non-primitive value.
@@ -56,8 +46,8 @@ internal object SubFunction {
 
         val values = input.values.filterNotNull()
 
-        return if (values.isEmpty()) return false else values.any { value ->
-            value !is String && value !is Number && value !is Boolean
+        return if (values.isEmpty()) return false else values.any {
+            it !is String && it !is Number && it !is Boolean
         }
     }
 
@@ -147,8 +137,9 @@ internal object SubFunction {
     fun requestNotificationPermission(context: Context, activity: ComponentActivity) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = Manifest.permission.POST_NOTIFICATIONS
-            if (ContextCompat.checkSelfPermission(context, permission) != 0)
+            if (ContextCompat.checkSelfPermission(context, permission) != 0) {
                 ActivityCompat.requestPermissions(activity, arrayOf(permission), 101)
+            }
         }
     }
 
@@ -163,8 +154,8 @@ internal object SubFunction {
      */
     fun isOnline(context: Context): Boolean {
         return try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = cm.activeNetwork ?: return false
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+            val network = (cm as ConnectivityManager).activeNetwork ?: return false
             val caps = cm.getNetworkCapabilities(network) ?: return false
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
                     caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
@@ -228,7 +219,8 @@ internal object SubFunction {
          * Produces a unique, non-negative requestCode for PendingIntent.
          * Combines uid hash with an ever-increasing counter to reduce collisions.
          */
-        fun uniqueCode(uid: String) =
-            (uid.hashCode() xor (counter.getAndIncrement() * 31)).and(0x7FFFFFFF)
+        fun uniqueCode(
+            uid: String
+        ) = (uid.hashCode() xor (counter.getAndIncrement() * 31)).and(0x7FFFFFFF)
     }
 }

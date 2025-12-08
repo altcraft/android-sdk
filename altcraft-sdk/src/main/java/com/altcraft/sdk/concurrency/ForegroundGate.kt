@@ -39,8 +39,7 @@ object ForegroundGate {
      * Non-blocking; safe from any thread.
      * If a wait is already in-flight, subsequent calls are ignored.
      */
-    fun foregroundCallback(callback: (Boolean) -> Unit) {
-        // Drop duplicates while a previous wait is running
+    fun foreground(callback: (Boolean) -> Unit) {
         if (!hasSubscription.compareAndSet(false, true)) return
 
         internalScope.launch {

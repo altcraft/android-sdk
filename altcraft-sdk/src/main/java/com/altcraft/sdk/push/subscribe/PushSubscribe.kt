@@ -14,28 +14,32 @@ import com.altcraft.sdk.concurrency.CommandQueue
 import com.altcraft.sdk.concurrency.InitBarrier
 import com.altcraft.sdk.concurrency.withInitReady
 import com.altcraft.sdk.config.ConfigSetup.getConfig
-import com.altcraft.sdk.network.Request.pushSubscribeRequest
+import com.altcraft.sdk.core.Environment
+import com.altcraft.sdk.core.Retry.awaitSubscribeRetryStarted
 import com.altcraft.sdk.data.Constants.SUBSCRIBED
+import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.retry
+import com.altcraft.sdk.data.room.RoomRequest.allSubscriptionsByTag
 import com.altcraft.sdk.data.room.RoomRequest.isRetryLimit
 import com.altcraft.sdk.data.room.RoomRequest.entityDelete
 import com.altcraft.sdk.data.room.RoomRequest.entityInsert
-import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
-import com.altcraft.sdk.sdk_events.EventList.configIsNull
 import com.altcraft.sdk.sdk_events.EventList.fieldsIsObjects
 import com.altcraft.sdk.sdk_events.EventList.noInternetConnect
-import com.altcraft.sdk.sdk_events.EventList.userTagIsNull
 import com.altcraft.sdk.sdk_events.EventList.userTagIsNullE
 import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.extension.MapExtension.mapToJson
+import com.altcraft.sdk.network.Request.request
 import com.altcraft.sdk.services.manager.ServiceManager.startSubscribeWorker
+import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
+import kotlin.collections.forEach
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -51,7 +55,7 @@ internal object PushSubscribe {
      * and triggering the background worker to process pending subscriptions.
      *
      * @param context Application context used for DB and worker scheduling.
-     * @param sync Optional flag passed through as-is to transport layer (1 for sync / 0 for async).
+     * @param sync Optional flag passed through as-is to transport layer.
      * @param status Target subscription status (default is SUBSCRIBED).
      * @param customFields Optional custom fields to be merged and sent with the request.
      * @param profileFields Optional profile fields to be included with the request.
@@ -73,6 +77,7 @@ internal object PushSubscribe {
         CommandQueue.SubscribeCommandQueue.submit {
             try {
                 withInitReady("pushSubscribe", gate = initGate) {
+                    awaitSubscribeRetryStarted()
                     subscriptionMutex.withLock {
                         val config = getConfig(context) ?: exception(configIsNotSet)
                         if (fieldsIsObjects(customFields)) exception(fieldsIsObjects)
@@ -93,7 +98,6 @@ internal object PushSubscribe {
                         )
 
                         entityInsert(context, entity)
-
                         startSubscribeWorker(context, config)
                     }
                 }
@@ -104,42 +108,44 @@ internal object PushSubscribe {
     }
 
     /**
-     * Determines whether subscription processing should be retried for the current user tag.
+     * Checks whether push-subscription processing should be retried.
      *
-     * Iterates through subscriptions ordered by time (oldest first):
-     * - If the request succeeds, the entity is deleted and processing continues.
-     * - If it fails with a retry error and the limit is not reached, returns `true`.
-     * - If the limit is reached, logs and deletes the entity. If no more entries remain,
-     *   returns `false`; otherwise continues with the next record.
-     *
-     * Ensures sequential execution via a mutex to prevent concurrent access.
-     *
-     * @param context Application context for config, user tag, and DB access.
-     * @return `true` if another retry is required; `false` otherwise.
+     * @param context Application context.
+     * @param workerId Optional worker identifier.
+     * @return `true` if a retry should be performed; `false` otherwise.
      * @throws CancellationException if the coroutine is cancelled.
      */
-    suspend fun isRetry(context: Context): Boolean {
+    suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
-            sendAllSubscriptionsMutex.withLock {
-                val config = getConfig(context) ?: exception(configIsNull)
-                val tag = getUserTag(config.rToken) ?: exception(userTagIsNull)
-
-                val room = SDKdb.getDb(context)
-
-                room.request().allSubscriptionsByTag(tag).forEach {
-                    if (pushSubscribeRequest(context, it) is retry) {
-                        if (!isRetryLimit(room, it)) return true
-                    } else {
-                        entityDelete(room, it)
-                    }
-                }
-                false
-            }
-        } catch (ce: CancellationException) {
-            throw ce
+            sendAllSubscriptionsMutex.withLock { logic(context, workerId) }
         } catch (e: Exception) {
-            retry("isRetry :: pushSubscribe", e)
-            true
+            retry("isRetry :: pushSubscribe", e); true
         }
+    }
+
+    /**
+     * Processes pending push-subscription operations in chronological order.
+     *
+     * - On success, deletes the entity and continues.
+     * - On retry-eligible failure with remaining retries:
+     *   returns `true` if no newer request exists; otherwise `false`.
+     * - On exceeded retry limit, deletes the entity and proceeds.
+     *
+     * @param context Application context for DB and config access.
+     * @param id Optional worker identifier.
+     * @return `true` if another retry pass is required; `false` otherwise.
+     */
+    private suspend fun logic(context: Context, id: UUID?): Boolean {
+        val tag = SUBSCRIBE_C_WORK_TAG
+        val env = Environment.create(context)
+        val subscriptions = allSubscriptionsByTag(env.room, env.userTag())
+
+        subscriptions.forEach {
+            if (request(context, it) !is retry) entityDelete(env.room, it)
+            else if (!isRetryLimit(env.room, it)) return !hasNewRequest(
+                context, tag, id
+            )
+        }
+        return false
     }
 }

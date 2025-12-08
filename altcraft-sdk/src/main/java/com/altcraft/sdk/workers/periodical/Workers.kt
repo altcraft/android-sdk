@@ -11,7 +11,7 @@ import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.data.room.RoomRequest.clearOldMobileEventsFromRoom
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.sdk_events.Events.error
-import com.altcraft.sdk.push.token.TokenUpdate.tokenUpdate
+import com.altcraft.sdk.push.token.TokenUpdate.pushTokenUpdate
 import com.altcraft.sdk.data.room.RoomRequest.clearOldPushEventsFromRoom
 import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.mob_events.MobileEvent
@@ -145,7 +145,7 @@ internal object Workers {
             return try {
                 if (!isAppInForegrounded()) {
                     awaitCancel(context, ::cancelUpdateWorkerTask)
-                    tokenUpdate(context)
+                    pushTokenUpdate(context)
                 }
                 Result.success()
             } catch (e: Exception) {

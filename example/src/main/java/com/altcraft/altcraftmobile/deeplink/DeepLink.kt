@@ -6,6 +6,7 @@ package com.altcraft.altcraftmobile.deeplink
 
 import android.content.Intent
 import android.net.Uri
+import com.altcraft.altcraftmobile.functions.app.SubFunction
 
 /**
  * altcraft.main://home

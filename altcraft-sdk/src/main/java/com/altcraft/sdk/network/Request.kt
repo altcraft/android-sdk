@@ -14,14 +14,15 @@ import com.altcraft.sdk.data.Constants.TYPE_MOB
 import com.altcraft.sdk.data.Constants.VERSION_MOB
 import com.altcraft.sdk.network.Response.processResponse
 import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.data.Repository.getMobileEventRequestData
-import com.altcraft.sdk.data.Repository.getStatusRequestData
-import com.altcraft.sdk.data.Repository.getPushEventRequestData
-import com.altcraft.sdk.data.Repository.getSubscribeRequestData
-import com.altcraft.sdk.data.Repository.getUnSuspendRequestData
-import com.altcraft.sdk.data.Repository.getUpdateRequestData
+import com.altcraft.sdk.data.Collector.getMobileEventRequestData
+import com.altcraft.sdk.data.Collector.getStatusRequestData
+import com.altcraft.sdk.data.Collector.getPushEventRequestData
+import com.altcraft.sdk.data.Collector.getSubscribeRequestData
+import com.altcraft.sdk.data.Collector.getUnSuspendRequestData
+import com.altcraft.sdk.data.Collector.getUpdateRequestData
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.PushEventEntity
+import com.altcraft.sdk.data.room.RequestEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.sdk_events.EventList.pushEventRequestDataIsNull
 import com.altcraft.sdk.sdk_events.EventList.permissionDenied
@@ -260,6 +261,21 @@ internal object Request {
 
         } catch (e: Exception) {
             error("profileRequest", e)
+        }
+    }
+
+    /**
+     * Helper that dispatches a stored request based on its Room-backed entity type.
+     *
+     * @param context Application context used for configuration, network, and database access.
+     * @param entity Room-backed request entity to be sent.
+     * @return Resulting event describing the outcome of the request.
+     */
+    suspend fun request(context: Context, entity: RequestEntity): DataClasses.Event {
+        return when (entity) {
+            is MobileEventEntity -> mobileEventRequest(context, entity)
+            is SubscribeEntity -> pushSubscribeRequest(context, entity)
+            is PushEventEntity -> pushEventRequest(context, entity)
         }
     }
 }
