@@ -48,16 +48,16 @@ internal object Init {
         configuration: AltcraftConfiguration,
         complete: ((Result<Unit>) -> Unit)? = null
     ) {
-        val context = context.applicationContext
+        val appCtx = context.applicationContext
         val reservedGate = InitBarrier.reserve()
         loggingStatus = configuration.getEnableLogging()
         CommandQueue.InitCommandQueue.submit {
             initMutex.withLock {
                 try {
-                    setConfig(context, configuration) ?: exception(configIsNotSet)
-                    roomOverflowControl(Environment.create(context).room)
+                    setConfig(appCtx, configuration) ?: exception(configIsNotSet)
+                    roomOverflowControl(Environment.create(appCtx).room)
 
-                    performInitOperations(context)
+                    performInitOperations(appCtx)
                     InitBarrier.complete(reservedGate)
                     complete?.invoke(Result.success(Unit))
                 } catch (e: Exception) {
