@@ -25,9 +25,15 @@ object AppConstants {
 
     //status code
     const val SUBSCRIBE_EVENT = 230
-    const val STATUS_EVENT = 233
-    const val TOKEN_UPDATE_EVENT = 231
-    val STATUS_EVENT_ERRORS = listOf(423, 433)
+    const val SUSPEND_EVENT = 231
+    const val UNSUBSCRIBE_EVENT = 232
+    const val STATUS_EVENT = 235
+    const val TOKEN_UPDATE_EVENT = 233
+    val STATUS_EVENT_ERRORS = listOf(425, 435)
+
+    //status msg
+    const val PROFILE_NOT_FOUND = "profile not found"
+    const val RESPONSE_WITH_HTTP = "response_with_http_code"
 
     //config setting default - App info defaults
     const val APP_ID = "AltcraftMobile"

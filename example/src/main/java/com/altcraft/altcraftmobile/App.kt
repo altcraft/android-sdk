@@ -7,9 +7,9 @@ package com.altcraft.altcraftmobile
 import android.app.Application
 import com.altcraft.altcraftmobile.event.EventReceiver
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.initAltcraft
-import com.altcraft.altcraftmobile.providers.jwt.JWTProvider
 import com.altcraft.altcraftmobile.providers.fcm.FCMProvider
 import com.altcraft.altcraftmobile.providers.hms.HMSProvider
+import com.altcraft.altcraftmobile.providers.jwt.JWTProvider
 import com.altcraft.altcraftmobile.providers.rustore.RuStoreProvider
 import com.altcraft.sdk.AltcraftSDK
 
@@ -55,11 +55,10 @@ class App : Application() {
          */
 
         //Initialize the Rustore client by specifying your ProjectID
-        // RuStorePushClient.init(this, "your_rustore_project_id")
+        //RuStorePushClient.init(this, "your_rustore_project_id")
 
         EventReceiver.init(this)
         AltcraftSDK.setJWTProvider(JWTProvider(this))
-
         AltcraftSDK.pushTokenFunctions.setFCMTokenProvider(FCMProvider())
         AltcraftSDK.pushTokenFunctions.setHMSTokenProvider(HMSProvider())
         AltcraftSDK.pushTokenFunctions.setRuStoreTokenProvider(RuStoreProvider())

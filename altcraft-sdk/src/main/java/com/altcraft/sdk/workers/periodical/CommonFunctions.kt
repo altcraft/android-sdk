@@ -13,17 +13,19 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkInfo.State
 import androidx.work.WorkManager
-import com.altcraft.sdk.core.Retry.pushModuleIsActive
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.PROFILE_UPDATE_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NAME
 import com.altcraft.sdk.data.Constants.RETRY_TIME_P_WORK
-import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.SUB_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_P_WORK_NAME
+import com.altcraft.sdk.push.token.TokenManager.pushModuleIsActive
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalMobileEventWorker
+import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalProfileUpdateWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalPushEventWorker
 import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalSubscribeWorker
-import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalUpdateWorker
+import com.altcraft.sdk.workers.periodical.LaunchFunctions.startPeriodicalTokenUpdateWorker
 import kotlinx.coroutines.guava.await
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -51,16 +53,18 @@ object CommonFunctions {
      */
     internal suspend fun periodicalWorkerControl(context: Context) {
         try {
-            if (isNotStart(getWorkData(context, MOBILE_EVENT_P_WORK_NANE)?.firstOrNull()?.state))
+            if (isNotStart(getWorkData(context, MOBILE_EVENT_P_WORK_NAME)?.firstOrNull()?.state))
                 startPeriodicalMobileEventWorker(context)
+            if (isNotStart(getWorkData(context, PROFILE_UPDATE_P_WORK_NAME)?.firstOrNull()?.state))
+                startPeriodicalProfileUpdateWorker(context)
 
             if (!pushModuleIsActive(context)) return
 
-            if (isNotStart(getWorkData(context, PUSH_EVENT_P_WORK_NANE)?.firstOrNull()?.state))
+            if (isNotStart(getWorkData(context, PUSH_EVENT_P_WORK_NAME)?.firstOrNull()?.state))
                 startPeriodicalPushEventWorker(context)
-            if (isNotStart(getWorkData(context, UPDATE_P_WORK_NANE)?.firstOrNull()?.state))
-                startPeriodicalUpdateWorker(context)
-            if (isNotStart(getWorkData(context, SUB_P_WORK_NANE)?.firstOrNull()?.state))
+            if (isNotStart(getWorkData(context, TOKEN_UPDATE_P_WORK_NAME)?.firstOrNull()?.state))
+                startPeriodicalTokenUpdateWorker(context)
+            if (isNotStart(getWorkData(context, SUB_P_WORK_NAME)?.firstOrNull()?.state))
                 startPeriodicalSubscribeWorker(context)
         } catch (e: Exception) {
             error("periodicalWorkerControl", e)
@@ -140,9 +144,10 @@ object CommonFunctions {
      * @param context Application context.
      */
     internal fun cancelPeriodicalWorkersTask(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(SUB_P_WORK_NANE)
-        WorkManager.getInstance(context).cancelUniqueWork(UPDATE_P_WORK_NANE)
-        WorkManager.getInstance(context).cancelUniqueWork(PUSH_EVENT_P_WORK_NANE)
-        WorkManager.getInstance(context).cancelUniqueWork(MOBILE_EVENT_P_WORK_NANE)
+        WorkManager.getInstance(context).cancelUniqueWork(SUB_P_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(PUSH_EVENT_P_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(MOBILE_EVENT_P_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(TOKEN_UPDATE_P_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(PROFILE_UPDATE_P_WORK_NAME)
     }
 }

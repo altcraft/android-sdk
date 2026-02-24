@@ -37,7 +37,7 @@ internal object JsonFactory {
      * Builds a JSON object for a push subscription request.
      *
      * @param data Subscription request data.
-     * @return JSON object ready to send, or empty if error occurs.
+     * @return A [JsonObject] for the request.
      */
     internal fun createSubscribeJson(
         data: DataClasses.SubscribeRequestData
@@ -83,13 +83,13 @@ internal object JsonFactory {
     }
 
     /**
-     * Creates a JSON payload for token update.
+     * Creates a JSON payload for push token update.
      *
      * @param data Token update data.
      * @return A [JsonObject] for the request.
      */
-    fun createUpdateJson(
-        data: DataClasses.UpdateRequestData
+    fun createTokenUpdateJson(
+        data: DataClasses.TokenUpdateRequestData
     ) = buildJsonObject {
         put(OLD_TOKEN, data.oldToken)
         put(OLD_PROVIDER, data.oldProvider)
@@ -112,5 +112,18 @@ internal object JsonFactory {
         }
         put(SUBSCRIPTION, subscription)
         put(REPLACE, true)
+    }
+
+    /**
+     * Creates a JSON payload for profile update.
+     *
+     * @param data Profile update request data.
+     * @return A [JsonObject] for the request.
+     */
+    fun createProfileUpdateJson(
+        data: DataClasses.ProfileUpdateRequestData
+    ) = buildJsonObject {
+        put(PROFILE_FIELDS, data.profileFields ?: JsonNull)
+        put(SKIP_TRIGGERS, data.skipTriggers)
     }
 }

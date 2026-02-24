@@ -7,20 +7,21 @@ package com.altcraft.sdk.data.room
 import android.content.Context
 import com.altcraft.sdk.additional.Logger.log
 import com.altcraft.sdk.additional.StringBuilder.deletedMobileEventsMsg
+import com.altcraft.sdk.additional.StringBuilder.deletedProfileUpdatesMsg
 import com.altcraft.sdk.additional.StringBuilder.deletedPushEventsMsg
 import com.altcraft.sdk.additional.StringBuilder.deletedSubscriptionsMsg
-import com.altcraft.sdk.additional.StringBuilder.errorEntityType
-import com.altcraft.sdk.core.Retry.mobileEventsDbSnapshotTaken
-import com.altcraft.sdk.core.Retry.pushSubscribeDbSnapshotTaken
+import com.altcraft.sdk.core.InitialOperations.mobileEventsDbSnapshotTaken
+import com.altcraft.sdk.core.InitialOperations.profileUpdatesDbSnapshotTaken
+import com.altcraft.sdk.core.InitialOperations.pushSubscribeDbSnapshotTaken
 import com.altcraft.sdk.data.Constants.NAME
+import com.altcraft.sdk.data.Constants.TYPE
 import com.altcraft.sdk.data.Constants.UID
-import com.altcraft.sdk.sdk_events.EventList.unsupportedEntityType
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.event
+import com.altcraft.sdk.sdk_events.Message.MOBILE_EVENT_RETRY_LIMIT
+import com.altcraft.sdk.sdk_events.Message.PROFILE_UPDATE_RETRY_LIMIT
 import com.altcraft.sdk.sdk_events.Message.PUSH_EVENT_RETRY_LIMIT
 import com.altcraft.sdk.sdk_events.Message.SUBSCRIBE_RETRY_LIMIT
-import com.altcraft.sdk.extension.ExceptionExtension.exception
-import com.altcraft.sdk.sdk_events.Message.MOBILE_EVENT_RETRY_LIMIT
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -36,22 +37,23 @@ internal object RoomRequest {
     /**
      * Inserts the given entity into the database.
      *
-     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
-     *
-     * Determines the DAO insert method based on the entity type.
+     * Supports:
+     * `SubscribeEntity`,
+     * `PushEventEntity`,
+     * `MobileEventEntity`,
+     * `ProfileUpdateEntity`.
      *
      * @param context The application context used to get the database instance.
      * @param entity The entity to insert into the database.
-     *
-     * @throws IllegalArgumentException If the entity type is unsupported.
      */
-    suspend fun entityInsert(context: Context, entity: Any) {
+    suspend fun entityInsert(context: Context, entity: RequestEntity) {
         try {
+            val dao = SDKdb.getDb(context).request()
             when (entity) {
-                is SubscribeEntity -> SDKdb.getDb(context).request().insertSubscribe(entity)
-                is PushEventEntity -> SDKdb.getDb(context).request().insertPushEvent(entity)
-                is MobileEventEntity -> SDKdb.getDb(context).request().insertMobileEvent(entity)
-                else -> error("entityInsert", errorEntityType(entity::class.simpleName))
+                is SubscribeEntity -> dao.insertSubscribe(entity)
+                is PushEventEntity -> dao.insertPushEvent(entity)
+                is MobileEventEntity -> dao.insertMobileEvent(entity)
+                is ProfileUpdateEntity -> dao.insertProfileUpdate(entity)
             }
         } catch (e: Exception) {
             error("entityInsert", e)
@@ -61,18 +63,23 @@ internal object RoomRequest {
     /**
      * Deletes the given entity from the database.
      *
-     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
+     * Supports:
+     * `SubscribeEntity`,
+     * `PushEventEntity`,
+     * `MobileEventEntity`,
+     * `ProfileUpdateEntity`.
      *
      * @param entity The entity to delete.
-     * @param room The database access point.
+     * @param room The database instance.
      */
-    suspend fun entityDelete(room: SDKdb, entity: Any) {
+    suspend fun entityDelete(room: SDKdb, entity: RequestEntity) {
         try {
+            val dao = room.request()
             when (entity) {
-                is SubscribeEntity -> room.request().deleteSubscribeByUid(entity.uid)
-                is PushEventEntity -> room.request().deletePushEventByUid(entity.uid)
-                is MobileEventEntity -> room.request().deleteMobileEventById(entity.id)
-                else -> error("entityDelete", errorEntityType(entity::class.simpleName))
+                is SubscribeEntity -> dao.deleteSubscribeById(entity.requestID)
+                is PushEventEntity -> dao.deletePushEventById(entity.requestID)
+                is MobileEventEntity -> dao.deleteMobileEventById(entity.requestID)
+                is ProfileUpdateEntity -> dao.deleteProfileUpdateById(entity.requestID)
             }
         } catch (e: Exception) {
             error("entityDelete", e)
@@ -80,30 +87,32 @@ internal object RoomRequest {
     }
 
     /**
-     * Increments the retry count for a supported entity.
+     * Increments the retry count in the database for the given entity.
      *
-     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
-     *
-     * For each, it updates the `retryCount` value in the database by incrementing it by 1.
+     * Supports:
+     * `SubscribeEntity`,
+     * `PushEventEntity`,
+     * `MobileEventEntity`,
+     * `ProfileUpdateEntity`.
      *
      * @param room The database instance.
      * @param entity The entity whose retry count should be increased.
-     *
-     * @throws IllegalArgumentException If the entity type is unsupported.
      */
-    private suspend fun increaseRetryCount(room: SDKdb, entity: Any) {
+    private suspend fun increaseRetryCount(room: SDKdb, entity: RequestEntity) {
         try {
+            val dao = room.request()
             when (entity) {
-                is PushEventEntity -> room.request()
-                    .increasePushEventRetryCount(entity.uid, entity.retryCount + 1)
+                is PushEventEntity ->
+                    dao.increasePushEventRetryCount(entity.requestID, entity.retryCount + 1)
 
-                is SubscribeEntity -> room.request()
-                    .increaseSubscribeRetryCount(entity.uid, entity.retryCount + 1)
+                is SubscribeEntity ->
+                    dao.increaseSubscribeRetryCount(entity.requestID, entity.retryCount + 1)
 
-                is MobileEventEntity -> room.request()
-                    .increaseMobileEventRetryCount(entity.id, entity.retryCount + 1)
+                is MobileEventEntity ->
+                    dao.increaseMobileEventRetryCount(entity.requestID, entity.retryCount + 1)
 
-                else -> error("increaseRetryCount", errorEntityType(entity::class.simpleName))
+                is ProfileUpdateEntity ->
+                    dao.increaseProfileUpdateRetryCount(entity.requestID, entity.retryCount + 1)
             }
         } catch (_: CancellationException) {
         } catch (e: Exception) {
@@ -112,41 +121,50 @@ internal object RoomRequest {
     }
 
     /**
-     * Checks if the retry limit has been exceeded for a given entity.
-     * If the limit is reached, logs and deletes the entity.
-     * Otherwise, increments the retry count.
+     * Checks whether the retry limit is exceeded for the given entity.
      *
-     * Supports both `SubscribeEntity`, `PushEventEntity`, "MobileEventEntity".
+     * If exceeded, emits an event and deletes the entity; otherwise increments retry count.
+     *
+     * Supports:
+     * `SubscribeEntity`,
+     * `PushEventEntity`,
+     * `MobileEventEntity`,
+     * `ProfileUpdateEntity`.
      *
      * @param room The database instance.
      * @param entity The entity to process.
-     * @return `true` if the retry limit was exceeded and the entity was deleted, otherwise `false`.
+     * @return `true` if the entity was deleted due to retry limit, otherwise `false`.
      */
-    suspend fun isRetryLimit(room: SDKdb, entity: Any): Boolean {
+    suspend fun isRetryLimit(room: SDKdb, entity: RequestEntity): Boolean {
         return try {
             val isLimit = when (entity) {
                 is SubscribeEntity -> entity.retryCount > entity.maxRetryCount
                 is PushEventEntity -> entity.retryCount > entity.maxRetryCount
                 is MobileEventEntity -> entity.retryCount > entity.maxRetryCount
-                else -> exception(unsupportedEntityType)
+                is ProfileUpdateEntity -> entity.retryCount > entity.maxRetryCount
             }
             if (isLimit) {
                 when (entity) {
                     is SubscribeEntity -> event(
                         "isRetryLimit",
-                        480 to SUBSCRIBE_RETRY_LIMIT + entity.uid
+                        480 to SUBSCRIBE_RETRY_LIMIT + entity.requestID
                     )
 
                     is PushEventEntity -> event(
                         "isRetryLimit",
                         484 to PUSH_EVENT_RETRY_LIMIT + entity.uid,
-                        mapOf(UID to entity.uid)
+                        mapOf(UID to entity.uid, TYPE to entity.type)
                     )
 
                     is MobileEventEntity -> event(
                         "isRetryLimit",
-                        485 to MOBILE_EVENT_RETRY_LIMIT + entity.eventName,
+                        487 to MOBILE_EVENT_RETRY_LIMIT + entity.eventName,
                         mapOf(NAME to entity.eventName)
+                    )
+
+                    is ProfileUpdateEntity -> event(
+                        "isRetryLimit",
+                        488 to PROFILE_UPDATE_RETRY_LIMIT + entity.requestID
                     )
                 }
                 entityDelete(room, entity)
@@ -161,7 +179,7 @@ internal object RoomRequest {
     }
 
     /**
-     * Cleans up old subscribe entries if count exceeds limit.
+     * Cleans up old subscriptions if count exceeds limit.
      *
      * @param room Local database instance.
      */
@@ -215,12 +233,31 @@ internal object RoomRequest {
     }
 
     /**
-     * Cleans up old subscriptions, push events and mobile events in parallel.
+     * Cleans up old profile updates if count exceeds limit.
+     *
+     * @param room Local database instance.
+     */
+    suspend fun clearOldProfileUpdatesFromRoom(room: SDKdb) {
+        try {
+            room.request().apply {
+                if (getProfileUpdateCount() > 500) {
+                    deleteProfileUpdates(getOldestProfileUpdates(100))
+                    log(deletedProfileUpdatesMsg(getProfileUpdateCount()))
+                }
+            }
+        } catch (e: Exception) {
+            error("clearOldProfileUpdatesFromRoom", e)
+        }
+    }
+
+    /**
+     * Cleans up old subscriptions, push events, mobile events, and profile updates in parallel.
      *
      * @param room Local database instance.
      */
     suspend fun roomOverflowControl(room: SDKdb) = coroutineScope {
         awaitAll(
+            async { clearOldProfileUpdatesFromRoom(room) },
             async { clearOldSubscriptionsFromRoom(room) },
             async { clearOldMobileEventsFromRoom(room) },
             async { clearOldPushEventsFromRoom(room) },
@@ -228,8 +265,7 @@ internal object RoomRequest {
     }
 
     /**
-     * Retrieves all mobile events for the specified user tag
-     * and marks the mobile-events DB snapshot as taken.
+     * Returns mobile events by user tag and signals DB snapshot taken.
      *
      * @param room Database instance.
      * @param tag User tag used to filter events.
@@ -245,8 +281,7 @@ internal object RoomRequest {
     }
 
     /**
-     * Retrieves all push subscriptions for the specified user tag
-     * and marks the subscription DB snapshot as taken.
+     * Returns subscriptions by user tag and signals DB snapshot taken.
      *
      * @param room Database instance.
      * @param tag User tag used to filter subscriptions.
@@ -258,6 +293,22 @@ internal object RoomRequest {
     ): List<SubscribeEntity> {
         return room.request().allSubscriptionsByTag(tag).also {
             pushSubscribeDbSnapshotTaken.complete(Unit)
+        }
+    }
+
+    /**
+     * Returns profile updates by user tag and signals DB snapshot taken.
+     *
+     * @param room Database instance.
+     * @param tag User tag used to filter profile updates.
+     * @return List of profile update entities.
+     */
+    suspend fun allProfileUpdatesByTag(
+        room: SDKdb,
+        tag: String
+    ): List<ProfileUpdateEntity> {
+        return room.request().allProfileUpdatesByTag(tag).also {
+            profileUpdatesDbSnapshotTaken.complete(Unit)
         }
     }
 }

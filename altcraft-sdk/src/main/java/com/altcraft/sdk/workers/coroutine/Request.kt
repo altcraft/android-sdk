@@ -18,16 +18,21 @@ import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.RETRY_TIME_C_WORK
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.workers.coroutine.Worker.MobileEventCoroutineWorker
 import com.altcraft.sdk.workers.coroutine.Worker.PushEventCoroutineWorker
 import com.altcraft.sdk.workers.coroutine.Worker.SubscribeCoroutineWorker
-import com.altcraft.sdk.workers.coroutine.Worker.UpdateCoroutineWorker
+import com.altcraft.sdk.workers.coroutine.Worker.TokenUpdateCoroutineWorker
 import java.util.concurrent.TimeUnit
 import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.coroutines.guava.await
 import java.util.UUID
 import android.os.Process
+import androidx.work.OutOfQuotaPolicy
+import com.altcraft.sdk.data.Constants.PR_UPDATE_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.PUSH_PROC_C_WORK_TAG
+import com.altcraft.sdk.workers.coroutine.Worker.ProfileUpdateCoroutineWorker
+import com.altcraft.sdk.workers.coroutine.Worker.PushProcessingCoroutineWorker
 
 /**
  * Utility object for creating preconfigured [OneTimeWorkRequest] instances for WorkManager.
@@ -142,9 +147,39 @@ internal object Request {
     fun subscribeRequest() = createWorkRequest<SubscribeCoroutineWorker>(SUBSCRIBE_C_WORK_TAG)
 
     /**
-     * Creates update worker request.
+     * Creates token update worker request.
      *
      * @return Configured [OneTimeWorkRequest] with the proper tag.
      */
-    fun updateRequest() = createWorkRequest<UpdateCoroutineWorker>(UPDATE_C_WORK_TAG)
+    fun tokUpdateRequest() = createWorkRequest<TokenUpdateCoroutineWorker>(TN_UPDATE_C_WORK_TAG)
+
+    /**
+     * Creates profile worker request.
+     *
+     * @return Configured [OneTimeWorkRequest] with the proper tag.
+     */
+    fun prUpdateRequest() = createWorkRequest<ProfileUpdateCoroutineWorker>(PR_UPDATE_C_WORK_TAG)
+
+    /**
+     * Creates push processing worker request (expedited when possible).
+     *
+     * @param pushData Push payload.
+     * @return Configured [OneTimeWorkRequest] with the proper tag.
+     */
+    fun pushProcessingRequest(pushData: Map<String, String>): OneTimeWorkRequest {
+        val data = Data.Builder()
+        pushData.forEach { (key, value) -> data.putString(key, value) }
+        return OneTimeWorkRequestBuilder<PushProcessingCoroutineWorker>()
+            .setExpedited(
+                OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
+            )
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                RETRY_TIME_C_WORK,
+                TimeUnit.SECONDS
+            )
+            .addTag(PUSH_PROC_C_WORK_TAG)
+            .setInputData(data.build())
+            .build()
+    }
 }

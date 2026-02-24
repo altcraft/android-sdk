@@ -13,7 +13,6 @@ import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.device.DeviceInfo.getDeviceFields
-import com.altcraft.sdk.interfaces.RequestData
 
 /**
  * Utility for constructing structured maps used in push analytics and subscription logic.
@@ -22,28 +21,21 @@ import com.altcraft.sdk.interfaces.RequestData
 internal object MapBuilder {
 
     /**
-     * Builds a map containing API request data added to SDK events.
+     * Builds a map for SDK events.
      *
-     * The map may include:
-     * - "code": HTTP response code
-     * - "data": Full response object
+     * Contains:
+     * - [DataClasses.ResponseWithHttpCode] (httpCode + response)
      *
-     * If the request represents a push event, the map additionally includes:
-     * - "uid": Unique notification identifier
-     * - "type": Event type ("delivery" or "open")
+     * Optionally adds:
+     * - [UID], [TYPE] for [DataClasses.PushEventRequestData]
+     * - [NAME] for [DataClasses.MobileEventRequestData]
      *
-     * If the request represents a mobile event, the map additionally includes:
-     * - "name": Name of the mobile event
-     *
-     * @param code HTTP response code
-     * @param response Response data
-     * @param requestData request object
-     * @return A map containing non-null fields relevant to the event type
+     * Null values are removed.
      */
     fun createEventValue(
         code: Int,
         response: DataClasses.Response?,
-        requestData: RequestData,
+        requestData: DataClasses.RequestData,
     ): Map<String, Any?> {
         val (uid, type) = (requestData as? DataClasses.PushEventRequestData)?.let {
             it.uid to it.type

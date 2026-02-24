@@ -72,14 +72,12 @@ class ConfigSetupForegroundRetryTest {
         Dispatchers.resetMain()
     }
 
-    private fun cfg(serviceMessage: String? = null) = ConfigurationEntity(
+    private fun cfg() = ConfigurationEntity(
         id = 0,
         icon = null,
         apiUrl = API_URL,
         rToken = RTOKEN,
         appInfo = null,
-        usingService = false,
-        serviceMessage = serviceMessage,
         pushReceiverModules = listOf("push-receiver-a"),
         providerPriorityList = listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER),
         pushChannelName = "Altcraft",
@@ -98,7 +96,7 @@ class ConfigSetupForegroundRetryTest {
     /** - test_2: Foreground branch returns cached configuration when it becomes available mid-retry. */
     @Test
     fun `getConfig foreground returns cached when it becomes available mid-retry`() = scope.runTest {
-        val expected = cfg(serviceMessage = "from-cache")
+        val expected = cfg()
         val job = async { ConfigSetup.getConfig(context) }
         advanceTimeBy(1500)
         ConfigSetup.configuration = expected

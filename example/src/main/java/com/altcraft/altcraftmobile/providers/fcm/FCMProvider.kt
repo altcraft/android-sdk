@@ -39,7 +39,7 @@ class FCMProvider : FCMInterface {
      *
      * @param completion Callback with the result of the deletion.
      */
-    override suspend fun deleteToken(completion: (Boolean) -> Unit) {
+    override fun deleteToken(completion: (Boolean) -> Unit) {
         try {
             FirebaseMessaging.getInstance().deleteToken().addOnCompleteListener {
                 completion(it.isSuccessful)
@@ -49,3 +49,4 @@ class FCMProvider : FCMInterface {
         }
     }
 }
+

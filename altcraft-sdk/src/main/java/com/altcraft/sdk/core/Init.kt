@@ -6,14 +6,14 @@ package com.altcraft.sdk.core
 
 import android.content.Context
 import com.altcraft.sdk.additional.Logger.loggingStatus
-import com.altcraft.sdk.concurrency.CommandQueue
-import com.altcraft.sdk.concurrency.InitBarrier
+import com.altcraft.sdk.coordination.CommandQueue
+import com.altcraft.sdk.coordination.InitBarrier
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.config.ConfigSetup.setConfig
 import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
-import com.altcraft.sdk.core.Retry.performRetryOperations
+import com.altcraft.sdk.core.InitialOperations.performInitOperations
 import com.altcraft.sdk.data.room.RoomRequest.roomOverflowControl
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,7 +28,7 @@ internal object Init {
     /**
      * Initializes the SDK with the provided context and configuration.
      *
-     * Thread-safe, run-once initialization. After the configuration is applied, this method
+     * Thread-safe initialization. After the configuration is applied, this method
      * calls `performRetryOperations(appCtx)`, which starts verification and processing of all
      * pending operations:
      * - sending mobile events;
@@ -56,7 +56,8 @@ internal object Init {
                 try {
                     setConfig(context, configuration) ?: exception(configIsNotSet)
                     roomOverflowControl(Environment.create(context).room)
-                    performRetryOperations(context)
+
+                    performInitOperations(context)
                     InitBarrier.complete(reservedGate)
                     complete?.invoke(Result.success(Unit))
                 } catch (e: Exception) {

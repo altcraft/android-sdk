@@ -31,7 +31,7 @@ internal interface Api {
      * @param requestId Unique request ID.
      * @param provider Push provider.
      * @param matchingMode Optional user matching mode.
-     * @param sync Optional sync flag (1 or null).
+     * @param sync Optional sync flag.
      * @param requestBody Subscription data in JSON.
      * @return Server response.
      */
@@ -43,7 +43,31 @@ internal interface Api {
         @Header("Request-ID") requestId: String,
         @Query("provider") provider: String,
         @Query("matching_mode") matchingMode: String? = null,
-        @Query("sync") sync: Int? = null,
+        @Query("sync") sync: Boolean?,
+        @Body requestBody: JsonObject
+    ): Response<JsonElement>
+
+    /**
+     * Updates an existing push subscription token.
+     *
+     * @param url Target endpoint.
+     * @param authHeader Authorization token.
+     * @param requestId Unique request ID.
+     * @param provider Push provider.
+     * @param saveToken Token to replace.
+     * @param requestBody New token data in JSON.
+     * @param sync Sync flag.
+     * @return Server response.
+     */
+    @POST
+    @Headers("Content-Type: application/json")
+    suspend fun tokenUpdate(
+        @Url url: String,
+        @Header("Authorization") authHeader: String,
+        @Header("Request-ID") requestId: String,
+        @Query("provider") provider: String?,
+        @Query("subscription_id") saveToken: String?,
+        @Query("sync") sync: Boolean,
         @Body requestBody: JsonObject
     ): Response<JsonElement>
 
@@ -64,28 +88,6 @@ internal interface Api {
         @Header("Authorization") authHeader: String,
         @Header("Request-ID") requestId: String,
         @Query("matching_mode") matchingMode: String,
-        @Body requestBody: JsonObject
-    ): Response<JsonElement>
-
-    /**
-     * Updates an existing push subscription token.
-     *
-     * @param url Target endpoint.
-     * @param authHeader Authorization token.
-     * @param requestId Unique request ID.
-     * @param provider Push provider.
-     * @param saveToken Token to replace.
-     * @param requestBody New token data in JSON.
-     * @return Server response.
-     */
-    @POST
-    @Headers("Content-Type: application/json")
-    suspend fun update(
-        @Url url: String,
-        @Header("Authorization") authHeader: String,
-        @Header("Request-ID") requestId: String,
-        @Query("provider") provider: String?,
-        @Query("subscription_id") saveToken: String?,
         @Body requestBody: JsonObject
     ): Response<JsonElement>
 
@@ -137,6 +139,7 @@ internal interface Api {
      *
      * @param url Target endpoint.
      * @param authHeader Authorization token.
+     * @param requestId Unique request identifier.
      * @param sid The string ID of the pixel.
      * @param tracker Event tracker.
      * @param type Event type.
@@ -149,10 +152,29 @@ internal interface Api {
     suspend fun mobileEvent(
         @Url url: String,
         @Header("Authorization") authHeader: String,
+        @Header("Request-ID") requestId: String,
         @Query("i") sid: String,
         @Query("tr") tracker: String,
         @Query("t") type: String,
         @Query("v") version: String,
         @Part parts: List<MultipartBody.Part>
+    ): Response<JsonElement>
+
+    /**
+     * Updates profile fields.
+     *
+     * @param url Target endpoint.
+     * @param authHeader Authorization token.
+     * @param requestId Unique request ID.
+     * @param requestBody JSON payload with profile fields to update.
+     * @return Server response.
+     */
+    @POST
+    @Headers("Content-Type: application/json")
+    suspend fun profileUpdate(
+        @Url url: String,
+        @Header("Authorization") authHeader: String,
+        @Header("Request-ID") requestId: String,
+        @Body requestBody: JsonObject
     ): Response<JsonElement>
 }

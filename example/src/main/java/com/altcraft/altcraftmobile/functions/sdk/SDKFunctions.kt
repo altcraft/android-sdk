@@ -41,12 +41,14 @@ object SDKFunctions {
                 apiUrl = it.apiUrl,
                 icon = it.icon,
                 rToken = it.rToken,
-                usingService = it.usingService,
-                serviceMessage = it.serviceMessage,
                 providerPriorityList = it.priorityProviders,
                 pushChannelName = PUSH_CHANNEL_NAME,
                 pushChannelDescription = PUSH_CHANNEL_DESCRIPTION,
-                appInfo = DataClasses.AppInfo(appID = APP_ID, appIID = APP_IID, appVer = APP_VER)
+                appInfo = DataClasses.AppInfo(
+                    appID = APP_ID,
+                    appIID = APP_IID,
+                    appVer = APP_VER
+                )
             ).build()
 
             AltcraftSDK.initialization(context, config)
@@ -201,8 +203,6 @@ object SDKFunctions {
                         apiUrl = currentConfig.apiUrl,
                         icon = currentConfig.icon,
                         rToken = currentConfig.rToken,
-                        usingService = currentConfig.usingService,
-                        serviceMessage = currentConfig.serviceMessage,
                         priorityProviders = providerList
                     )
                 )

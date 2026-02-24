@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "2a6e6f216f49fc2ed096f241f988145d",
+    "identityHash": "752240c8be43667b8d29990603de4c2f",
     "entities": [
       {
         "tableName": "configurationTable",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `icon` INTEGER, `apiUrl` TEXT NOT NULL, `resToken` TEXT, `appInfo` TEXT, `usingService` INTEGER NOT NULL, `serviceMessage` TEXT, `pushReceiverModules` TEXT, `providerPriorityList` TEXT, `pushChannelName` TEXT, `pushChannelDescription` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `icon` INTEGER, `apiUrl` TEXT NOT NULL, `rToken` TEXT, `appInfo` TEXT, `pushReceiverModules` TEXT, `providerPriorityList` TEXT, `pushChannelName` TEXT, `pushChannelDescription` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -28,25 +28,13 @@
           },
           {
             "fieldPath": "rToken",
-            "columnName": "resToken",
+            "columnName": "rToken",
             "affinity": "TEXT",
             "notNull": false
           },
           {
             "fieldPath": "appInfo",
             "columnName": "appInfo",
-            "affinity": "TEXT",
-            "notNull": false
-          },
-          {
-            "fieldPath": "usingService",
-            "columnName": "usingService",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "serviceMessage",
-            "columnName": "serviceMessage",
             "affinity": "TEXT",
             "notNull": false
           },
@@ -86,8 +74,14 @@
       },
       {
         "tableName": "subscribeTable",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userTag` TEXT, `status` TEXT NOT NULL, `sync` INTEGER, `profileFields` TEXT, `customFields` TEXT, `cats` TEXT, `replace` INTEGER, `skipTriggers` INTEGER, `uid` TEXT NOT NULL, `time` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`uid`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`requestID` TEXT NOT NULL, `userTag` TEXT, `status` TEXT NOT NULL, `sync` INTEGER, `profileFields` TEXT, `customFields` TEXT, `cats` TEXT, `replace` INTEGER, `skipTriggers` INTEGER, `time` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`requestID`))",
         "fields": [
+          {
+            "fieldPath": "requestID",
+            "columnName": "requestID",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "userTag",
             "columnName": "userTag",
@@ -137,12 +131,6 @@
             "notNull": false
           },
           {
-            "fieldPath": "uid",
-            "columnName": "uid",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
             "fieldPath": "time",
             "columnName": "time",
             "affinity": "INTEGER",
@@ -164,7 +152,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "uid"
+            "requestID"
           ]
         },
         "indices": [],
@@ -172,8 +160,14 @@
       },
       {
         "tableName": "pushEventTable",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `type` TEXT NOT NULL, `time` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`uid`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`requestID` TEXT NOT NULL, `uid` TEXT NOT NULL, `type` TEXT NOT NULL, `time` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`requestID`))",
         "fields": [
+          {
+            "fieldPath": "requestID",
+            "columnName": "requestID",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "uid",
             "columnName": "uid",
@@ -208,7 +202,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "uid"
+            "requestID"
           ]
         },
         "indices": [],
@@ -216,12 +210,12 @@
       },
       {
         "tableName": "mobileEventTable",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `userTag` TEXT NOT NULL, `tz` INTEGER NOT NULL, `time` INTEGER NOT NULL, `sid` TEXT NOT NULL, `altcraftClientID` TEXT, `eventName` TEXT NOT NULL, `payload` TEXT, `matching` TEXT, `matchingType` TEXT, `profileFields` TEXT, `subscription` TEXT, `sendMessageId` TEXT, `utm` TEXT, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`requestID` TEXT NOT NULL, `userTag` TEXT NOT NULL, `tz` INTEGER NOT NULL, `time` INTEGER NOT NULL, `sid` TEXT NOT NULL, `altcraftClientID` TEXT, `eventName` TEXT NOT NULL, `payload` TEXT, `matching` TEXT, `matchingType` TEXT, `profileFields` TEXT, `subscription` TEXT, `sendMessageId` TEXT, `utm` TEXT, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`requestID`))",
         "fields": [
           {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "INTEGER",
+            "fieldPath": "requestID",
+            "columnName": "requestID",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -316,9 +310,65 @@
           }
         ],
         "primaryKey": {
-          "autoGenerate": true,
+          "autoGenerate": false,
           "columnNames": [
-            "id"
+            "requestID"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "profileUpdateTable",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`requestID` TEXT NOT NULL, `userTag` TEXT, `time` INTEGER NOT NULL, `profileFields` TEXT, `skipTriggers` INTEGER, `retryCount` INTEGER NOT NULL, `maxRetryCount` INTEGER NOT NULL, PRIMARY KEY(`requestID`))",
+        "fields": [
+          {
+            "fieldPath": "requestID",
+            "columnName": "requestID",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userTag",
+            "columnName": "userTag",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "time",
+            "columnName": "time",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileFields",
+            "columnName": "profileFields",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "skipTriggers",
+            "columnName": "skipTriggers",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxRetryCount",
+            "columnName": "maxRetryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "requestID"
           ]
         },
         "indices": [],
@@ -328,7 +378,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a6e6f216f49fc2ed096f241f988145d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '752240c8be43667b8d29990603de4c2f')"
     ]
   }
 }

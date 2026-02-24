@@ -21,17 +21,13 @@ import com.altcraft.sdk.sdk_events.Events.error
  * @property icon The value of the drawable resource; the ID of the icon that will be used when
  * displaying notifications.
  * @property rToken The role token.
- * @property usingService Flag indicating whether foreground services are used during the
- * subscription process and updating the device token values for profiles. Default is `true`.
- * @property serviceMessage The message text that will be displayed as the content of the notification
- * when foreground services are active. Default is `null`.
  * @property providerPriorityList A list of provider names in priority order for push notifications.
  * @property appInfo Contains app details used by Firebase Analytics (App ID, instance ID, version).
  * @property pushReceiverModules A list of strings representing package names of modules where the
  * `PushReceiver` class can be overridden.
  * @property pushChannelName The name of the push notification channel shown to the user.
  * @property pushChannelDescription The description of the push notification channel.
- * @property enableLogging Flag indicating whether internal SDK logging is enabled. Default is `true`.
+ * @property enableLogging Flag indicating whether internal SDK logging is enabled. Default is `null`.
  */
 @Suppress("MemberVisibilityCanBePrivate")
 @Keep
@@ -39,8 +35,6 @@ class AltcraftConfiguration private constructor(
     private val apiUrl: String,
     private val icon: Int? = null,
     private val rToken: String? = null,
-    private val usingService: Boolean = false,
-    private val serviceMessage: String? = null,
     private val appInfo: DataClasses.AppInfo? = null,
     private val providerPriorityList: List<String>? = null,
     private val pushReceiverModules: List<String>? = null,
@@ -51,16 +45,14 @@ class AltcraftConfiguration private constructor(
     /**
      * Builder for constructing an instance of [AltcraftConfiguration].
      *
-     * This builder provides a declarative way to configure the Altcraft SDK by setting all required
-     * parameters at construction time.
+     * This builder provides a declarative way to configure the Altcraft SDK by setting all
+     * required parameters at construction time.
      */
     @Keep
     class Builder(
         private val apiUrl: String,
         private val icon: Int? = null,
         private val rToken: String? = null,
-        private val usingService: Boolean = false,
-        private val serviceMessage: String? = null,
         private val appInfo: DataClasses.AppInfo? = null,
         private val providerPriorityList: List<String>? = null,
         private val pushReceiverModules: List<String>? = null,
@@ -73,8 +65,6 @@ class AltcraftConfiguration private constructor(
                 apiUrl,
                 icon,
                 rToken,
-                usingService,
-                serviceMessage,
                 appInfo,
                 providerPriorityList,
                 pushReceiverModules,
@@ -91,14 +81,8 @@ class AltcraftConfiguration private constructor(
     /** Returns the icon resource ID used in push notifications. */
     fun getIcon(): Int? = icon
 
-    /** Returns the optional resource token if set. */
+    /** Returns the optional role token if set. */
     fun getRToken(): String? = rToken
-
-    /** Indicates whether foreground services are enabled. */
-    fun getUsingService(): Boolean = usingService
-
-    /** Returns the custom message for foreground service notifications. */
-    fun getServiceMessage(): String? = serviceMessage
 
     /** Returns app metadata used by Firebase Analytics, if provided. */
     fun getAppInfo(): DataClasses.AppInfo? = appInfo
@@ -131,8 +115,6 @@ class AltcraftConfiguration private constructor(
             apiUrl = getApiUrl(),
             rToken = getRToken(),
             appInfo = getAppInfo(),
-            usingService = getUsingService(),
-            serviceMessage = getServiceMessage(),
             pushChannelName = getPushChannelName(),
             pushReceiverModules = getPushReceiverModules(),
             providerPriorityList = getProviderPriorityList(),

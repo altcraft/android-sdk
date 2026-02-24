@@ -17,14 +17,16 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.testing.WorkManagerTestInitHelper
-import com.altcraft.sdk.core.Retry
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
+import com.altcraft.sdk.core.InitialOperations
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.SUB_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_P_WORK_NAME
+import com.altcraft.sdk.push.token.TokenManager
 import com.altcraft.sdk.workers.periodical.CommonFunctions
 import com.altcraft.sdk.workers.periodical.LaunchFunctions
 import io.mockk.MockKAnnotations
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
@@ -72,14 +74,19 @@ class CommonFunctionsInstrumentedTest {
         MockKAnnotations.init(this, relaxUnitFun = true)
 
         mockkObject(LaunchFunctions)
-        mockkObject(Retry)
+        mockkObject(InitialOperations)
+
+        mockkObject(TokenManager)
     }
 
     @After
     fun tearDown() {
         runCatching { wm.cancelAllWork().result.get() }
+
         unmockkObject(LaunchFunctions)
-        unmockkObject(Retry)
+        unmockkObject(InitialOperations)
+        unmockkObject(TokenManager)
+
         unmockkAll()
     }
 
@@ -102,39 +109,39 @@ class CommonFunctionsInstrumentedTest {
     /** - test_1: periodicalWorkerControl() starts all periodic workers when none exist and push is active. */
     @Test
     fun periodicalWorkerControl_starts_all_when_none_exist_and_push_active() = runTest {
-        every { Retry.pushModuleIsActive(any()) } returns true
+        coEvery { TokenManager.pushModuleIsActive(any()) } returns true
         every { LaunchFunctions.startPeriodicalMobileEventWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalPushEventWorker(any()) } returns Unit
-        every { LaunchFunctions.startPeriodicalUpdateWorker(any()) } returns Unit
+        every { LaunchFunctions.startPeriodicalTokenUpdateWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalSubscribeWorker(any()) } returns Unit
 
-        assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().isEmpty(), `is`(true))
-        assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get().isEmpty(), `is`(true))
-        assertThat(wm.getWorkInfosForUniqueWork(UPDATE_P_WORK_NANE).get().isEmpty(), `is`(true))
-        assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NANE).get().isEmpty(), `is`(true))
+        assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NAME).get().isEmpty(), `is`(true))
+        assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NAME).get().isEmpty(), `is`(true))
+        assertThat(wm.getWorkInfosForUniqueWork(TOKEN_UPDATE_P_WORK_NAME).get().isEmpty(), `is`(true))
+        assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NAME).get().isEmpty(), `is`(true))
 
         CommonFunctions.periodicalWorkerControl(context)
 
         verify(exactly = 1) { LaunchFunctions.startPeriodicalMobileEventWorker(context) }
         verify(exactly = 1) { LaunchFunctions.startPeriodicalPushEventWorker(context) }
-        verify(exactly = 1) { LaunchFunctions.startPeriodicalUpdateWorker(context) }
+        verify(exactly = 1) { LaunchFunctions.startPeriodicalTokenUpdateWorker(context) }
         verify(exactly = 1) { LaunchFunctions.startPeriodicalSubscribeWorker(context) }
     }
 
     /** - test_2: periodicalWorkerControl() starts only mobile worker when pushModuleIsActive is false. */
     @Test
     fun periodicalWorkerControl_starts_only_mobile_when_push_inactive() = runTest {
-        every { Retry.pushModuleIsActive(any()) } returns false
+        coEvery { TokenManager.pushModuleIsActive(any()) } returns false
         every { LaunchFunctions.startPeriodicalMobileEventWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalPushEventWorker(any()) } returns Unit
-        every { LaunchFunctions.startPeriodicalUpdateWorker(any()) } returns Unit
+        every { LaunchFunctions.startPeriodicalTokenUpdateWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalSubscribeWorker(any()) } returns Unit
 
         CommonFunctions.periodicalWorkerControl(context)
 
         verify(exactly = 1) { LaunchFunctions.startPeriodicalMobileEventWorker(context) }
         verify(exactly = 0) { LaunchFunctions.startPeriodicalPushEventWorker(any()) }
-        verify(exactly = 0) { LaunchFunctions.startPeriodicalUpdateWorker(any()) }
+        verify(exactly = 0) { LaunchFunctions.startPeriodicalTokenUpdateWorker(any()) }
         verify(exactly = 0) { LaunchFunctions.startPeriodicalSubscribeWorker(any()) }
     }
 
@@ -168,15 +175,15 @@ class CommonFunctionsInstrumentedTest {
     /** - test_5: cancelPeriodicalWorkersTask() cancels SUB/UPDATE/PUSH_EVENT/MOBILE_EVENT unique works. */
     @Test
     fun cancelPeriodicalWorkersTask_cancels_all_unique_works() {
-        enqueueDummyFor(UPDATE_P_WORK_NANE)
-        enqueueDummyFor(PUSH_EVENT_P_WORK_NANE)
-        enqueueDummyFor(SUB_P_WORK_NANE)
-        enqueueDummyFor(MOBILE_EVENT_P_WORK_NANE)
+        enqueueDummyFor(TOKEN_UPDATE_P_WORK_NAME)
+        enqueueDummyFor(PUSH_EVENT_P_WORK_NAME)
+        enqueueDummyFor(SUB_P_WORK_NAME)
+        enqueueDummyFor(MOBILE_EVENT_P_WORK_NAME)
 
-        assertThat(wm.getWorkInfosForUniqueWork(UPDATE_P_WORK_NANE).get().isEmpty(), `is`(false))
-        assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NANE).get().isEmpty(), `is`(false))
-        assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NANE).get().isEmpty(), `is`(false))
-        assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NANE).get().isEmpty(), `is`(false))
+        assertThat(wm.getWorkInfosForUniqueWork(TOKEN_UPDATE_P_WORK_NAME).get().isEmpty(), `is`(false))
+        assertThat(wm.getWorkInfosForUniqueWork(PUSH_EVENT_P_WORK_NAME).get().isEmpty(), `is`(false))
+        assertThat(wm.getWorkInfosForUniqueWork(SUB_P_WORK_NAME).get().isEmpty(), `is`(false))
+        assertThat(wm.getWorkInfosForUniqueWork(MOBILE_EVENT_P_WORK_NAME).get().isEmpty(), `is`(false))
 
         CommonFunctions.cancelPeriodicalWorkersTask(context)
 
@@ -184,36 +191,37 @@ class CommonFunctionsInstrumentedTest {
             val infos = wm.getWorkInfosForUniqueWork(name).get()
             return infos.isEmpty() || infos.all { it.state == WorkInfo.State.CANCELLED }
         }
-        assertThat(cancelled(UPDATE_P_WORK_NANE), `is`(true))
-        assertThat(cancelled(PUSH_EVENT_P_WORK_NANE), `is`(true))
-        assertThat(cancelled(SUB_P_WORK_NANE), `is`(true))
-        assertThat(cancelled(MOBILE_EVENT_P_WORK_NANE), `is`(true))
+
+        assertThat(cancelled(TOKEN_UPDATE_P_WORK_NAME), `is`(true))
+        assertThat(cancelled(PUSH_EVENT_P_WORK_NAME), `is`(true))
+        assertThat(cancelled(SUB_P_WORK_NAME), `is`(true))
+        assertThat(cancelled(MOBILE_EVENT_P_WORK_NAME), `is`(true))
     }
 
     /** - test_6: periodicalWorkerControl() does not reschedule when all periodic works already exist. */
     @Test
     fun periodicalWorkerControl_does_not_reschedule_when_all_exist() = runTest {
-        every { Retry.pushModuleIsActive(any()) } returns true
+        coEvery { TokenManager.pushModuleIsActive(any()) } returns true
         every { LaunchFunctions.startPeriodicalMobileEventWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalPushEventWorker(any()) } returns Unit
-        every { LaunchFunctions.startPeriodicalUpdateWorker(any()) } returns Unit
+        every { LaunchFunctions.startPeriodicalTokenUpdateWorker(any()) } returns Unit
         every { LaunchFunctions.startPeriodicalSubscribeWorker(any()) } returns Unit
 
-        enqueueDummyFor(MOBILE_EVENT_P_WORK_NANE)
-        enqueueDummyFor(PUSH_EVENT_P_WORK_NANE)
-        enqueueDummyFor(UPDATE_P_WORK_NANE)
-        enqueueDummyFor(SUB_P_WORK_NANE)
+        enqueueDummyFor(MOBILE_EVENT_P_WORK_NAME)
+        enqueueDummyFor(PUSH_EVENT_P_WORK_NAME)
+        enqueueDummyFor(TOKEN_UPDATE_P_WORK_NAME)
+        enqueueDummyFor(SUB_P_WORK_NAME)
 
-        assertThat(stateOf(MOBILE_EVENT_P_WORK_NANE), `is`(WorkInfo.State.ENQUEUED))
-        assertThat(stateOf(PUSH_EVENT_P_WORK_NANE), `is`(WorkInfo.State.ENQUEUED))
-        assertThat(stateOf(UPDATE_P_WORK_NANE), `is`(WorkInfo.State.ENQUEUED))
-        assertThat(stateOf(SUB_P_WORK_NANE), `is`(WorkInfo.State.ENQUEUED))
+        assertThat(stateOf(MOBILE_EVENT_P_WORK_NAME), `is`(WorkInfo.State.ENQUEUED))
+        assertThat(stateOf(PUSH_EVENT_P_WORK_NAME), `is`(WorkInfo.State.ENQUEUED))
+        assertThat(stateOf(TOKEN_UPDATE_P_WORK_NAME), `is`(WorkInfo.State.ENQUEUED))
+        assertThat(stateOf(SUB_P_WORK_NAME), `is`(WorkInfo.State.ENQUEUED))
 
         CommonFunctions.periodicalWorkerControl(context)
 
         verify(exactly = 0) { LaunchFunctions.startPeriodicalMobileEventWorker(any()) }
         verify(exactly = 0) { LaunchFunctions.startPeriodicalPushEventWorker(any()) }
-        verify(exactly = 0) { LaunchFunctions.startPeriodicalUpdateWorker(any()) }
+        verify(exactly = 0) { LaunchFunctions.startPeriodicalTokenUpdateWorker(any()) }
         verify(exactly = 0) { LaunchFunctions.startPeriodicalSubscribeWorker(any()) }
     }
 

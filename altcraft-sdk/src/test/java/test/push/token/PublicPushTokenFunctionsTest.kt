@@ -9,6 +9,7 @@ package test.push.token
 import android.content.Context
 import android.util.Log
 import com.altcraft.sdk.config.ConfigSetup
+import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
@@ -16,32 +17,47 @@ import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.SDKdb
+import com.altcraft.sdk.interfaces.FCMInterface
+import com.altcraft.sdk.interfaces.HMSInterface
+import com.altcraft.sdk.interfaces.RustoreInterface
 import com.altcraft.sdk.push.token.PublicPushTokenFunctions
 import com.altcraft.sdk.push.token.TokenManager
 import com.altcraft.sdk.push.token.TokenUpdate
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coJustRun
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
+import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * PublicPushTokenFunctionsTest
  *
  * Positive scenarios:
- *  - test_1: deleteDeviceToken() routes to FCM and invokes completion callback
- *  - test_2: deleteDeviceToken() routes to HMS and invokes completion callback
- *  - test_3: deleteDeviceToken() routes to RuStore and invokes completion callback
- *  - test_4: forcedTokenUpdate() deletes current token, triggers TokenUpdate.tokenUpdate(), then calls completion
- *  - test_5: changePushProviderPriorityList() config exists & providers valid -> updates list, refreshes cache, triggers tokenUpdate
+ *  - test_1: deleteDeviceToken() routes to FCM and invokes completion callback.
+ *  - test_2: deleteDeviceToken() routes to HMS and invokes completion callback.
+ *  - test_3: deleteDeviceToken() routes to RuStore and invokes completion callback.
+ *  - test_4: forcedTokenUpdate() deletes current token, triggers TokenUpdate.pushTokenUpdate(),
+ *  then calls completion.
+ *  - test_5: changePushProviderPriorityList() config exists & providers valid -> updates list,
+ *  refreshes cache, triggers tokenUpdate.
  *
  * Negative scenarios:
- *  - test_6: forcedTokenUpdate() when getPushToken() returns null -> no delete, no tokenUpdate, no completion
- *  - test_7: changePushProviderPriorityList() invalid providers -> no update, no tokenUpdate
- *  - test_8: changePushProviderPriorityList() no config in DB -> no update, no tokenUpdate
+ *  - test_6: forcedTokenUpdate() when Environment.create/token fails -> no completion.
+ *  - test_7: changePushProviderPriorityList() invalid providers -> no update, no tokenUpdate.
+ *  - test_8: changePushProviderPriorityList() no config in DB -> no update, no tokenUpdate.
  */
 class PublicPushTokenFunctionsTest {
 
@@ -68,124 +84,114 @@ class PublicPushTokenFunctionsTest {
         mockkObject(TokenUpdate)
         mockkObject(SDKdb)
         mockkObject(ConfigSetup)
+        mockkObject(Environment)
+
+        TokenManager.fcmProvider = null
+        TokenManager.hmsProvider = null
+        TokenManager.rustoreProvider = null
     }
 
     @After
     fun tearDown() {
-        unmockkAll()
         unmockkStatic(Log::class)
+        unmockkAll()
     }
 
-    /** - test_1: deleteDeviceToken routes to FCM and invokes completion callback. */
+    /** - test_1: deleteDeviceToken() routes to FCM and invokes completion callback. */
     @Test
     fun deleteDeviceToken_routesToFCM_andCompletes() = runBlocking {
-        coEvery { TokenManager.deleteFCMToken(any()) } answers {
+        val provider = mockk<FCMInterface>(relaxed = true)
+        TokenManager.fcmProvider = provider
+
+        every { provider.deleteToken(any()) } answers {
             firstArg<(Boolean) -> Unit>().invoke(true)
         }
 
         val latch = CountDownLatch(1)
-
         PublicPushTokenFunctions.deleteDeviceToken(ctx, FCM_PROVIDER) { latch.countDown() }
 
         assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
-        coVerify(exactly = 1) { TokenManager.deleteFCMToken(any()) }
-        coVerify(exactly = 0) { TokenManager.deleteHMSToken(any(), any()) }
-        coVerify(exactly = 0) { TokenManager.deleteRuStoreToken(any()) }
+        coVerify(exactly = 1) { provider.deleteToken(any()) }
     }
 
-    /** - test_2: deleteDeviceToken routes to HMS and invokes completion callback. */
+    /** - test_2: deleteDeviceToken() routes to HMS and invokes completion callback. */
     @Test
     fun deleteDeviceToken_routesToHMS_andCompletes() = runBlocking {
-        coEvery { TokenManager.deleteHMSToken(any(), any()) } answers {
+        val provider = mockk<HMSInterface>(relaxed = true)
+        TokenManager.hmsProvider = provider
+
+        every { provider.deleteToken(eq(ctx), any()) } answers {
             secondArg<(Boolean) -> Unit>().invoke(true)
         }
 
         val latch = CountDownLatch(1)
-
         PublicPushTokenFunctions.deleteDeviceToken(ctx, HMS_PROVIDER) { latch.countDown() }
 
         assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
-        coVerify(exactly = 1) { TokenManager.deleteHMSToken(ctx, any()) }
-        coVerify(exactly = 0) { TokenManager.deleteFCMToken(any()) }
-        coVerify(exactly = 0) { TokenManager.deleteRuStoreToken(any()) }
+        coVerify(exactly = 1) { provider.deleteToken(eq(ctx), any()) }
     }
 
-    /** - test_3: deleteDeviceToken routes to RuStore and invokes completion callback. */
+    /** - test_3: deleteDeviceToken() routes to RuStore and invokes completion callback. */
     @Test
     fun deleteDeviceToken_routesToRuStore_andCompletes() = runBlocking {
-        coEvery { TokenManager.deleteRuStoreToken(any()) } answers {
+        val provider = mockk<RustoreInterface>(relaxed = true)
+        TokenManager.rustoreProvider = provider
+
+        every { provider.deleteToken(any()) } answers {
             firstArg<(Boolean) -> Unit>().invoke(true)
         }
 
         val latch = CountDownLatch(1)
-
         PublicPushTokenFunctions.deleteDeviceToken(ctx, RUS_PROVIDER) { latch.countDown() }
 
         assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
-        coVerify(exactly = 1) { TokenManager.deleteRuStoreToken(any()) }
-        coVerify(exactly = 0) { TokenManager.deleteFCMToken(any()) }
-        coVerify(exactly = 0) { TokenManager.deleteHMSToken(any(), any()) }
+        coVerify(exactly = 1) { provider.deleteToken(any()) }
     }
 
-    /** - test_4: forcedTokenUpdate deletes current token by provider, triggers TokenUpdate.tokenUpdate, then calls completion. */
+    /** - test_4: forcedTokenUpdate() deletes current token, triggers TokenUpdate.pushTokenUpdate(), then calls completion. */
     @Test
     fun forcedTokenUpdate_deletes_then_updates_then_completes() = runBlocking {
-        mockkObject(PublicPushTokenFunctions)
+        val provider = mockk<FCMInterface>(relaxed = true)
+        TokenManager.fcmProvider = provider
 
-        every {
-            PublicPushTokenFunctions.forcedTokenUpdate(any(), any())
-        } answers { callOriginal() }
+        val env = mockk<Environment>(relaxed = true)
+        val tokenData = mockk<DataClasses.TokenData>(relaxed = true)
 
-        coEvery { PublicPushTokenFunctions.getPushToken(ctx) } returns DataClasses.TokenData(
-            FCM_PROVIDER, "tok-123"
-        )
+        mockkObject(Environment.Companion)
+        every { Environment.create(ctx) } returns env
+        coEvery { env.token() } returns tokenData
+        every { tokenData.provider } returns FCM_PROVIDER
 
-        coEvery {
-            PublicPushTokenFunctions.deleteDeviceToken(eq(ctx), eq(FCM_PROVIDER), any())
-        } answers {
-            thirdArg<() -> Unit>().invoke()
+        every { provider.deleteToken(any()) } answers {
+            firstArg<(Boolean) -> Unit>().invoke(true)
         }
 
-        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } returns true
 
         val latch = CountDownLatch(1)
-
         PublicPushTokenFunctions.forcedTokenUpdate(ctx) { latch.countDown() }
 
         assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
-        coVerify(exactly = 1) { PublicPushTokenFunctions.getPushToken(ctx) }
-        coVerify(exactly = 1) {
-            PublicPushTokenFunctions.deleteDeviceToken(eq(ctx), eq(FCM_PROVIDER), any())
-        }
-        coVerify(timeout = TIMEOUT_MS, exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
+        coVerify(exactly = 1) { provider.deleteToken(any()) }
+        coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
+
+        unmockkObject(Environment.Companion)
     }
 
-    /** - test_5: forcedTokenUpdate with null getPushToken → no delete, no tokenUpdate, no completion. */
-    @Test
-    fun forcedTokenUpdate_tokenNull_noops() = runBlocking {
-        mockkObject(PublicPushTokenFunctions)
-        every {
-            PublicPushTokenFunctions.forcedTokenUpdate(any(), any())
-        } answers { callOriginal() }
 
-        coEvery { PublicPushTokenFunctions.getPushToken(ctx) } returns null
-        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
+    /** - test_6: forcedTokenUpdate() when Environment.create/token fails -> no completion. */
+    @Test
+    fun forcedTokenUpdate_envThrows_noops() = runBlocking {
+        every { Environment.create(ctx) } throws RuntimeException("boom")
 
         val latch = CountDownLatch(1)
-
         PublicPushTokenFunctions.forcedTokenUpdate(ctx) { latch.countDown() }
 
-        val completed = latch.await(500, TimeUnit.MILLISECONDS)
-        assertTrue(!completed)
-
-        coVerify(exactly = 1) { PublicPushTokenFunctions.getPushToken(ctx) }
-        coVerify(exactly = 0) { PublicPushTokenFunctions.deleteDeviceToken(any(), any(), any()) }
+        assertFalse(latch.await(500, TimeUnit.MILLISECONDS))
         coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
-    // ---------------- changePushProviderPriorityList ----------------
-
-    /** - test_6: changePushProviderPriorityList happy-path → update list, refresh cache, trigger tokenUpdate. */
+    /** - test_5: changePushProviderPriorityList() config exists & providers valid -> updates list, refreshes cache, triggers tokenUpdate. */
     @Test
     fun changePushProviderPriorityList_happyPath_updates_and_triggers() = runBlocking {
         val room = mockk<SDKdb>(relaxed = true)
@@ -199,8 +205,6 @@ class PublicPushTokenFunctionsTest {
             apiUrl = "https://api",
             rToken = null,
             appInfo = null,
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = null,
             pushChannelName = null,
@@ -209,12 +213,12 @@ class PublicPushTokenFunctionsTest {
 
         every { TokenManager.allProvidersValid(any()) } returns true
 
-        coEvery { dao.updateProviderPriorityList(any()) } just Runs
-        coEvery { ConfigSetup.updateConfigCache(ctx) } just Runs
-        coEvery { TokenUpdate.pushTokenUpdate(ctx) } just Runs
+        coJustRun { dao.updateProviderPriorityList(any()) }
+        coJustRun { ConfigSetup.updateConfigCache(ctx) }
+
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } returns true
 
         val newPriority = listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
-
         PublicPushTokenFunctions.changePushProviderPriorityList(ctx, newPriority)
 
         coVerify(exactly = 1) { dao.updateProviderPriorityList(newPriority) }
@@ -222,7 +226,7 @@ class PublicPushTokenFunctionsTest {
         coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
     }
 
-    /** - test_7: changePushProviderPriorityList with invalid providers → no update, no tokenUpdate. */
+    /** - test_7: changePushProviderPriorityList() invalid providers -> no update, no tokenUpdate. */
     @Test
     fun changePushProviderPriorityList_invalidProviders_noops() = runBlocking {
         val room = mockk<SDKdb>(relaxed = true)
@@ -236,8 +240,6 @@ class PublicPushTokenFunctionsTest {
             apiUrl = "https://api",
             rToken = null,
             appInfo = null,
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = null,
             pushChannelName = null,
@@ -253,7 +255,7 @@ class PublicPushTokenFunctionsTest {
         coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
-    /** - test_8: changePushProviderPriorityList with no config in DB → no update, no tokenUpdate. */
+    /** - test_8: changePushProviderPriorityList() no config in DB -> no update, no tokenUpdate. */
     @Test
     fun changePushProviderPriorityList_noConfig_noops() = runBlocking {
         val room = mockk<SDKdb>(relaxed = true)

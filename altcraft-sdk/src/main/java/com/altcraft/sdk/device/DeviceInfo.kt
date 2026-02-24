@@ -18,6 +18,8 @@ import com.altcraft.sdk.data.Constants.CLS_ADS_ID_INFO
 import com.altcraft.sdk.data.Constants.M_GET_ID
 import com.altcraft.sdk.data.Constants.M_GET_INFO
 import com.altcraft.sdk.data.Constants.M_IS_LIMIT
+import java.lang.reflect.InvocationTargetException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Collects device information and system attributes. */
 internal object DeviceInfo {
@@ -53,7 +55,7 @@ internal object DeviceInfo {
                 val timeZone = getTimeZoneOffset()
                 val language = Locale.getDefault().language
 
-                val (adId, adTrack) = getAdvertisingIdInfo(context)
+                val (adId, adTrack) = getGoogleAdvertisingIdInfo(context)
 
                 this["_os"] = ANDROID_OS
                 this["_os_tz"] = timeZone
@@ -74,17 +76,28 @@ internal object DeviceInfo {
         }
     }
 
+    private val advertisingIdErrorLogged = AtomicBoolean(false)
+
     /**
-     * Retrieves the advertising ID and the user's preference for ad tracking.
+     * Logs an Advertising ID retrieval error only once per process.
      *
-     * Safe on API < 26 without core desugaring: the AdsIdentifier class is never loaded.
-     *
-     * @param context Application context used to access Google Play Services.
-     * @return A pair where:
-     *   - first = the advertising ID string (or null if unavailable),
-     *   - second = true if tracking is allowed, false otherwise.
+     * @param t The exception describing the Advertising ID retrieval failure.
      */
-    private fun getAdvertisingIdInfo(context: Context): Pair<String?, Boolean> {
+    private fun logAdvertisingIdErrorOnce(t: Throwable) {
+        if (advertisingIdErrorLogged.compareAndSet(false, true)) {
+            error("getGoogleAdvertisingIdInfo", t)
+        }
+    }
+
+    /**
+     * Returns the Advertising ID and tracking permission.
+     *
+     * On API < 26 returns `null` to `false`.
+     * On API 26+ retrieves the values via reflection; on error returns `null` to `false`.
+     *
+     * @return Pair<adId?, isTrackingAllowed>
+     */
+    private fun getGoogleAdvertisingIdInfo(context: Context): Pair<String?, Boolean> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null to false
 
         return try {
@@ -97,8 +110,14 @@ internal object DeviceInfo {
             val limit = infoCls.getMethod(M_IS_LIMIT).invoke(infoObj) as Boolean
 
             id to !limit
+        } catch (e: ClassNotFoundException) {
+            logAdvertisingIdErrorOnce(e)
+            null to false
+        } catch (e: InvocationTargetException) {
+            logAdvertisingIdErrorOnce(e)
+            null to false
         } catch (t: Throwable) {
-            error("getAdvertisingIdInfo", t)
+            logAdvertisingIdErrorOnce(t)
             null to false
         }
     }

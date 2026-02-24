@@ -7,23 +7,27 @@ package test.additional
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
+import android.util.Log
 import com.altcraft.sdk.additional.MapBuilder
+import com.altcraft.sdk.data.Constants.NAME
+import com.altcraft.sdk.data.Constants.RESPONSE_WITH_HTTP_CODE
+import com.altcraft.sdk.data.Constants.TYPE
+import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.DataClasses.MobileEventRequestData
 import com.altcraft.sdk.data.DataClasses.PushEventRequestData
+import com.altcraft.sdk.data.DataClasses.StatusRequestData
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.device.DeviceInfo
-import com.altcraft.sdk.interfaces.RequestData
-import com.altcraft.sdk.data.Constants.RESPONSE_WITH_HTTP_CODE
-import com.altcraft.sdk.data.Constants.UID
-import com.altcraft.sdk.data.Constants.TYPE
-import com.altcraft.sdk.data.Constants.NAME
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -81,14 +85,14 @@ class MapBuilderTest {
 
     @Before
     fun setUp() {
-        io.mockk.mockkStatic(android.util.Log::class)
-        every { android.util.Log.d(any<String>(), any<String>()) } returns 0
-        every { android.util.Log.i(any<String>(), any<String>()) } returns 0
-        every { android.util.Log.w(any<String>(), any<String>()) } returns 0
-        every { android.util.Log.e(any<String>(), any<String>()) } returns 0
-        every { android.util.Log.d(any<String>(), any<String>(), any<Throwable>()) } returns 0
-        every { android.util.Log.e(any<String>(), any<String>(), any<Throwable>()) } returns 0
-        every { android.util.Log.w(any<String>(), any<String>(), any<Throwable>()) } returns 0
+        mockkStatic(Log::class)
+        every { Log.d(any(), any<String>()) } returns 0
+        every { Log.i(any(), any<String>()) } returns 0
+        every { Log.w(any(), any<String>()) } returns 0
+        every { Log.e(any(), any<String>()) } returns 0
+        every { Log.d(any(), any<String>(), any<Throwable>()) } returns 0
+        every { Log.e(any(), any<String>(), any<Throwable>()) } returns 0
+        every { Log.w(any(), any<String>(), any<Throwable>()) } returns 0
     }
 
     @After
@@ -101,6 +105,7 @@ class MapBuilderTest {
         val response = DataClasses.Response(error = 0, errorText = "", profile = null)
         val requestData = PushEventRequestData(
             url = URL_EXAMPLE,
+            requestId = "req_push_$TYPE_DELIVERY",
             time = System.currentTimeMillis(),
             type = TYPE_DELIVERY,
             uid = UID_123,
@@ -123,6 +128,7 @@ class MapBuilderTest {
         val response = DataClasses.Response(error = 0, errorText = "", profile = null)
         val requestData = MobileEventRequestData(
             url = URL_EXAMPLE,
+            requestId = "req_mobile_$EVENT_NAME",
             sid = SID_VALUE,
             name = EVENT_NAME,
             authHeader = AUTH_BEARER
@@ -141,7 +147,15 @@ class MapBuilderTest {
     fun `createEventValue with generic RequestData should not include uid type or name`() {
         val code = 200
         val response: DataClasses.Response? = null
-        val requestData = mockk<RequestData>(relaxed = true)
+
+        val requestData = StatusRequestData(
+            url = URL_EXAMPLE,
+            requestId = "req_status",
+            authHeader = AUTH_BEARER,
+            matchingMode = MATCHING_PUSH,
+            provider = null,
+            token = null
+        )
 
         val result = MapBuilder.createEventValue(code, response, requestData)
 
@@ -154,22 +168,25 @@ class MapBuilderTest {
     /** - test_4: unionMaps() merges device, custom fields and appInfo. */
     @Test
     fun `unionMaps merges all fields correctly`() {
-        val context = mockk<Context>()
+        val context = mockk<Context>(relaxed = true)
         val deviceFields = mapOf(DEVICE_KEY to DEVICE_VAL)
         val customFields = mapOf("custom" to true)
         val appInfo = DataClasses.AppInfo(APP_ID, APP_IID, APP_VER)
+
         val config = ConfigurationEntity(
             id = 1,
             icon = null,
             apiUrl = "https://api.test",
             rToken = null,
             appInfo = appInfo,
-            usingService = false,
-            serviceMessage = null
+            pushReceiverModules = null,
+            providerPriorityList = null,
+            pushChannelName = null,
+            pushChannelDescription = null
         )
 
         mockkObject(DeviceInfo)
-        every { DeviceInfo.getDeviceFields(context) } returns deviceFields
+        every { DeviceInfo.getDeviceFields(any()) } returns deviceFields
 
         val result = MapBuilder.unionMaps(context, config, customFields)
 

@@ -53,7 +53,7 @@ class HMSProvider : HMSInterface {
      * @param context Context required for HMS operations.
      * @param complete Callback with the result of the operation.
      */
-    override suspend fun deleteToken(context: Context, complete: (Boolean) -> Unit) {
+    override fun deleteToken(context: Context, complete: (Boolean) -> Unit) {
         try {
             val appId = AGConnectOptionsBuilder().build(context).getString(APP_ID)
 

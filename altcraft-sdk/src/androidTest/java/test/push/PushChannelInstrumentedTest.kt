@@ -86,8 +86,6 @@ class PushChannelInstrumentedTest {
             apiUrl = "https://api.example.com",
             rToken = "rt",
             appInfo = null,
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = null,
             pushChannelName = "MyChannel",

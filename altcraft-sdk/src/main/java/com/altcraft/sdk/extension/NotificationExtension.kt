@@ -17,27 +17,32 @@ import com.altcraft.sdk.push.action.Intent.getIntent
 internal object NotificationExtension {
 
     /**
-     * Adds interactive action buttons to the notification.
+     * Adds action buttons to the notification.
      *
-     * Each button attaches a PendingIntent so that tapping the action triggers
-     * the associated deep link or URL.
+     * For each button in [DataClasses.NotificationData.buttons], a corresponding
+     * PendingIntent is created with the button URL, message ID, UID, and extras.
+     * If no buttons are provided, nothing is added.
      *
      * @receiver The target [NotificationCompat.Builder].
-     * @param context Application context used to create pending intents.
-     * @param messageId Notification message ID used to distinguish intents.
-     * @param buttons Optional list of action descriptors to attach; if `null`, nothing is added.
-     * @param uid Unique identifier passed with each intent for tracking.
-     * @return The same [NotificationCompat.Builder] with actions appended (if any).
+     * @param context Application context used to create PendingIntents.
+     * @param data Notification model containing button and metadata information.
+     * @return The same [NotificationCompat.Builder] instance.
      */
     fun NotificationCompat.Builder.addActions(
         context: Context,
-        messageId: Int,
-        buttons: List<DataClasses.ButtonStructure>?,
-        uid: String
+        data: DataClasses.NotificationData
     ): NotificationCompat.Builder {
-        buttons?.forEach {
+        data.buttons?.forEach {
             try {
-                addAction(0, it.label, getIntent(context, messageId, it.link, uid))
+                addAction(
+                    0, it.label, getIntent(
+                        context,
+                        data.messageId,
+                        it.link,
+                        data.uid,
+                        data.extra
+                    )
+                )
             } catch (e: Exception) {
                 error("addActions", e)
             }

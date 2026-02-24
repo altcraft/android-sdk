@@ -1,4 +1,4 @@
-package com.altcraft.sdk.concurrency
+package com.altcraft.sdk.coordination
 
 //  Created by Andrey Pogodin.
 //

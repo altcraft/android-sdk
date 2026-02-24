@@ -7,9 +7,11 @@ package com.altcraft.sdk.workers.coroutine
 import android.content.Context
 import androidx.work.WorkManager
 import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.PR_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.PUSH_PROC_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,8 +23,6 @@ import kotlinx.coroutines.withContext
 /**
  * Provides coroutine-backed utilities for canceling WorkManager tasks by tag.
  *
- * Used to cancel tasks identified by tags such as
- * SUBSCRIBE_C_WORK_TAG, UPDATE_C_WORK_TAG, PUSH_EVENT_C_WORK_TAG, MOBILE_EVENT_C_WORK_TAG.
  */
 internal object CancelWork {
 
@@ -37,13 +37,13 @@ internal object CancelWork {
     }
 
     /**
-     * Cancels update worker tasks and triggers a callback.
+     * Cancels token update worker tasks and triggers a callback.
      *
      * @param context The application context.
      * @param onComplete Callback when canceled.
      */
-    fun cancelUpdateWorkerTask(context: Context, onComplete: () -> Unit) {
-        cancelWorkerByTag(context, UPDATE_C_WORK_TAG, onComplete)
+    fun cancelTokenUpdateWorkerTask(context: Context, onComplete: () -> Unit) {
+        cancelWorkerByTag(context, TN_UPDATE_C_WORK_TAG, onComplete)
     }
 
     /**
@@ -64,6 +64,16 @@ internal object CancelWork {
      */
     fun cancelMobileEventWorkerTask(context: Context, onComplete: () -> Unit) {
         cancelWorkerByTag(context, MOB_EVENT_C_WORK_TAG, onComplete)
+    }
+
+    /**
+     * Cancels profile update worker tasks and triggers a callback.
+     *
+     * @param context The application context.
+     * @param onComplete Callback when canceled.
+     */
+    fun cancelProfileUpdateWorkerTask(context: Context, onComplete: () -> Unit) {
+        cancelWorkerByTag(context, PR_UPDATE_C_WORK_TAG, onComplete)
     }
 
     /**
@@ -96,10 +106,12 @@ internal object CancelWork {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val jobs = listOf(
-                    async { workManager.cancelAllWorkByTag(UPDATE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(PUSH_PROC_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(TN_UPDATE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(PR_UPDATE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },
+                    async { workManager.cancelAllWorkByTag(MOB_EVENT_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(PUSH_EVENT_C_WORK_TAG).result.get() },
-                    async { workManager.cancelAllWorkByTag(MOB_EVENT_C_WORK_TAG).result.get() }
                 )
                 jobs.awaitAll()
             } catch (e: Exception) {

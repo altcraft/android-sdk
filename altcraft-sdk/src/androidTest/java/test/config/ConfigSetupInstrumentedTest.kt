@@ -15,9 +15,9 @@ import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
+import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.data.room.SubscribeEntity
-import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.sdk_events.EventList
 import com.altcraft.sdk.sdk_events.Events
 import io.mockk.every
@@ -26,10 +26,10 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.Assert.*
 import test.events.EventProbe
 import test.room.TestRoom
 import java.util.UUID
@@ -93,15 +93,12 @@ class ConfigSetupInstrumentedEventsTest {
     private fun cfg(
         rToken: String?,
         apiUrl: String = API_URL,
-        serviceMessage: String? = null
     ) = ConfigurationEntity(
         id = 1,
         icon = null,
         apiUrl = apiUrl,
         rToken = rToken,
         appInfo = null,
-        usingService = false,
-        serviceMessage = serviceMessage,
         pushReceiverModules = listOf("push-receiver-a"),
         providerPriorityList = listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER),
         pushChannelName = PUSH_CHANNEL_NAME,
@@ -110,9 +107,10 @@ class ConfigSetupInstrumentedEventsTest {
 
     private fun sub(
         tag: String,
-        uid: String = UUID.randomUUID().toString(),
+        requestId: String = UUID.randomUUID().toString(),
         retryCount: Int = 1
     ) = SubscribeEntity(
+        requestID = requestId,
         userTag = tag,
         status = SUBSCRIBED,
         sync = null,
@@ -121,8 +119,7 @@ class ConfigSetupInstrumentedEventsTest {
         cats = null,
         replace = null,
         skipTriggers = null,
-        uid = uid,
-        time = System.currentTimeMillis() / 1000,
+        time = System.currentTimeMillis(),
         retryCount = retryCount,
         maxRetryCount = 5
     )
@@ -136,7 +133,7 @@ class ConfigSetupInstrumentedEventsTest {
         retryCount: Int = 0,
         maxRetryCount: Int = 5
     ) = MobileEventEntity(
-        id = 0L,
+        requestID = UUID.randomUUID().toString(),
         userTag = userTag,
         timeZone = tz,
         time = System.currentTimeMillis(),
@@ -145,10 +142,10 @@ class ConfigSetupInstrumentedEventsTest {
         eventName = eventName,
         payload = null,
         matching = null,
+        matchingType = null,
         profileFields = null,
         subscription = null,
         sendMessageId = null,
-        matchingType = null,
         utmTags = null,
         retryCount = retryCount,
         maxRetryCount = maxRetryCount
@@ -214,10 +211,10 @@ class ConfigSetupInstrumentedEventsTest {
     /** - test_4: setConfig overwrites existing configuration when values change (update path). */
     @Test
     fun setConfig_overwritesExistingConfig_whenChanged() = runBlocking {
-        val old = cfg(rToken = "rt-NEW", serviceMessage = "old")
+        val old = cfg(rToken = "rt-NEW", apiUrl = "https://api.old.example.com")
         realDao.insertConfig(old)
 
-        val updated = cfg(rToken = "rt-NEW", serviceMessage = "new")
+        val updated = cfg(rToken = "rt-NEW", apiUrl = "https://api.new.example.com")
         val updateConfig = mockk<AltcraftConfiguration>()
         every { updateConfig.toEntity() } returns updated
 

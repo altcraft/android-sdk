@@ -21,7 +21,8 @@ import com.altcraft.sdk.data.Constants.ALTCRAFT_DB_NAME
         ConfigurationEntity::class,
         SubscribeEntity::class,
         PushEventEntity::class,
-        MobileEventEntity::class
+        MobileEventEntity::class,
+        ProfileUpdateEntity::class
     ],
     version = 1,
     exportSchema = true

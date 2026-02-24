@@ -65,5 +65,5 @@ internal class Converter {
      * Parses a JSON string back into a [JsonElement] for in-memory use.
      */
     @TypeConverter
-    fun toJsonElement(jsonStr: String?): JsonElement? = jsonStr.fromStringJson("fromJsonElement")
+    fun toJsonElement(jsonStr: String?): JsonElement? = jsonStr.fromStringJson("toJsonElement")
 }

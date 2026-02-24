@@ -2,30 +2,27 @@ package test.core
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.core.content.edit
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.altcraft.sdk.config.ConfigSetup.configuration
 import com.altcraft.sdk.core.ClearCache
-import com.altcraft.sdk.core.Retry.retryControl
-import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
-import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
+import com.altcraft.sdk.core.InitialOperations.initControl
 import com.altcraft.sdk.data.Preferenses
 import com.altcraft.sdk.data.Preferenses.getPreferences
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.push.token.TokenManager.tokens
 import com.altcraft.sdk.sdk_events.EventList
 import com.altcraft.sdk.sdk_events.Events
-import com.altcraft.sdk.services.manager.ServiceManager
 import com.altcraft.sdk.workers.coroutine.CancelWork
 import com.altcraft.sdk.workers.periodical.CommonFunctions
 import io.mockk.Runs
@@ -36,8 +33,10 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
-import org.junit.*
+import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import test.events.EventProbe
 import test.room.TestRoom
@@ -51,20 +50,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Positive scenario:
  * - test_1: clear() wipes real Room tables, removes SDK SharedPreferences keys,
- * resets in-memory state, stops services, cancels workers, and emits sdkCleared to subscriber.
+ * resets in-memory state, cancels workers, and emits sdkCleared to subscriber.
+ *
+ * NOTE:
+ * - This test intentionally DOES NOT verify DataStore cleanup.
  */
 @RunWith(AndroidJUnit4::class)
 class ClearCacheInstrumentedTest {
 
     private companion object {
-        const val MSG_DB_CONFIG_EMPTY   = "configurationTable must be empty"
-        const val MSG_DB_SUB_EMPTY      = "subscribeTable must be empty"
-        const val MSG_DB_EVENTS_EMPTY   = "pushEventTable must be empty"
+        const val MSG_DB_CONFIG_EMPTY = "configurationTable must be empty"
+        const val MSG_DB_SUB_EMPTY = "subscribeTable must be empty"
+        const val MSG_DB_EVENTS_EMPTY = "pushEventTable must be empty"
         const val MSG_DB_M_EVENTS_EMPTY = "mobileEventTable must be empty"
-        const val MSG_PREFS_CLEARED     = "SDK-related SharedPreferences keys must be removed"
-        const val MSG_FLAGS_RESET       = "In-memory flags/state must be reset"
-        const val MSG_EVENT_CAPTURED    = "Expected to capture Events emission"
-        const val MSG_CALLBACK_FIRED    = "onComplete must be invoked"
+        const val MSG_PREFS_CLEARED = "SDK-related SharedPreferences keys must be removed"
+        const val MSG_FLAGS_RESET = "In-memory flags/state must be reset"
+        const val MSG_EVENT_CAPTURED = "Expected to capture Events emission"
+        const val MSG_CALLBACK_FIRED = "onComplete must be invoked"
     }
 
     private lateinit var appContext: Context
@@ -87,9 +89,6 @@ class ClearCacheInstrumentedTest {
         every { SDKdb.getDb(any()) } returns sdkDBWrapper
         every { sdkDBWrapper.request() } returns dao
 
-        mockkObject(ServiceManager)
-        every { ServiceManager.stopService(any(), any()) } just Runs
-
         mockkObject(CancelWork)
         every { CancelWork.cancelCoroutineWorkersTask(any(), any()) } answers {
             val cb = secondArg<() -> Unit>()
@@ -100,10 +99,10 @@ class ClearCacheInstrumentedTest {
         every { CommonFunctions.cancelPeriodicalWorkersTask(any()) } just Runs
 
         prefs = getPreferences(appContext)
-        prefs.edit(commit = true) {
+        prefs.edit().apply {
             putString(Preferenses.TOKEN_KEY, "tkn")
-            putString(Preferenses.MANUAL_TOKEN_KEY, "manual")
-            putString(Preferenses.MESSAGE_ID_KEY, "msg")
+            putInt(Preferenses.MESSAGE_ID_KEY, 123)
+            commit()
         }
 
         runBlocking {
@@ -114,8 +113,6 @@ class ClearCacheInstrumentedTest {
                     apiUrl = "https://api",
                     rToken = "rt",
                     appInfo = null,
-                    usingService = true,
-                    serviceMessage = "svc",
                     pushReceiverModules = listOf("m"),
                     providerPriorityList = listOf("android-firebase"),
                     pushChannelName = "ch",
@@ -124,6 +121,7 @@ class ClearCacheInstrumentedTest {
             )
             dao.insertSubscribe(
                 SubscribeEntity(
+                    requestID = UUID.randomUUID().toString(),
                     userTag = "tag",
                     status = "PENDING",
                     sync = null,
@@ -132,21 +130,24 @@ class ClearCacheInstrumentedTest {
                     cats = null,
                     replace = null,
                     skipTriggers = null,
-                    uid = UUID.randomUUID().toString(),
-                    time = System.currentTimeMillis() / 1000,
+                    time = System.currentTimeMillis(),
                     retryCount = 1,
                     maxRetryCount = 5
                 )
             )
             dao.insertPushEvent(
-                com.altcraft.sdk.data.room.PushEventEntity(
+                PushEventEntity(
+                    requestID = UUID.randomUUID().toString(),
                     uid = UUID.randomUUID().toString(),
-                    type = "test"
+                    type = "test",
+                    time = System.currentTimeMillis(),
+                    retryCount = 0,
+                    maxRetryCount = 5
                 )
             )
             dao.insertMobileEvent(
                 MobileEventEntity(
-                    id = 0L,
+                    requestID = UUID.randomUUID().toString(),
                     userTag = "tag",
                     timeZone = 0,
                     time = System.currentTimeMillis(),
@@ -155,11 +156,11 @@ class ClearCacheInstrumentedTest {
                     eventName = "evt",
                     payload = null,
                     matching = null,
+                    matchingType = null,
                     profileFields = null,
                     subscription = null,
-                    matchingType = null,
-                    utmTags = null,
                     sendMessageId = null,
+                    utmTags = null,
                     retryCount = 0,
                     maxRetryCount = 5
                 )
@@ -167,12 +168,17 @@ class ClearCacheInstrumentedTest {
         }
 
         configuration = ConfigurationEntity(
-            id = 999, icon = null, apiUrl = "https://cached", rToken = "cached",
-            appInfo = null, usingService = false, serviceMessage = null,
-            pushReceiverModules = null, providerPriorityList = null,
-            pushChannelName = null, pushChannelDescription = null
+            id = 999,
+            icon = null,
+            apiUrl = "https://cached",
+            rToken = "cached",
+            appInfo = null,
+            pushReceiverModules = null,
+            providerPriorityList = null,
+            pushChannelName = null,
+            pushChannelDescription = null
         )
-        retryControl = AtomicBoolean(true)
+        initControl = AtomicBoolean(true)
         tokens.add("123")
 
         Events.subscribe(probe)
@@ -186,9 +192,7 @@ class ClearCacheInstrumentedTest {
         db.close()
     }
 
-    /** - test_1: clear() wipes DB, clears prefs, resets flags, stops services, cancels workers,
-     * and emits sdkCleared.
-     * */
+    /** - test_1: clear() wipes DB, clears prefs, resets flags, cancels workers, and emits sdkCleared. */
     @Test
     fun clear_wipesDbPrefsWorkersAndEmitsEvent() = runBlocking {
         val latch = CountDownLatch(1)
@@ -201,15 +205,12 @@ class ClearCacheInstrumentedTest {
         assertEquals(MSG_DB_M_EVENTS_EMPTY, 0, dao.getMobileEventCount())
 
         assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.TOKEN_KEY, null))
-        assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.MANUAL_TOKEN_KEY, null))
-        assertNull(MSG_PREFS_CLEARED, prefs.getString(Preferenses.MESSAGE_ID_KEY, null))
+        assertEquals(MSG_PREFS_CLEARED, 0, prefs.getInt(Preferenses.MESSAGE_ID_KEY, 0))
 
         assertNull(MSG_FLAGS_RESET, configuration)
-        assertFalse(MSG_FLAGS_RESET, retryControl.get())
+        assertFalse(MSG_FLAGS_RESET, initControl.get())
         assertTrue(MSG_FLAGS_RESET, tokens.isEmpty())
 
-        io.mockk.verify(exactly = 1) { ServiceManager.stopService(appContext, SUBSCRIBE_SERVICE) }
-        io.mockk.verify(exactly = 1) { ServiceManager.stopService(appContext, UPDATE_SERVICE) }
         io.mockk.verify(exactly = 1) { CancelWork.cancelCoroutineWorkersTask(appContext, any()) }
         io.mockk.verify(exactly = 1) { CommonFunctions.cancelPeriodicalWorkersTask(appContext) }
 

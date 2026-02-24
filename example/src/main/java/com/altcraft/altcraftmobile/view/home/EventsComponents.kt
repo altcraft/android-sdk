@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.altcraft.altcraftmobile.extensions.Extensions.UI.fadeToWhiteEdges
 import com.altcraft.altcraftmobile.functions.app.Formatter.formatDateToTimestampString
+import com.altcraft.altcraftmobile.view.home.Experimental.dotsBackground
 import com.altcraft.sdk.data.DataClasses
 import java.util.Date
 

@@ -10,15 +10,17 @@ import com.altcraft.sdk.additional.MapBuilder.unionMaps
 import com.altcraft.sdk.additional.SubFunction.fieldsIsObjects
 import com.altcraft.sdk.additional.SubFunction.isOnline
 import com.altcraft.sdk.auth.AuthManager.getUserTag
-import com.altcraft.sdk.concurrency.CommandQueue
-import com.altcraft.sdk.concurrency.InitBarrier
-import com.altcraft.sdk.concurrency.withInitReady
+import com.altcraft.sdk.coordination.CommandQueue
+import com.altcraft.sdk.coordination.InitBarrier
+import com.altcraft.sdk.coordination.withInitReady
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.core.Environment
-import com.altcraft.sdk.core.Retry.awaitSubscribeRetryStarted
+import com.altcraft.sdk.core.InitialOperations.awaitSubscribeRetryStarted
 import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.Preferenses.setCurrentToken
+import com.altcraft.sdk.data.error
 import com.altcraft.sdk.data.retry
 import com.altcraft.sdk.data.room.RoomRequest.allSubscriptionsByTag
 import com.altcraft.sdk.data.room.RoomRequest.isRetryLimit
@@ -34,13 +36,14 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
 import com.altcraft.sdk.extension.MapExtension.mapToJson
 import com.altcraft.sdk.network.Request.request
-import com.altcraft.sdk.services.manager.ServiceManager.startSubscribeWorker
+import com.altcraft.sdk.push.token.TokenUpdate.pushTokenUpdate
+import com.altcraft.sdk.sdk_events.EventList.notUpdated
+import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startSubscribeCoroutineWorker
 import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import kotlin.collections.forEach
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Contains functions for managing the status of a push subscription.
@@ -55,7 +58,10 @@ internal object PushSubscribe {
      * and triggering the background worker to process pending subscriptions.
      *
      * @param context Application context used for DB and worker scheduling.
-     * @param sync Optional flag passed through as-is to transport layer.
+     * @param sync Optional request mode flag (nullable Int):
+     * - `1` — synchronous mode (server returns the final processing result);
+     * - `0` — asynchronous mode (server returns only queue/acceptance status);
+     * - `null` — default synchronous.
      * @param status Target subscription status (default is SUBSCRIBED).
      * @param customFields Optional custom fields to be merged and sent with the request.
      * @param profileFields Optional profile fields to be included with the request.
@@ -98,7 +104,7 @@ internal object PushSubscribe {
                         )
 
                         entityInsert(context, entity)
-                        startSubscribeWorker(context, config)
+                        startSubscribeCoroutineWorker(context)
                     }
                 }
             } catch (e: Exception) {
@@ -112,8 +118,7 @@ internal object PushSubscribe {
      *
      * @param context Application context.
      * @param workerId Optional worker identifier.
-     * @return `true` if a retry should be performed; `false` otherwise.
-     * @throws CancellationException if the coroutine is cancelled.
+     * @return `true` if a retry pass is required; `false` otherwise.
      */
     suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
@@ -126,10 +131,13 @@ internal object PushSubscribe {
     /**
      * Processes pending push-subscription operations in chronological order.
      *
-     * - On success, deletes the entity and continues.
-     * - On retry-eligible failure with remaining retries:
-     *   returns `true` if no newer request exists; otherwise `false`.
-     * - On exceeded retry limit, deletes the entity and proceeds.
+     * - If rToken auth is used, updates the push token before processing subscriptions.
+     * - Sends request for each entity.
+     * - If response is not `error`: stores current token.
+     * - If response is not `retry`: deletes the entity.
+     * - On `retry`:
+     *   - retry available → returns `true` if no newer request;
+     *   - retry limit reached → keeps entity and continues.
      *
      * @param context Application context for DB and config access.
      * @param id Optional worker identifier.
@@ -139,10 +147,15 @@ internal object PushSubscribe {
         val tag = SUBSCRIBE_C_WORK_TAG
         val env = Environment.create(context)
         val subscriptions = allSubscriptionsByTag(env.room, env.userTag())
+        if (!subscriptions.isEmpty() && !env.config().rToken.isNullOrBlank()
+            && !pushTokenUpdate(context)
+        ) exception(notUpdated)
 
         subscriptions.forEach {
-            if (request(context, it) !is retry) entityDelete(env.room, it)
-            else if (!isRetryLimit(env.room, it)) return !hasNewRequest(
+            val response = request(context, it)
+            if (response !is error) setCurrentToken(context, env.token())
+            if (response !is retry) entityDelete(env.room, it) else if (
+                !isRetryLimit(env.room, it)) return !hasNewRequest(
                 context, tag, id
             )
         }

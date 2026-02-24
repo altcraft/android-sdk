@@ -9,12 +9,12 @@ import com.altcraft.sdk.additional.StringBuilder.mobileEventPayloadInvalid
 import com.altcraft.sdk.additional.SubFunction.fieldsIsObjects
 import com.altcraft.sdk.additional.SubFunction.isOnline
 import com.altcraft.sdk.auth.AuthManager.getUserTag
-import com.altcraft.sdk.concurrency.CommandQueue
-import com.altcraft.sdk.concurrency.InitBarrier
-import com.altcraft.sdk.concurrency.withInitReady
+import com.altcraft.sdk.coordination.CommandQueue
+import com.altcraft.sdk.coordination.InitBarrier
+import com.altcraft.sdk.coordination.withInitReady
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.core.Environment
-import com.altcraft.sdk.core.Retry.awaitMobileEventRetryStarted
+import com.altcraft.sdk.core.InitialOperations.awaitMobileEventRetryStarted
 import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.retry
@@ -110,7 +110,7 @@ internal object MobileEvent {
                     }
                 }
             } catch (e: Exception) {
-                error("sendMobileEvent", e)
+                error(func, e)
             }
         }
     }
@@ -157,4 +157,3 @@ internal object MobileEvent {
         return false
     }
 }
-

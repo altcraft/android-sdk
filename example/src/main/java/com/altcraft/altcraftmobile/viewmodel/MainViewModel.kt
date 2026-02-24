@@ -22,15 +22,18 @@ import com.altcraft.altcraftmobile.data.AppPreferenses.setNotificationData
 import com.altcraft.altcraftmobile.data.AppPreferenses.setTokenUpdateTime
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_BODY
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_TITLE
+import com.altcraft.altcraftmobile.data.AppConstants.PROFILE_NOT_FOUND
+import com.altcraft.altcraftmobile.data.AppConstants.RESPONSE_WITH_HTTP
 import com.altcraft.altcraftmobile.data.AppConstants.STATUS_EVENT
 import com.altcraft.altcraftmobile.data.AppConstants.STATUS_EVENT_ERRORS
 import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBE_EVENT
+import com.altcraft.altcraftmobile.data.AppConstants.SUSPEND_EVENT
 import com.altcraft.altcraftmobile.data.AppConstants.TOKEN_UPDATE_EVENT
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
+import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBE_EVENT
 import com.altcraft.altcraftmobile.data.AppDataClasses
 import com.altcraft.altcraftmobile.event.EventReceiver
 import com.altcraft.altcraftmobile.functions.app.Formatter.formatDate
-import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.altcraftmobile.functions.app.SubFunction.loadImage
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.data.DataClasses
@@ -150,7 +153,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         when (event.eventCode) {
-            SUBSCRIBE_EVENT, STATUS_EVENT -> status.value = handleStatusUpdate(context, event)
+            SUBSCRIBE_EVENT, SUSPEND_EVENT, UNSUBSCRIBE_EVENT, STATUS_EVENT
+                -> status.value = handleStatusUpdate(context, event)
 
             TOKEN_UPDATE_EVENT -> {
                 handleTokenUpdate(context, event.date)
@@ -158,6 +162,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             STATUS_EVENT_ERRORS[0], STATUS_EVENT_ERRORS[1] -> {
+                val responseWithHttp = event.eventValue?.get(
+                    RESPONSE_WITH_HTTP
+                ) as? DataClasses.ResponseWithHttpCode
+
+                if (responseWithHttp?.response?.errorText?.contains(PROFILE_NOT_FOUND) == true) {
+                    status.value = UNSUBSCRIBED
+                    AppPreferenses.setSubscriptionStatus(context, UNSUBSCRIBED)
+                }
                 errorMessage.value =
                     "Profile information is not available. Error: ${event.eventMessage}"
             }
@@ -166,14 +178,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleStatusUpdate(context: Context, event: DataClasses.Event): String {
         return try {
-            val responseWithHttp =
-                event.eventValue?.get("response_with_http_code") as? DataClasses.ResponseWithHttpCode
+            val responseWithHttp = event.eventValue?.get(
+                RESPONSE_WITH_HTTP
+            ) as? DataClasses.ResponseWithHttpCode
 
-            val status = responseWithHttp?.response?.profile?.subscription?.status ?: UNSUBSCRIBED
-
-            AppPreferenses.setSubscriptionStatus(context, status)
-
-            status
+            (responseWithHttp?.response?.profile?.subscription?.status ?: UNSUBSCRIBED)
+                .also {
+                AppPreferenses.setSubscriptionStatus(context, it)
+            }
         } catch (_: Exception) {
             AppPreferenses.setSubscriptionStatus(context, UNSUBSCRIBED)
             UNSUBSCRIBED

@@ -7,7 +7,7 @@ package com.altcraft.sdk.extension
 import androidx.work.Data
 
 /**
- * `DataExtension` provides helper to convert WorkManager [Data] to a [Map] of string values.
+ * Helpers to convert WorkManager [Data] to a [Map]<String, String>.
  */
 internal object DataExtension {
 

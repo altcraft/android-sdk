@@ -1,15 +1,17 @@
 package com.altcraft.sdk.core
 
+//  Created by Andrey Pogodin.
+//
+//  Copyright © 2025 Altcraft. All rights reserved.
+
 import android.content.Context
-import com.altcraft.sdk.concurrency.ForegroundGate.foreground
+import com.altcraft.sdk.coordination.ForegroundBarrier.foreground
 import com.altcraft.sdk.data.Constants
-import com.altcraft.sdk.data.Preferenses.getManualToken
 import com.altcraft.sdk.mob_events.MobileEvent
+import com.altcraft.sdk.profile.ProfileUpdate
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
-import com.altcraft.sdk.push.token.TokenManager.fcmProvider
-import com.altcraft.sdk.push.token.TokenManager.hmsProvider
-import com.altcraft.sdk.push.token.TokenManager.rustoreProvider
+import com.altcraft.sdk.push.token.TokenManager.pushModuleIsActive
 import com.altcraft.sdk.push.token.TokenUpdate.pushTokenUpdate
 import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.workers.periodical.CommonFunctions.periodicalWorkerControl
@@ -23,16 +25,16 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Checking and resending pending requests. Checking the push token update.
+ * Schedules retry processing for pending requests and token update checks.
  */
-internal object Retry {
+internal object InitialOperations {
 
     /** Ensures retry operations run only once per process */
-    internal var retryControl = AtomicBoolean(false)
+    internal var initControl = AtomicBoolean(false)
 
-    /** Ensures retry operations run only once per process */
+    /** Centralized exception handler for init-related coroutines */
     private val exceptionHandler = CoroutineExceptionHandler { _, e ->
-        Events.error(Constants.RETRY_FUNC, e)
+        Events.error(Constants.INIT_OPERATION_FUNC, e)
     }
 
     /** CoroutineScope with centralized exception handling */
@@ -44,16 +46,7 @@ internal object Retry {
     val initialRequestRetryStarted = CompletableDeferred<Unit>()
     val mobileEventsDbSnapshotTaken = CompletableDeferred<Unit>()
     val pushSubscribeDbSnapshotTaken = CompletableDeferred<Unit>()
-
-    /**
-     * Checks whether push token acquisition is possible.
-     * Returns `true` if push token can be acquired —
-     * either via manual token or registered provider.
-     *
-     * @param context Application context used to access stored tokens and provider state.
-     */
-    fun pushModuleIsActive(context: Context) = getManualToken(context) != null ||
-            fcmProvider != null || hmsProvider != null || rustoreProvider != null
+    val profileUpdatesDbSnapshotTaken = CompletableDeferred<Unit>()
 
     /**
      * Starts retry processing for mobile events and, if enabled, push-related tasks.
@@ -62,13 +55,13 @@ internal object Retry {
      * - If push is active, schedules push retries and token updates.
      *
      * Conditions:
-     * - Executes only once per process (`retryControl`).
+     * - Executes only once per process (`initControl`).
      * - Runs only when the app is in foreground.
      *
      * @param context Application context.
      */
-    fun performRetryOperations(context: Context) = foreground {
-        if (it && retryControl.compareAndSet(false, true)) {
+    fun performInitOperations(context: Context) = foreground {
+        if (it && initControl.compareAndSet(false, true)) {
             when (pushModuleIsActive(context)) {
                 true -> withPushActions(context)
                 false -> withoutPushActions(context)
@@ -87,6 +80,7 @@ internal object Retry {
         scope.launch { PushEvent.isRetry(context) }
         scope.launch { MobileEvent.isRetry(context) }
         scope.launch { PushSubscribe.isRetry(context) }
+        scope.launch { ProfileUpdate.isRetry(context) }
         scope.launch { periodicalWorkerControl(context) }
     }
 
@@ -97,6 +91,7 @@ internal object Retry {
      */
     fun withoutPushActions(context: Context) {
         scope.launch { periodicalWorkerControl(context) }
+        scope.launch { ProfileUpdate.isRetry(context) }
         scope.launch { MobileEvent.isRetry(context) }
     }
 
@@ -150,6 +145,32 @@ internal object Retry {
             delay(3000)
             initialRequestRetryStarted.complete(Unit)
             mobileEventsDbSnapshotTaken.complete(Unit)
+        }
+    }
+
+    /**
+     * Suspends until all retry operations have been scheduled.
+     *
+     * Used to ensure that retry-related coroutines are launched
+     * before executing dependent logic.
+     */
+    suspend fun awaitProfileUpdateRetryStarted() {
+        fallbackExitProfileUpdateRetryStartAwait()
+        initialRequestRetryStarted.await()
+        profileUpdatesDbSnapshotTaken.await()
+    }
+
+    /**
+     * Fallback timeout for awaitProfileUpdateRetryStarted.
+     * Unblocks the waiting coroutine after 3 seconds by
+     * force-completing the retry start and profile updates
+     * snapshot signals.
+     */
+    private fun fallbackExitProfileUpdateRetryStartAwait() {
+        scope.launch {
+            delay(3000)
+            initialRequestRetryStarted.complete(Unit)
+            profileUpdatesDbSnapshotTaken.complete(Unit)
         }
     }
 }

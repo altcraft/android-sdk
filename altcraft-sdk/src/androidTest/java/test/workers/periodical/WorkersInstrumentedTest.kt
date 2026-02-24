@@ -4,7 +4,7 @@ package test.workers.periodical
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -13,6 +13,7 @@ import androidx.work.testing.TestListenableWorkerBuilder
 import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.room.RoomRequest
 import com.altcraft.sdk.mob_events.MobileEvent
+import com.altcraft.sdk.profile.ProfileUpdate
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.push.token.TokenUpdate
@@ -37,14 +38,16 @@ import org.junit.Test
  * WorkersInstrumentedTest
  *
  * Verifies periodic workers behavior in foreground/background:
- * - test_1: RetryPushEventWorker (background) calls awaitCancel, PushEvent.isRetry, clearOldPushEventsFromRoom → success.
+ * - test_1: RetryPushEventWorker (background) calls awaitCancel, PushEvent.isRetry → success.
  * - test_2: RetrySubscribeWorker (background) calls awaitCancel, PushSubscribe.isRetry → success.
- * - test_3: RetryUpdateWorker (background) calls awaitCancel, TokenUpdate.tokenUpdate → success.
- * - test_4: RetryMobileEventWorker (background) calls awaitCancel, MobileEvent.isRetry, clearOldMobileEventsFromRoom → success.
- * - test_5: RetryPushEventWorker (foreground) skips body → success.
- * - test_6: RetrySubscribeWorker (foreground) skips body → success.
- * - test_7: RetryUpdateWorker (foreground) skips body → success.
- * - test_8: RetryMobileEventWorker (foreground) skips body → success.
+ * - test_3: RetryTokenUpdateWorker (background) calls awaitCancel, TokenUpdate.pushTokenUpdate → success.
+ * - test_4: RetryMobileEventWorker (background) calls awaitCancel, MobileEvent.isRetry → success.
+ * - test_5: RetryProfileUpdateWorker (background) calls awaitCancel, ProfileUpdate.isRetry → success.
+ * - test_6: RetryPushEventWorker (foreground) skips body → success.
+ * - test_7: RetrySubscribeWorker (foreground) skips body → success.
+ * - test_8: RetryTokenUpdateWorker (foreground) skips body → success.
+ * - test_9: RetryMobileEventWorker (foreground) skips body → success.
+ * - test_10: RetryProfileUpdateWorker (foreground) skips body → success.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkersInstrumentedTest {
@@ -61,6 +64,7 @@ class WorkersInstrumentedTest {
             PushSubscribe,
             TokenUpdate,
             MobileEvent,
+            ProfileUpdate,
             RoomRequest,
             CancelWork,
             Events
@@ -72,12 +76,11 @@ class WorkersInstrumentedTest {
     @After
     fun tearDown() = unmockkAll()
 
-    /** - test_1: RetryPushEventWorker (background) calls retry and cleanup, returns success. */
+    /** - test_1: RetryPushEventWorker (background) calls awaitCancel, PushEvent.isRetry, returns success. */
     @Test
-    fun retryPushEventWorker_background_callsRetryAndCleanup_success() = runTest {
+    fun retryPushEventWorker_background_callsRetry_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
         coEvery { PushEvent.isRetry(ctx) } returns true
-        coEvery { RoomRequest.clearOldPushEventsFromRoom(any()) } returns Unit
 
         val worker = TestListenableWorkerBuilder<Workers.RetryPushEventWorker>(ctx).build()
         val result = worker.doWork()
@@ -85,10 +88,9 @@ class WorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 1) { CommonFunctions.awaitCancel(ctx, any()) }
         coVerify(exactly = 1) { PushEvent.isRetry(ctx) }
-        coVerify(exactly = 1) { RoomRequest.clearOldPushEventsFromRoom(any()) }
     }
 
-    /** - test_2: RetrySubscribeWorker (background) calls retry, returns success. */
+    /** - test_2: RetrySubscribeWorker (background) calls awaitCancel, PushSubscribe.isRetry, returns success. */
     @Test
     fun retrySubscribeWorker_background_callsRetry_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
@@ -102,13 +104,13 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { PushSubscribe.isRetry(ctx) }
     }
 
-    /** - test_3: RetryUpdateWorker (background) calls tokenUpdate, returns success. */
+    /** - test_3: RetryTokenUpdateWorker (background) calls awaitCancel, TokenUpdate.pushTokenUpdate, returns success. */
     @Test
-    fun retryUpdateWorker_background_callsTokenUpdate_success() = runTest {
+    fun retryTokenUpdateWorker_background_callsTokenUpdate_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
-        coEvery { TokenUpdate.pushTokenUpdate(ctx) } returns Unit
+        coEvery { TokenUpdate.pushTokenUpdate(ctx) } returns true
 
-        val worker = TestListenableWorkerBuilder<Workers.RetryUpdateWorker>(ctx).build()
+        val worker = TestListenableWorkerBuilder<Workers.RetryTokenUpdateWorker>(ctx).build()
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.success(), result)
@@ -116,12 +118,11 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 1) { TokenUpdate.pushTokenUpdate(ctx) }
     }
 
-    /** - test_4: RetryMobileEventWorker (background) calls retry and cleanup, returns success. */
+    /** - test_4: RetryMobileEventWorker (background) calls awaitCancel, MobileEvent.isRetry, returns success. */
     @Test
-    fun retryMobileEventWorker_background_callsRetryAndCleanup_success() = runTest {
+    fun retryMobileEventWorker_background_callsRetry_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns false
         coEvery { MobileEvent.isRetry(ctx) } returns false
-        coEvery { RoomRequest.clearOldMobileEventsFromRoom(any()) } returns Unit
 
         val worker = TestListenableWorkerBuilder<Workers.RetryMobileEventWorker>(ctx).build()
         val result = worker.doWork()
@@ -129,10 +130,23 @@ class WorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 1) { CommonFunctions.awaitCancel(ctx, any()) }
         coVerify(exactly = 1) { MobileEvent.isRetry(ctx) }
-        coVerify(exactly = 1) { RoomRequest.clearOldMobileEventsFromRoom(any()) }
     }
 
-    /** - test_5: RetryPushEventWorker (foreground) skips body, returns success. */
+    /** - test_5: RetryProfileUpdateWorker (background) calls awaitCancel, ProfileUpdate.isRetry, returns success. */
+    @Test
+    fun retryProfileUpdateWorker_background_callsRetry_success() = runTest {
+        every { SubFunction.isAppInForegrounded() } returns false
+        coEvery { ProfileUpdate.isRetry(ctx) } returns false
+
+        val worker = TestListenableWorkerBuilder<Workers.RetryProfileUpdateWorker>(ctx).build()
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        coVerify(exactly = 1) { CommonFunctions.awaitCancel(ctx, any()) }
+        coVerify(exactly = 1) { ProfileUpdate.isRetry(ctx) }
+    }
+
+    /** - test_6: RetryPushEventWorker (foreground) skips body, returns success. */
     @Test
     fun retryPushEventWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -143,10 +157,9 @@ class WorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 0) { CommonFunctions.awaitCancel(any(), any()) }
         coVerify(exactly = 0) { PushEvent.isRetry(any()) }
-        coVerify(exactly = 0) { RoomRequest.clearOldPushEventsFromRoom(any()) }
     }
 
-    /** - test_6: RetrySubscribeWorker (foreground) skips body, returns success. */
+    /** - test_7: RetrySubscribeWorker (foreground) skips body, returns success. */
     @Test
     fun retrySubscribeWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -159,12 +172,12 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 0) { PushSubscribe.isRetry(any()) }
     }
 
-    /** - test_7: RetryUpdateWorker (foreground) skips body, returns success. */
+    /** - test_8: RetryTokenUpdateWorker (foreground) skips body, returns success. */
     @Test
-    fun retryUpdateWorker_foreground_skipsBody_success() = runTest {
+    fun retryTokenUpdateWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
 
-        val worker = TestListenableWorkerBuilder<Workers.RetryUpdateWorker>(ctx).build()
+        val worker = TestListenableWorkerBuilder<Workers.RetryTokenUpdateWorker>(ctx).build()
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.success(), result)
@@ -172,7 +185,7 @@ class WorkersInstrumentedTest {
         coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 
-    /** - test_8: RetryMobileEventWorker (foreground) skips body, returns success. */
+    /** - test_9: RetryMobileEventWorker (foreground) skips body, returns success. */
     @Test
     fun retryMobileEventWorker_foreground_skipsBody_success() = runTest {
         every { SubFunction.isAppInForegrounded() } returns true
@@ -183,6 +196,18 @@ class WorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 0) { CommonFunctions.awaitCancel(any(), any()) }
         coVerify(exactly = 0) { MobileEvent.isRetry(any()) }
-        coVerify(exactly = 0) { RoomRequest.clearOldMobileEventsFromRoom(any()) }
+    }
+
+    /** - test_10: RetryProfileUpdateWorker (foreground) skips body, returns success. */
+    @Test
+    fun retryProfileUpdateWorker_foreground_skipsBody_success() = runTest {
+        every { SubFunction.isAppInForegrounded() } returns true
+
+        val worker = TestListenableWorkerBuilder<Workers.RetryProfileUpdateWorker>(ctx).build()
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        coVerify(exactly = 0) { CommonFunctions.awaitCancel(any(), any()) }
+        coVerify(exactly = 0) { ProfileUpdate.isRetry(any()) }
     }
 }

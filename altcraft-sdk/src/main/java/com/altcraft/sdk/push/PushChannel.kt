@@ -20,7 +20,7 @@ import com.altcraft.sdk.data.room.ConfigurationEntity
  */
 internal object PushChannel {
 
-    internal val versionsSupportChannels = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    internal val versionSupportChannels = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
     /**
      * Creates a notification channel if the Android version supports it.
@@ -160,7 +160,7 @@ internal object PushChannel {
      * @return `true` if the channel exists or channels are not supported; `false` otherwise.
      */
     fun isChannelCreated(context: Context, channelInfo: Pair<String, String>): Boolean {
-        if (!versionsSupportChannels) return true
+        if (!versionSupportChannels) return true
         val manager = context.getSystemService(NotificationManager::class.java)
         return manager.getNotificationChannel(channelInfo.first) != null
     }

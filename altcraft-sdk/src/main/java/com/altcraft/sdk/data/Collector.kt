@@ -9,7 +9,7 @@ import com.altcraft.sdk.additional.StringBuilder.eventPushUrl
 import com.altcraft.sdk.additional.StringBuilder.statusUrl
 import com.altcraft.sdk.additional.StringBuilder.subscribeUrl
 import com.altcraft.sdk.additional.StringBuilder.unSuspendUrl
-import com.altcraft.sdk.additional.StringBuilder.updateUrl
+import com.altcraft.sdk.additional.StringBuilder.tokenUpdateUrl
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.push.token.TokenManager.getCurrentPushToken
 import com.altcraft.sdk.data.Preferenses.getMessageId
@@ -22,11 +22,12 @@ import com.altcraft.sdk.push.PushImage.loadSmallImage
 import java.util.UUID
 import com.altcraft.altcraftsdk.R
 import com.altcraft.sdk.additional.StringBuilder.eventMobileUrl
+import com.altcraft.sdk.additional.StringBuilder.profileUpdateUrl
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
 import com.altcraft.sdk.additional.SubFunction.getIconColor
 import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.room.MobileEventEntity
-import com.altcraft.sdk.push.action.Intent.getIntent
+import com.altcraft.sdk.data.room.ProfileUpdateEntity
 
 /**
  * Builds request data for SDK network calls and composes notification payloads.
@@ -37,16 +38,16 @@ import com.altcraft.sdk.push.action.Intent.getIntent
 internal object Collector {
 
     /**
-     * Builds a `SubscribeRequestData` object for a push notification subscription request.
+     * Builds a [DataClasses.SubscribeRequestData] object for a push notification
+     * subscription request.
      *
-     * Retrieves configuration, authentication headers, and the device token from `context`
-     * and `SubscribeEntity`.
-     * Combines system, application-specific, and custom fields.
+     * Retrieves configuration, authentication headers, and the device token from [context]
+     * and [subscription]. Combines profile, subscription and category fields.
      * Returns `null` if required data is missing or an error occurs.
      *
      * @param context The context for accessing configuration and token data.
      * @param subscription The subscription details (status, custom fields, settings).
-     * @return A `SubscribeRequestData` object or `null` if data retrieval fails.
+     * @return Request data or `null` on failure.
      */
     suspend fun getSubscribeRequestData(
         context: Context,
@@ -57,15 +58,15 @@ internal object Collector {
 
             DataClasses.SubscribeRequestData(
                 url = subscribeUrl(env.config().apiUrl),
+                requestId = subscription.requestID,
                 time = subscription.time,
                 rToken = env.config().rToken,
-                uid = subscription.uid,
                 authHeader = env.auth().first,
                 matchingMode = env.auth().second,
                 provider = env.token().provider,
                 deviceToken = env.token().token,
                 status = subscription.status,
-                sync = subscription.sync,
+                sync = subscription.sync == 1,
                 profileFields = subscription.profileFields,
                 fields = subscription.customFields,
                 cats = subscription.cats,
@@ -78,39 +79,104 @@ internal object Collector {
         }
     }
 
-
     /**
-     * Builds an `UpdateRequestData` object for updating a push notification subscription.
+     * Builds an [DataClasses.TokenUpdateRequestData] object for updating the push token.
      *
-     * Retrieves configuration, authentication headers, and device tokens from `context`.
-     * Returns `null` if required data is missing.
+     * Returns `null` if required data is missing or an error occurs.
      *
      * @param context The context for accessing configuration and tokens.
-     * @param uid The unique request identifier.
-     * @return An `UpdateRequestData` object or `null` if data retrieval fails.
+     * @param requestId The unique request identifier used for this update operation.
+     * @return Request data or `null` on failure.
      */
-    suspend fun getUpdateRequestData(
+    suspend fun getTokenUpdateRequestData(
         context: Context,
-        uid: String,
-    ): DataClasses.UpdateRequestData? {
+        requestId: String,
+    ): DataClasses.TokenUpdateRequestData? {
         return try {
             val env = Environment.create(context)
 
-            DataClasses.UpdateRequestData(
-                url = updateUrl(env.config().apiUrl),
-                uid = uid,
+            DataClasses.TokenUpdateRequestData(
+                url = tokenUpdateUrl(env.config().apiUrl),
+                requestId = requestId,
                 oldToken = env.savedToken?.token,
                 newToken = env.token().token,
                 oldProvider = env.savedToken?.provider,
                 newProvider = env.token().provider,
-                authHeader = env.auth().first
+                authHeader = env.auth().first,
+                sync = !env.config().rToken.isNullOrEmpty()
             )
         } catch (e: Exception) {
-            error("getUpdateData", e)
+            error("getTokenUpdateRequestData", e)
             null
         }
     }
 
+    /**
+     * Retrieves the necessary data for sending a push event to the server.
+     *
+     * Builds the full request URL and gathers required authentication details
+     * from the current environment and [event].
+     *
+     * @param context The application context.
+     * @param event The push event entity containing event details.
+     * @return A [DataClasses.PushEventRequestData] object with all required data,
+     *   or `null` if an error occurs.
+     */
+    suspend fun getPushEventRequestData(
+        context: Context,
+        event: PushEventEntity
+    ): DataClasses.PushEventRequestData? {
+        return try {
+            val env = Environment.create(context)
+
+            DataClasses.PushEventRequestData(
+                url = eventPushUrl(
+                    env.config().apiUrl,
+                    event.type
+                ),
+                requestId = event.requestID,
+                uid = event.uid,
+                time = event.time,
+                type = event.type,
+                authHeader = env.auth().first,
+                matchingMode = env.auth().second
+            )
+        } catch (e: Exception) {
+            error("getPushEventData", e)
+            null
+        }
+    }
+
+    /**
+     * Retrieves the necessary data for sending a mobile event to the server.
+     *
+     * Builds the full request URL and gathers required authentication details
+     * from the current environment and [event].
+     *
+     * @param context The application context.
+     * @param event The mobile event entity containing event details.
+     * @return A [DataClasses.MobileEventRequestData] object with all required data,
+     *   or `null` if an error occurs.
+     */
+    suspend fun getMobileEventRequestData(
+        context: Context,
+        event: MobileEventEntity
+    ): DataClasses.MobileEventRequestData? {
+        return try {
+            val env = Environment.create(context)
+
+            DataClasses.MobileEventRequestData(
+                url = eventMobileUrl(env.config().apiUrl),
+                requestId = event.requestID,
+                sid = event.sid,
+                name = event.eventName,
+                authHeader = env.auth().first
+            )
+        } catch (e: Exception) {
+            error("getMobileEventRequestData", e)
+            null
+        }
+    }
 
     /**
      * Builds request data for the unSuspend request.
@@ -127,7 +193,7 @@ internal object Collector {
 
             DataClasses.UnSuspendRequestData(
                 url = unSuspendUrl(env.config().apiUrl),
-                uid = uid,
+                requestId = uid,
                 provider = env.token().provider,
                 token = env.token().token,
                 authHeader = env.auth().first,
@@ -140,76 +206,14 @@ internal object Collector {
     }
 
     /**
-     * Retrieves the necessary data for sending a push event to the server.
+     * Builds request data for a profile status request.
      *
-     * This function constructs the full request URL and gathers required authentication details.
-     * If some values are missing, they are excluded from the final request.
-     *
-     * @param context The application context.
-     * @param event The push event entity containing event details.
-     * @return A PushEventRequestData object with all required data, or null if an error occurs.
-     */
-    suspend fun getPushEventRequestData(
-        context: Context,
-        event: PushEventEntity
-    ): DataClasses.PushEventRequestData? {
-        return try {
-            val env = Environment.create(context)
-
-            DataClasses.PushEventRequestData(
-                url = eventPushUrl(
-                    env.config().apiUrl, event.type
-                ),
-                uid = event.uid,
-                time = event.time,
-                type = event.type,
-                authHeader = env.auth().first,
-                matchingMode = env.auth().second
-            )
-        } catch (e: Exception) {
-            error("getPushEventData", e)
-            null
-        }
-    }
-    /**
-     * Retrieves the necessary data for sending a mobile event to the server.
-     *
-     * This function constructs the full request URL and gathers required authentication details.
-     * It also builds multipart/form-data parts from the provided entity. If some values are missing,
-     * they are excluded from the final request body by `buildMobileEventParts`.
-     *
-     * @param context The application context.
-     * @param event   The mobile event entity containing event details.
-     * @return A [DataClasses.MobileEventRequestData] object with all required data,
-     * or null if an error occurs.
-     */
-    suspend fun getMobileEventRequestData(
-        context: Context,
-        event: MobileEventEntity
-    ): DataClasses.MobileEventRequestData? {
-        return try {
-            val env = Environment.create(context)
-
-            DataClasses.MobileEventRequestData(
-                url = eventMobileUrl(env.config().apiUrl),
-                sid = event.sid,
-                name = event.eventName,
-                authHeader = env.auth().first
-            )
-        } catch (e: Exception) {
-            error("getMobileEventRequestData", e)
-            null
-        }
-    }
-
-    /**
-     * Gathers data to create a `ProfileRequestData` object.
-     *
-     * Retrieves configuration, authentication headers, device token, and other required data from
-     * the `context`. Returns `ProfileRequestData` or `null` if any required data is missing.
+     * Retrieves configuration, authentication headers, and the current (or saved)
+     * push token from [context]. Returns [DataClasses.StatusRequestData] or `null`
+     * if any required data is missing or an error occurs.
      *
      * @param context The context for accessing configuration and tokens.
-     * @return A `ProfileRequestData` object or `null` on failure.
+     * @return A [DataClasses.StatusRequestData] object or `null` on failure.
      */
     suspend fun getStatusRequestData(
         context: Context,
@@ -219,34 +223,62 @@ internal object Collector {
 
             val currentToken = getCurrentPushToken(context)
             val pushToken = env.savedToken ?: currentToken
-            val uid = UUID.randomUUID().toString()
+            val requestId = UUID.randomUUID().toString()
 
             DataClasses.StatusRequestData(
                 url = statusUrl(env.config().apiUrl),
-                uid = uid,
+                requestId = requestId,
                 provider = pushToken?.provider,
                 token = pushToken?.token,
                 authHeader = env.auth().first,
                 matchingMode = env.auth().second
             )
         } catch (e: Exception) {
-            error("getProfileData", e)
+            error("getStatusRequestData", e)
             null
         }
     }
 
+    /**
+     * Builds a [DataClasses.ProfileUpdateRequestData] object for updating profile fields.
+     *
+     * Returns `null` if required data is missing or an error occurs.
+     *
+     * @param context Used to access configuration.
+     * @param entity Profile fields and options for update.
+     * @return Request data or `null` on failure.
+     */
+    suspend fun getProfileUpdateRequestData(
+        context: Context,
+        entity: ProfileUpdateEntity
+    ): DataClasses.ProfileUpdateRequestData? {
+        return try {
+            val env = Environment.create(context)
+
+            DataClasses.ProfileUpdateRequestData(
+                url = profileUpdateUrl(env.config().apiUrl),
+                requestId = entity.requestID,
+                authHeader = env.auth().first,
+                profileFields = entity.profileFields,
+                skipTriggers = entity.skipTriggers
+            )
+        } catch (e: Exception) {
+            error("getProfileUpdateRequestData", e)
+            null
+        }
+    }
 
     /**
      * Retrieves data required for creating a notification based on the provided message map.
      *
-     * This function extracts and processes the necessary information from the incoming `message`
-     * map to construct a `NotificationData` object, which contains all the details needed to
-     * display a notification.
+     * This function extracts and processes the necessary information from the incoming [message]
+     * map to construct a [DataClasses.NotificationData] object, which contains all the details
+     * needed to display a notification.
      *
      * @param context The application context used for accessing resources and utilities.
      * @param message A map of key-value pairs containing push notification data.
-     * @return A `NotificationData` object containing the notification details, or `null` if an
-     * exception occurs.
+     * @return A [DataClasses.NotificationData] object containing the notification details,
+     *   or `null` if an exception occurs.
      */
     suspend fun getNotificationData(
         context: Context,
@@ -262,21 +294,21 @@ internal object Collector {
             val channelInfo = getChannelInfo(config, pushData)
             val color = getIconColor(pushData.color)
             val messageId = getMessageId(context)
-
-            val intent = getIntent(context, messageId, pushData.url, pushData.uid)
+            val extra = pushData.extra
 
             DataClasses.NotificationData(
                 uid = pushData.uid,
                 title = pushData.title,
                 body = pushData.body,
                 icon = icon,
-                messageId = messageId,
-                channelInfo = channelInfo,
                 smallImg = smallImage,
                 largeImage = largeImage,
                 color = color,
-                pendingIntent = intent,
-                buttons = pushData.buttons
+                extra = extra,
+                url = pushData.url,
+                messageId = messageId,
+                buttons = pushData.buttons,
+                channelInfo = channelInfo,
             )
         } catch (e: Exception) {
             error("getNotificationData", e)

@@ -32,7 +32,7 @@ import com.altcraft.sdk.data.room.SDKdb
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.config.ConfigSetup
 import com.altcraft.sdk.additional.SubFunction
-import com.altcraft.sdk.concurrency.CommandQueue
+import com.altcraft.sdk.coordination.CommandQueue
 import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.network.Request
 import com.altcraft.sdk.data.room.RoomRequest
@@ -98,8 +98,6 @@ class MobileEventInstrumentedTest {
                     apiUrl = "https://api.example.com",
                     rToken = testUserTag,
                     appInfo = null,
-                    usingService = false,
-                    serviceMessage = null,
                     pushReceiverModules = null,
                     providerPriorityList = null,
                     pushChannelName = null,

@@ -24,5 +24,5 @@ interface FCMInterface {
      *
      * @param completion Callback with `true` if successful, `false` otherwise.
      */
-    suspend fun deleteToken(completion: (Boolean) -> Unit)
+     fun deleteToken(completion: (Boolean) -> Unit)
 }

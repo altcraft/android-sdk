@@ -28,13 +28,15 @@ import com.altcraft.sdk.json.Converter.fromStringJson
 import okhttp3.MultipartBody
 import com.altcraft.sdk.sdk_events.Events.error
 
+/**
+ * Builds multipart parts for mobile event requests.
+ */
 internal object PartsFactory {
 
     /**
-     * Builds multipart/form-data parts from MobileEventEntity.
+     * Builds multipart/form-data parts from [MobileEventEntity].
      *
-     * @param entity source data used to populate text and JSON form fields.
-     * @return an immutable list of multipart parts, or null if an unrecoverable error occurs.
+     * @return list of parts, or `null` on error.
      */
     fun createMobileEventParts(entity: MobileEventEntity) = try {
         val utm = entity.utmTags.fromStringJson<DataClasses.UTM>(

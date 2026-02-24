@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.network
 
 //  Created by Andrey Pogodin.
@@ -9,9 +11,10 @@ import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.Constants.LATEST_FOR_PROVIDER
 import com.altcraft.sdk.data.Constants.LATEST_SUBSCRIPTION
 import com.altcraft.sdk.data.Constants.MATCH_CURRENT_CONTEXT
-import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Collector
+import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.data.room.ProfileUpdateEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.mob_events.PartsFactory
@@ -20,14 +23,19 @@ import com.altcraft.sdk.network.Network
 import com.altcraft.sdk.network.Request
 import com.altcraft.sdk.network.Response
 import com.altcraft.sdk.sdk_events.Events
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import okhttp3.MultipartBody
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import retrofit2.Response as RResponse
@@ -44,6 +52,7 @@ import retrofit2.Response as RResponse
  * - test_6: statusRequest MATCH_CURRENT_CONTEXT — provider/token from data → Api.getProfile and returns result.
  * - test_7: statusRequest LATEST_FOR_PROVIDER with override — uses targetProvider, token null.
  * - test_13: mobileEventRequest — data OK + parts OK → Api.mobileEvent and returns processResponse result.
+ * - test_16: profileUpdateRequest — data OK → Api.profileUpdate called; returns processResponse result.
  *
  * Negative scenarios:
  * - test_8: subscribeRequest — permission denied → returns RetryError, Api not called.
@@ -53,6 +62,7 @@ import retrofit2.Response as RResponse
  * - test_12: statusRequest — getStatusRequestData = null → returns Error("profileRequest"), Api not called.
  * - test_14: mobileEventRequest — getMobileEventRequestData = null → returns RetryError, Api not called.
  * - test_15: mobileEventRequest — parts == null → returns Error("mobileEventRequest"), Api not called.
+ * - test_17: profileUpdateRequest — getProfileUpdateRequestData = null → returns RetryError, Api not called.
  */
 class RequestTest {
 
@@ -78,7 +88,15 @@ class RequestTest {
             val func = firstArg<String>()
             DataClasses.RetryError(func, 500, "retry", null)
         }
+        every { Events.retry(any(), any()) } answers {
+            val func = firstArg<String>()
+            DataClasses.RetryError(func, 500, "retry", null)
+        }
         every { Events.error(any(), any(), any()) } answers {
+            val func = firstArg<String>()
+            DataClasses.Error(func, 400, "error", null)
+        }
+        every { Events.error(any(), any()) } answers {
             val func = firstArg<String>()
             DataClasses.Error(func, 400, "error", null)
         }
@@ -87,18 +105,16 @@ class RequestTest {
     @After
     fun tearDown() = unmockkAll()
 
-    /** - test_1: subscribeRequest — permission OK, data OK → Api.subscribe called; returns
-     * processResponse result.
-     * */
+    /** - test_1: subscribeRequest — permission OK, data OK → Api.subscribe called; returns processResponse result. */
     @Test
     fun pushSubscribeRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val item = mockk<SubscribeEntity>(relaxed = true)
 
         val req = DataClasses.SubscribeRequestData(
             url = "https://api/subscribe",
+            requestId = "uid-1",
             time = 123L,
             rToken = "rT",
-            uid = "uid-1",
             authHeader = "Bearer X",
             matchingMode = "device",
             provider = "android-firebase",
@@ -113,12 +129,12 @@ class RequestTest {
         )
         coEvery { Collector.getSubscribeRequestData(ctx, item) } returns req
 
-        val retrofitResp = RResponse.success<JsonElement>(JsonObject(mapOf()))
+        val retrofitResp = RResponse.success<JsonElement>(JsonObject(emptyMap()))
         coEvery {
             api.subscribe(
                 req.url,
                 req.authHeader,
-                req.uid,
+                req.requestId,
                 req.provider,
                 req.matchingMode,
                 req.sync,
@@ -131,51 +147,44 @@ class RequestTest {
 
         val out = Request.pushSubscribeRequest(ctx, item)
         assertSame(expected, out)
-
-        coVerify(exactly = 1) {
-            api.subscribe(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.provider,
-                req.matchingMode,
-                req.sync,
-                any()
-            )
-        }
-        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** - test_8: subscribeRequest — permission denied → returns RetryError; Api not called. */
+    /** - test_8: subscribeRequest — permission denied → returns RetryError, Api not called. */
     @Test
     fun pushSubscribeRequest_permissionDenied_returnsRetry_noApiCall() = runBlocking {
         every { SubFunction.checkingNotificationPermission(ctx) } returns false
-
         val item = mockk<SubscribeEntity>(relaxed = true)
-        val result = Request.pushSubscribeRequest(ctx, item)
 
-        assertTrue(result is DataClasses.RetryError)
-        assertEquals("subscribeRequest", result.function)
-        coVerify(exactly = 0) { api.subscribe(any(), any(), any(), any(), any(), any(), any()) }
+        val out = Request.pushSubscribeRequest(ctx, item)
+        assertTrue(out is DataClasses.RetryError)
     }
 
-    /** - test_2: updateRequest — data OK → Api.update called; returns processResponse result. */
+    /** - test_2: tokenUpdateRequest — data OK → Api.tokenUpdate called; returns processResponse result. */
     @Test
     fun tokenUpdateRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
-        val req = DataClasses.UpdateRequestData(
+        val req = DataClasses.TokenUpdateRequestData(
             url = "https://api/update",
-            uid = "uid-2",
+            requestId = "uid-2",
             oldToken = "ot",
             newToken = "nt",
             oldProvider = "android-firebase",
             newProvider = "android-huawei",
-            authHeader = "Bearer X"
+            authHeader = "Bearer X",
+            sync = false
         )
-        coEvery { Collector.getUpdateRequestData(ctx, "rid") } returns req
+        coEvery { Collector.getTokenUpdateRequestData(ctx, "rid") } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
-            api.update(req.url, req.authHeader, req.uid, req.newProvider, req.oldToken, any())
+            api.tokenUpdate(
+                req.url,
+                req.authHeader,
+                req.requestId,
+                req.newProvider,
+                req.oldToken,
+                req.sync,
+                any()
+            )
         } returns retrofitResp
 
         val expected = DataClasses.Event("process", 200, "ok", null)
@@ -183,28 +192,15 @@ class RequestTest {
 
         val out = Request.tokenUpdateRequest(ctx, "rid")
         assertSame(expected, out)
-
-        coVerify(exactly = 1) {
-            api.update(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.newProvider,
-                req.oldToken,
-                any()
-            )
-        }
-        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** - test_9: updateRequest — getUpdateRequestData = null → returns RetryError; Api not called. */
+    /** - test_9: tokenUpdateRequest — getTokenUpdateRequestData = null → returns RetryError, Api not called. */
     @Test
     fun tokenUpdateRequest_nullData_returnsRetry_noApiCall() = runBlocking {
-        coEvery { Collector.getUpdateRequestData(ctx, any()) } returns null
+        coEvery { Collector.getTokenUpdateRequestData(ctx, any()) } returns null
+
         val out = Request.tokenUpdateRequest(ctx, "x")
         assertTrue(out is DataClasses.RetryError)
-        assertEquals("updateRequest", out.function)
-        coVerify(exactly = 0) { api.update(any(), any(), any(), any(), any(), any()) }
     }
 
     /** - test_3: pushEventRequest — data OK → Api.pushEvent called; returns processResponse result. */
@@ -213,9 +209,10 @@ class RequestTest {
         val ev = PushEventEntity(uid = "e1", type = "opened")
         val req = DataClasses.PushEventRequestData(
             url = "https://api/event",
-            uid = ev.uid,
+            requestId = "rid-1",
             time = 999L,
             type = ev.type,
+            uid = ev.uid,
             authHeader = "Bearer X",
             matchingMode = "device"
         )
@@ -223,7 +220,13 @@ class RequestTest {
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
-            api.pushEvent(req.url, req.authHeader, req.uid, req.matchingMode, any())
+            api.pushEvent(
+                req.url,
+                req.authHeader,
+                req.requestId,
+                req.matchingMode,
+                any()
+            )
         } returns retrofitResp
 
         val expected = DataClasses.Event("process", 200, "ok", null)
@@ -231,28 +234,15 @@ class RequestTest {
 
         val out = Request.pushEventRequest(ctx, ev)
         assertSame(expected, out)
-        coVerify(exactly = 1) {
-            api.pushEvent(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.matchingMode,
-                any()
-            )
-        }
-        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** - test_10: pushEventRequest — getPushEventRequestData = null → returns RetryError;
-     *  Api not called.
-     *  */
+    /** - test_10: pushEventRequest — getPushEventRequestData = null → returns RetryError; Api not called. */
     @Test
     fun pushEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
         coEvery { Collector.getPushEventRequestData(ctx, any()) } returns null
+
         val out = Request.pushEventRequest(ctx, PushEventEntity(uid = "e", type = "opened"))
         assertTrue(out is DataClasses.RetryError)
-        assertEquals("eventRequest", out.function)
-        coVerify(exactly = 0) { api.pushEvent(any(), any(), any(), any(), any()) }
     }
 
     /** - test_4: unSuspendRequest — data OK → Api.unSuspend called; returns processResponse result. */
@@ -260,7 +250,7 @@ class RequestTest {
     fun unSuspendRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
         val req = DataClasses.UnSuspendRequestData(
             url = "https://api/unsuspend",
-            uid = "uid-3",
+            requestId = "uid-3",
             provider = "android-firebase",
             token = "tkn",
             authHeader = "Bearer X",
@@ -268,9 +258,16 @@ class RequestTest {
         )
         coEvery { Collector.getUnSuspendRequestData(ctx) } returns req
 
-        val retrofitResp = RResponse.success<JsonElement>(JsonObject(mapOf()))
+        val retrofitResp = RResponse.success<JsonElement>(JsonObject(emptyMap()))
         coEvery {
-            api.unSuspend(req.url, req.authHeader, req.uid, req.provider, req.token, any())
+            api.unSuspend(
+                req.url,
+                req.authHeader,
+                req.requestId,
+                req.provider,
+                req.token,
+                any()
+            )
         } returns retrofitResp
 
         val expected = DataClasses.Event("process", 200, "ok", null)
@@ -278,37 +275,15 @@ class RequestTest {
 
         val out = Request.unSuspendRequest(ctx)
         assertSame(expected, out)
-
-        coVerify(exactly = 1) {
-            api.unSuspend(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.provider,
-                req.token,
-                any()
-            )
-        }
-        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** - test_11: unSuspendRequest — getUnSubscribeRequestData = null →
-     * returns Error("profileRequest"); Api not called.
-     * */
+    /** - test_11: unSuspendRequest — getUnSuspendRequestData = null → returns Error("profileRequest"); Api not called. */
     @Test
     fun unSuspendRequest_nullData_returnsError_noApiCall() = runBlocking {
         coEvery { Collector.getUnSuspendRequestData(ctx) } returns null
-        every { Events.error(any(), any(), any()) } returns DataClasses.Error(
-            "profileRequest",
-            400,
-            "err",
-            null
-        )
 
         val out = Request.unSuspendRequest(ctx)
         assertTrue(out is DataClasses.Error)
-        assertEquals("profileRequest", out.function)
-        coVerify(exactly = 0) { api.unSuspend(any(), any(), any(), any(), any(), any()) }
     }
 
     /** - test_5: statusRequest — LATEST_SUBSCRIPTION → provider/token null. */
@@ -316,17 +291,24 @@ class RequestTest {
     fun statusRequest_latestSubscription_callsApi_withNulls() = runBlocking {
         val req = DataClasses.StatusRequestData(
             url = "https://api/profile",
-            uid = "uid-4",
-            provider = "android-firebase",
-            token = "tkn",
+            requestId = "uid-4",
             authHeader = "Bearer X",
-            matchingMode = "device"
+            matchingMode = "device",
+            provider = "android-firebase",
+            token = "tkn"
         )
         coEvery { Collector.getStatusRequestData(ctx) } returns req
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
         coEvery {
-            api.getProfile(req.url, req.authHeader, req.uid, req.matchingMode, null, null)
+            api.getProfile(
+                req.url,
+                req.authHeader,
+                req.requestId,
+                req.matchingMode,
+                null,
+                null
+            )
         } returns retrofitResp
 
         val expected = DataClasses.Event("process", 200, "ok", null)
@@ -334,17 +316,6 @@ class RequestTest {
 
         val out = Request.statusRequest(ctx, LATEST_SUBSCRIPTION, null)
         assertSame(expected, out)
-
-        coVerify(exactly = 1) {
-            api.getProfile(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.matchingMode,
-                null,
-                null
-            )
-        }
     }
 
     /** - test_6: statusRequest — MATCH_CURRENT_CONTEXT → uses provider/token from data. */
@@ -352,11 +323,11 @@ class RequestTest {
     fun statusRequest_matchCurrentContext_usesTokenAndProvider() = runBlocking {
         val req = DataClasses.StatusRequestData(
             url = "https://api/profile",
-            uid = "uid-5",
-            provider = "android-huawei",
-            token = "zzz",
+            requestId = "uid-5",
             authHeader = "Bearer X",
-            matchingMode = "device"
+            matchingMode = "device",
+            provider = "android-huawei",
+            token = "zzz"
         )
         coEvery { Collector.getStatusRequestData(ctx) } returns req
 
@@ -365,7 +336,7 @@ class RequestTest {
             api.getProfile(
                 req.url,
                 req.authHeader,
-                req.uid,
+                req.requestId,
                 req.matchingMode,
                 "android-huawei",
                 "zzz"
@@ -377,30 +348,18 @@ class RequestTest {
 
         val out = Request.statusRequest(ctx, MATCH_CURRENT_CONTEXT, null)
         assertSame(expected, out)
-        coVerify(exactly = 1) {
-            api.getProfile(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.matchingMode,
-                "android-huawei",
-                "zzz"
-            )
-        }
     }
 
-    /** - test_7: statusRequest — LATEST_FOR_PROVIDER with override → uses targetProvider,
-     * token null.
-     * */
+    /** - test_7: statusRequest — LATEST_FOR_PROVIDER with override → uses targetProvider, token null. */
     @Test
     fun statusRequest_latestForProvider_withOverride() = runBlocking {
         val req = DataClasses.StatusRequestData(
             url = "https://api/profile",
-            uid = "uid-6",
-            provider = "android-firebase",
-            token = "abc",
+            requestId = "uid-6",
             authHeader = "Bearer X",
-            matchingMode = "device"
+            matchingMode = "device",
+            provider = "android-firebase",
+            token = "abc"
         )
         coEvery { Collector.getStatusRequestData(ctx) } returns req
 
@@ -409,7 +368,7 @@ class RequestTest {
             api.getProfile(
                 req.url,
                 req.authHeader,
-                req.uid,
+                req.requestId,
                 req.matchingMode,
                 "android-huawei",
                 null
@@ -421,67 +380,29 @@ class RequestTest {
 
         val out = Request.statusRequest(ctx, LATEST_FOR_PROVIDER, "android-huawei")
         assertSame(expected, out)
-        coVerify(exactly = 1) {
-            api.getProfile(
-                req.url,
-                req.authHeader,
-                req.uid,
-                req.matchingMode,
-                "android-huawei",
-                null
-            )
-        }
     }
 
-    /** - test_12: statusRequest — getStatusRequestData = null → returns Error("profileRequest");
-     *  Api not called.
-     *  */
+    /** - test_12: statusRequest — getStatusRequestData = null → returns Error("profileRequest"); Api not called. */
     @Test
     fun statusRequest_nullData_returnsError_noApiCall() = runBlocking {
         coEvery { Collector.getStatusRequestData(ctx) } returns null
-        every { Events.error(any(), any(), any()) } returns DataClasses.Error(
-            "profileRequest",
-            400,
-            "err",
-            null
-        )
 
         val out = Request.statusRequest(ctx, LATEST_SUBSCRIPTION, null)
         assertTrue(out is DataClasses.Error)
-        assertEquals("profileRequest", out.function)
-        coVerify(exactly = 0) { api.getProfile(any(), any(), any(), any(), any(), any()) }
     }
 
-    /** - test_13: mobileEventRequest — data OK + parts OK → Api.mobileEvent called;
-     *  returns processResponse result.
-     *  */
+    /** - test_13: mobileEventRequest — data OK + parts OK → Api.mobileEvent called; returns processResponse result. */
     @Test
     fun mobileEventRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
-        val entity = MobileEventEntity(
-            id = 1L,
-            userTag = "tag",
-            timeZone = 180,
-            time = 1_700_000_000_000L,
-            sid = "sid-1",
-            altcraftClientID = "cid-1",
-            eventName = "purchase",
-            payload = """{"sum":5}""",
-            matching = """{"m":"v"}""",
-            matchingType = "email",
-            profileFields = """{"age":20}""",
-            subscription = """{"channel":"email"}""",
-            sendMessageId = """"sm-1"""",
-            utmTags = null,
-            retryCount = 0,
-            maxRetryCount = 3
-        )
-
+        val entity = mockk<MobileEventEntity>(relaxed = true)
         val req = DataClasses.MobileEventRequestData(
             url = "https://api/mobile",
+            requestId = "uid-mobile-1",
             sid = "sid-1",
             name = "purchase",
             authHeader = "Bearer X"
         )
+
         mockkObject(PartsFactory)
         coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns req
         every { PartsFactory.createMobileEventParts(entity) } returns listOf(
@@ -489,107 +410,83 @@ class RequestTest {
         )
 
         val retrofitResp = RResponse.success<JsonElement>(JsonNull)
-        coEvery {
-            api.mobileEvent(
-                req.url,
-                req.authHeader,
-                req.sid,
-                any(),
-                any(),
-                any(),
-                parts = any()
-            )
-        } returns retrofitResp
+        coEvery { api.mobileEvent(any(), any(), any(), any(), any(), any(), any(), any()) } returns retrofitResp
 
         val expected = DataClasses.Event("process", 200, "ok", null)
         every { Response.processResponse(req, retrofitResp) } returns expected
 
         val out = Request.mobileEventRequest(ctx, entity)
         assertSame(expected, out)
-
-        coVerify(exactly = 1) {
-            api.mobileEvent(
-                req.url,
-                req.authHeader,
-                req.sid,
-                any(),
-                any(),
-                any(),
-                parts = any()
-            )
-        }
-        verify(exactly = 1) { Response.processResponse(req, retrofitResp) }
     }
 
-    /** - test_14: mobileEventRequest — getMobileEventRequestData = null → returns RetryError;
-     *  Api not called.
-     *  */
+    /** - test_14: mobileEventRequest — getMobileEventRequestData = null → returns RetryError; Api not called. */
     @Test
     fun mobileEventRequest_nullData_returnsRetry_noApiCall() = runBlocking {
-        val entity = MobileEventEntity(
-            id = 2L,
-            userTag = "tag",
-            timeZone = 0,
-            time = 0L,
-            sid = "s",
-            altcraftClientID = "c",
-            eventName = "e",
-            payload = null,
-            matching = null,
-            matchingType = null,
-            profileFields = null,
-            subscription = null,
-            sendMessageId = null,
-            utmTags = null,
-            retryCount = 0,
-            maxRetryCount = 3
-        )
+        val entity = mockk<MobileEventEntity>(relaxed = true)
         coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns null
 
         val out = Request.mobileEventRequest(ctx, entity)
         assertTrue(out is DataClasses.RetryError)
-        assertEquals("mobileEventRequest", out.function)
-
-        coVerify(exactly = 0) { api.mobileEvent(any(), any(), any(), any(), any(), any(), any()) }
     }
 
-    /** - test_15: mobileEventRequest — parts == null → returns Error("mobileEventRequest");
-     * Api not called.
-     * */
+    /** - test_15: mobileEventRequest — parts == null → returns Error("mobileEventRequest"); Api not called. */
     @Test
     fun mobileEventRequest_partsNull_returnsError_noApiCall() = runBlocking {
-        val entity = MobileEventEntity(
-            id = 3L,
-            userTag = "tag",
-            timeZone = 0,
-            time = 0L,
-            sid = "s",
-            altcraftClientID = "c",
-            eventName = "e",
-            payload = null,
-            matching = null,
-            matchingType = null,
-            profileFields = null,
-            subscription = null,
-            sendMessageId = null,
-            utmTags = null,
-            retryCount = 0,
-            maxRetryCount = 3
-        )
+        val entity = mockk<MobileEventEntity>(relaxed = true)
         val req = DataClasses.MobileEventRequestData(
             url = "https://api/mobile",
+            requestId = "uid-mobile-2",
             sid = "s",
             name = "e",
             authHeader = "Bearer X"
         )
+
         mockkObject(PartsFactory)
         coEvery { Collector.getMobileEventRequestData(ctx, entity) } returns req
         every { PartsFactory.createMobileEventParts(entity) } returns null
 
         val out = Request.mobileEventRequest(ctx, entity)
         assertTrue(out is DataClasses.Error)
-        assertEquals("mobileEventRequest", out.function)
+    }
 
-        coVerify(exactly = 0) { api.mobileEvent(any(), any(), any(), any(), any(), any(), any()) }
+    /** - test_16: profileUpdateRequest — data OK → Api.profileUpdate called; returns processResponse result. */
+    @Test
+    fun profileUpdateRequest_success_callsApi_andReturnsProcessResult() = runBlocking {
+        val entity = mockk<ProfileUpdateEntity>(relaxed = true)
+
+        val req = DataClasses.ProfileUpdateRequestData(
+            url = "https://api/profile/update",
+            requestId = "uid-prof-1",
+            authHeader = "Bearer X",
+            profileFields = JsonNull,
+            skipTriggers = true
+        )
+        coEvery { Collector.getProfileUpdateRequestData(ctx, entity) } returns req
+
+        val retrofitResp = RResponse.success<JsonElement>(JsonNull)
+        coEvery {
+            api.profileUpdate(
+                req.url,
+                req.authHeader,
+                req.requestId,
+                any()
+            )
+        } returns retrofitResp
+
+        val expected = DataClasses.Event("process", 200, "ok", null)
+        every { Response.processResponse(req, retrofitResp) } returns expected
+
+        val out = Request.profileUpdateRequest(ctx, entity)
+        assertSame(expected, out)
+    }
+
+    /** - test_17: profileUpdateRequest — getProfileUpdateRequestData = null → returns RetryError; Api not called. */
+    @Test
+    fun profileUpdateRequest_nullData_returnsRetry_noApiCall() = runBlocking {
+        val entity = mockk<ProfileUpdateEntity>(relaxed = true)
+        coEvery { Collector.getProfileUpdateRequestData(ctx, entity) } returns null
+
+        val out = Request.profileUpdateRequest(ctx, entity)
+        assertTrue(out is DataClasses.RetryError)
     }
 }

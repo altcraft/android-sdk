@@ -61,8 +61,6 @@ class RoomEntitiesTest {
             apiUrl = "https://api.example.com",
             rToken = "r-token",
             appInfo = DataClasses.AppInfo("app", "1.0.0", "pkg"),
-            usingService = true,
-            serviceMessage = null,
             pushReceiverModules = listOf("fcm"),
             providerPriorityList = providerPriority,
             pushChannelName = "name",
@@ -83,8 +81,6 @@ class RoomEntitiesTest {
             apiUrl = "https://api.example.com",
             rToken = null,
             appInfo = null,
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = providerPriority,
             pushChannelName = null,
@@ -107,8 +103,6 @@ class RoomEntitiesTest {
             apiUrl = "",
             rToken = null,
             appInfo = null,
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = null,
             providerPriorityList = providerPriority,
             pushChannelName = null,
@@ -184,6 +178,6 @@ class RoomEntitiesTest {
             skipTriggers = null
         )
 
-        assertTrue(entity.uid.isNotBlank())
+        assertTrue(entity.requestID.isNotBlank())
     }
 }

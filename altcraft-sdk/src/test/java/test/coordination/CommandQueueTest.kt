@@ -1,10 +1,10 @@
-package test.concurrency
+package test.coordination
 
 //  Created by Andrey Pogodin.
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.concurrency.CommandQueue
+import com.altcraft.sdk.coordination.CommandQueue
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.Events
 import io.mockk.every
@@ -41,8 +41,8 @@ private const val MSG_TASKS_NOT_FINISH_IN_TIME = "Tasks did not finish in time"
 
 // Labels
 private const val LBL_BEFORE = "before"
-private const val LBL_AFTER  = "after"
-private const val LBL_TAIL   = "tail"
+private const val LBL_AFTER = "after"
+private const val LBL_TAIL = "tail"
 
 class CommandQueueTest {
 

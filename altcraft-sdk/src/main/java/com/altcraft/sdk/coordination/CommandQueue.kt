@@ -1,4 +1,4 @@
-package com.altcraft.sdk.concurrency
+package com.altcraft.sdk.coordination
 
 //  Created by Andrey Pogodin.
 //
@@ -11,25 +11,20 @@ import kotlinx.coroutines.launch
 import com.altcraft.sdk.sdk_events.Events.error
 
 /**
- * CommandQueue — central mechanism for sequential execution of SDK tasks.
+ * CommandQueue — central entry point for sequential SDK task execution.
  *
- * Provides two independent queues:
- * - InitCommandQueue — handles SDK initialization commands.
- * - SubscribeCommandQueue — handles subscription commands.
- * - MobileEventCommandQueue - handles mobile event commands.
- *
- * Each queue runs on Dispatchers.IO, processing suspend functions in FIFO order.
- * Errors are caught, logged, and do not stop the loop.
+ * Each nested queue:
+ * - Accepts suspend tasks via submit
+ * - Executes them sequentially (FIFO) on Dispatchers.IO
+ * - Catches and logs errors without stopping the processing loop
  */
 internal object CommandQueue {
 
     /**
-     * Serial command queue for SDK init tasks.
-     *
-     * Executes submitted suspendable commands **sequentially** on `Dispatchers.IO`.
-     * Failures are caught and logged via `error(FUNC, throwable)`; the loop continues.
+     * Handles SDK initialization commands.
+     * Ensures init operations are executed sequentially.
      */
-     object InitCommandQueue {
+    object InitCommandQueue {
         private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
         private const val FUNC = "InitCommandQueue - init"
 
@@ -43,22 +38,17 @@ internal object CommandQueue {
             }
         }
 
-        /**
-         * Enqueues a suspendable init command to be executed on the main thread (FIFO).
-         *
-         * @param block The suspend function to run.
-         */
+        /** Enqueues an initialization command for sequential execution. */
         fun submit(block: suspend () -> Unit) {
             channel.trySend(block)
         }
     }
 
     /**
-     * Serializes execution of suspend commands in a single coroutine on the IO dispatcher.
-     *
-     * Tasks submitted via [submit] are executed one-by-one in the order of arrival.
+     * Handles subscription-related commands.
+     * Prevents race conditions between subscription operations.
      */
-     object SubscribeCommandQueue {
+    object SubscribeCommandQueue {
         private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
         private const val FUNC = "SubscribeCommandQueue - init"
 
@@ -72,20 +62,15 @@ internal object CommandQueue {
             }
         }
 
-        /**
-         * Enqueues a suspendable init command to be executed on the main thread (FIFO).
-         *
-         * @param block The suspend function to run.
-         */
+        /** Enqueues a subscription command for sequential execution. */
         fun submit(block: suspend () -> Unit) {
             channel.trySend(block)
         }
     }
 
     /**
-     * Serializes execution of suspend commands in a single coroutine on the IO dispatcher.
-     *
-     * Tasks submitted via [submit] are executed one-by-one in the order of arrival.
+     * Handles mobile event commands.
+     * Guarantees ordered delivery of mobile event tasks.
      */
     object MobileEventCommandQueue {
         private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
@@ -101,11 +86,31 @@ internal object CommandQueue {
             }
         }
 
-        /**
-         * Enqueues a suspendable init command to be executed on the main thread (FIFO).
-         *
-         * @param block The suspend function to run.
-         */
+        /** Enqueues a mobile event command for sequential execution. */
+        fun submit(block: suspend () -> Unit) {
+            channel.trySend(block)
+        }
+    }
+
+    /**
+     * Handles profile update commands.
+     * Ensures profile mutations are processed strictly one-by-one.
+     */
+    object ProfileUpdateCommandQueue {
+        private val channel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+        private const val FUNC = "ProfileUpdateCommandQueue - init"
+
+        init {
+            CoroutineScope(Dispatchers.IO).launch {
+                for (command in channel) {
+                    runCatching { command() }.onFailure {
+                        error(FUNC, it)
+                    }
+                }
+            }
+        }
+
+        /** Enqueues a profile update command for sequential execution. */
         fun submit(block: suspend () -> Unit) {
             channel.trySend(block)
         }

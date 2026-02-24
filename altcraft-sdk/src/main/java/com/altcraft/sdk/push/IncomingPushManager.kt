@@ -15,10 +15,7 @@ import com.altcraft.sdk.sdk_events.EventList.notAltcraftPush
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.sdk_events.Message.RECEIVER_REDEFINED
-import com.altcraft.sdk.push.OpenPushStrategy.deliveryEventStrategy
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startPushProcessingCoroutineWorker
 
 /**
  * Contains the functions necessary to receive incoming push notifications.
@@ -26,46 +23,36 @@ import kotlinx.coroutines.launch
 internal object IncomingPushManager {
 
     /**
-     * Handles an incoming push payload: logs reception, optionally triggers delivery flow,
-     * and broadcasts the message to all Altcraft push receivers.
+     * Handles an incoming push payload: logs reception and, for Altcraft pushes,
+     * schedules background processing via WorkManager.
      *
      * Flow:
      * 1) Detects whether the message is an Altcraft push (`altcraftPush(message)`).
-     * 2) Emits an event named "takePush" with either `altcraftPush` or `notAltcraftPush`.
-     * 3) If the message is not from Altcraft, returns without dispatching to receivers.
-     * 4) For Altcraft pushes, runs `deliveryEventStrategy(context, message)`,
-     *    then dispatches to all available receivers via `sendToAllRecipients(...)`.
+     * 2) Generates a notification receipt event.
+     * 3) If the message is not from Altcraft, returns without further processing.
+     * 4) For Altcraft pushes, enqueues PushProcessingCoroutineWorker via
+     *    `startPushProcessingCoroutineWorker(context, message)`.
      *
-     * Execution runs on a background coroutine (Dispatchers.IO).
-     *
-     * @param context Used to access configuration and receivers.
+     * @param context Used to access configuration and schedule work.
      * @param message Push data map.
      */
     fun handlePush(context: Context, message: Map<String, String>) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val isAltcraftPush = altcraftPush(message)
-                val eventValue = mapOf(MESSAGE to message)
-                receivingEvent(isAltcraftPush, eventValue)
+        try {
+            val isAltcraftPush = altcraftPush(message)
 
-                if (!isAltcraftPush) return@launch
+            event(
+                "takePush",
+                if (isAltcraftPush) altcraftPush else notAltcraftPush,
+                mapOf(MESSAGE to message)
+            )
 
-                deliveryEventStrategy(context, message)
-                sendToAllRecipients(context, message)
-            } catch (e: Exception) {
-                error("takePush", e)
-            }
+            if (!isAltcraftPush) return
+
+            startPushProcessingCoroutineWorker(context, message)
+        } catch (e: Exception) {
+            error("takePush", e)
         }
     }
-
-    /**
-     * Logs the reception of a push event based on its Altcraft origin.
-     *
-     * @param isAltcraftPush true if the push is from Altcraft, false otherwise
-     * @param value structured push data to be logged
-     */
-    private fun receivingEvent(isAltcraftPush: Boolean, value: Map<String, Any>) =
-        event("takePush", if (isAltcraftPush) altcraftPush else notAltcraftPush, value)
 
     /**
      * Sends a push message to all available `AltcraftPushReceiver` classes.
@@ -74,7 +61,7 @@ internal object IncomingPushManager {
      * @param context App context for class loading.
      * @param message Push message payload.
      */
-    private suspend fun sendToAllRecipients(context: Context, message: Map<String, String>) {
+    internal suspend fun sendToAllRecipients(context: Context, message: Map<String, String>) {
         val func = "sendToAllRecipients"
         try {
             val packages = getConfig(context)?.pushReceiverModules.orEmpty()

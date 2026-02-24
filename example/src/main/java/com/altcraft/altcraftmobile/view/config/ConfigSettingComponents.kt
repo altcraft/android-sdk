@@ -51,7 +51,7 @@ import com.altcraft.altcraftmobile.functions.app.UI.SpacerHeightDp
 import com.altcraft.altcraftmobile.icon
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.initAltcraft
-import com.altcraft.sdk.AltcraftSDK.reinitializeRetryControlInThisSession
+import com.altcraft.sdk.AltcraftSDK.unlockInitialOperationsInThisSession
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.HMS_PROVIDER
 import com.altcraft.sdk.data.Constants.RUS_PROVIDER
@@ -92,9 +92,6 @@ object ConfigSettingComponents {
         val rTokenHint =
             if (currentConfig.value != null) parsedConfig?.rToken?.takeIf { it.isNotBlank() }
                 ?: "" else ""
-        val serviceMsgHint =
-            if (currentConfig.value != null) parsedConfig?.serviceMessage?.takeIf { it.isNotBlank() }
-                ?: "" else ""
 
         Column {
             Box(
@@ -129,7 +126,6 @@ object ConfigSettingComponents {
                             onClick = {
                                 val apiUrl = apiUrlValue.value.ifBlank { apiUrlHint }
                                 val rToken = rTokenValue.value.ifBlank { rTokenHint }
-                                val serviceMsg = serviceMsgValue.value.ifBlank { serviceMsgHint }
 
                                 if (apiUrl.isBlank()) {
                                     Toast.makeText(
@@ -145,9 +141,7 @@ object ConfigSettingComponents {
                                     rToken = rToken,
                                     priorityProviders = viewModel.providerList.value
                                         .takeIf { it.isNotEmpty() },
-                                    icon = icon,
-                                    usingService = serviceMsg.isNotEmpty(),
-                                    serviceMessage = serviceMsg.ifEmpty { null }
+                                    icon = icon
                                 )
 
                                 setConfig(context, configToSave)
@@ -156,7 +150,7 @@ object ConfigSettingComponents {
                                 viewModel.userName.value = configToSave.apiUrl
                                 viewModel.configSetting.value = configToSave.toString()
 
-                                reinitializeRetryControlInThisSession()
+                                unlockInitialOperationsInThisSession()
 
                                 initAltcraft(context)
 
@@ -186,8 +180,6 @@ object ConfigSettingComponents {
             EditTextRow("RToken", rTokenValue, rTokenHint)
             SpacerHeightDp(7.dp)
             ProviderSelectionBox(viewModel = viewModel)
-            SpacerHeightDp(7.dp)
-            EditTextRow("S.Msg", serviceMsgValue, serviceMsgHint)
         }
     }
 }

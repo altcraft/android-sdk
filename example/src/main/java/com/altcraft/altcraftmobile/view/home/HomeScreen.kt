@@ -105,7 +105,6 @@ fun HomeScreen(viewModel: MainViewModel) {
             if (profileAction) {
                 item {
                     Column {
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically

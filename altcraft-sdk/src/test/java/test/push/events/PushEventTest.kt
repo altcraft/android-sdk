@@ -60,7 +60,6 @@ class PushEventTest {
 
     @Before
     fun setUp() {
-        // Mock Android Log
         mockkStatic(Log::class)
         every { Log.d(any<String>(), any<String>()) } returns 0
         every { Log.i(any<String>(), any<String>()) } returns 0
@@ -71,9 +70,8 @@ class PushEventTest {
         every { Log.v(any<String>(), any<String>()) } returns 0
 
         ctx = mockk(relaxed = true)
-        entity = PushEventEntity(UID_1, TYPE_OPEN)
+        entity = PushEventEntity(uid = UID_1, type = TYPE_OPEN)
 
-        // DB and Environment
         db = mockk(relaxed = true)
         dao = mockk(relaxed = true)
         env = mockk(relaxed = true)
@@ -84,39 +82,21 @@ class PushEventTest {
         mockkObject(Environment)
         every { Environment.create(ctx) } returns env
 
-        // RoomRequest wrappers (suspend → coEvery без Runs/Awaits)
         mockkObject(RoomRequest)
-        coEvery { RoomRequest.entityInsert(any(), any()) } answers { }
-        coEvery { RoomRequest.entityDelete(any(), any()) } answers { }
+        coEvery { RoomRequest.entityInsert(any(), any()) } coAnswers { Unit }
+        coEvery { RoomRequest.entityDelete(any(), any()) } coAnswers { Unit }
         coEvery { RoomRequest.isRetryLimit(any(), any()) } returns false
 
-        // Network layer
         mockkObject(Request)
-        // Default behavior — success; детали переопределяются в тестах при необходимости
-        coEvery { Request.request(any(), any()) } returns DataClasses.Event("ok")
-        coEvery { Request.pushEventRequest(any(), any<PushEventEntity>()) } returns DataClasses.Event("ok")
+        coEvery { Request.request(any(), any<PushEventEntity>()) } returns DataClasses.Event("ok")
 
-        // Workers
         mockkObject(LaunchFunctions)
-        // Обычная функция, не suspend → every + answers { }
-        every { LaunchFunctions.startPushEventCoroutineWorker(any()) } answers { }
+        coEvery { LaunchFunctions.startPushEventCoroutineWorker(any()) } coAnswers { Unit }
 
         mockkObject(WorkerRequest)
         coEvery { WorkerRequest.hasNewRequest(any(), any(), any()) } returns false
 
-        // Events
         mockkObject(Events)
-
-        // error(function, error)
-        every { Events.error(any(), any()) } answers {
-            DataClasses.Error(
-                function = firstArg(),
-                eventCode = null,
-                eventMessage = secondArg<Any?>()?.toString(),
-                eventValue = null
-            )
-        }
-        // error(function, error, value)
         every { Events.error(any(), any(), any()) } answers {
             DataClasses.Error(
                 function = firstArg(),
@@ -125,16 +105,14 @@ class PushEventTest {
                 eventValue = thirdArg()
             )
         }
-        // retry(function, error)
-        every { Events.retry(any(), any()) } answers {
-            DataClasses.RetryError(
+        every { Events.error(any(), any()) } answers {
+            DataClasses.Error(
                 function = firstArg(),
                 eventCode = null,
                 eventMessage = secondArg<Any?>()?.toString(),
                 eventValue = null
             )
         }
-        // retry(function, error, value)
         every { Events.retry(any(), any(), any()) } answers {
             DataClasses.RetryError(
                 function = firstArg(),
@@ -143,11 +121,17 @@ class PushEventTest {
                 eventValue = thirdArg()
             )
         }
+        every { Events.retry(any(), any()) } answers {
+            DataClasses.RetryError(
+                function = firstArg(),
+                eventCode = null,
+                eventMessage = secondArg<Any?>()?.toString(),
+                eventValue = null
+            )
+        }
 
-        // Online helper
         mockkObject(SubFunction)
 
-        // Exception helper
         mockkObject(ExceptionExtension)
         every { ExceptionExtension.exception(uidIsNull) } throws RuntimeException("uidIsNull")
     }
@@ -155,11 +139,6 @@ class PushEventTest {
     @After
     fun tearDown() = unmockkAll()
 
-    /**
-     * Mocks online status for the SubFunction.isOnline helper.
-     *
-     * @param isOnline True if network is available, false otherwise.
-     */
     private fun mockOnline(isOnline: Boolean) {
         every { SubFunction.isOnline(ctx) } returns isOnline
     }
@@ -171,10 +150,10 @@ class PushEventTest {
 
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, null)
 
-        verify { Events.error(FUNC_SEND, any<Exception>()) }
+        verify(exactly = 1) { Events.error(FUNC_SEND, any<Exception>()) }
         coVerify(exactly = 0) { RoomRequest.entityInsert(any(), any()) }
-        verify(exactly = 0) { LaunchFunctions.startPushEventCoroutineWorker(any()) }
-        coVerify(exactly = 0) { Request.request(any(), any()) }
+        coVerify(exactly = 0) { LaunchFunctions.startPushEventCoroutineWorker(any()) }
+        coVerify(exactly = 0) { Request.request(any(), any<PushEventEntity>()) }
     }
 
     /** - test_2: sendPushEvent offline + retry result → inserts entity and starts worker. */
@@ -182,22 +161,21 @@ class PushEventTest {
     fun sendPushEvent_offline_enqueuesAndStartsWorker() = runTest {
         mockOnline(false)
 
-        // emulate retry result
-        coEvery { Request.request(ctx, any()) } returns DataClasses.RetryError("eventRequest")
+        coEvery { Request.request(ctx, any<PushEventEntity>()) } returns DataClasses.RetryError("eventRequest")
 
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, UID_1)
 
-        // offline error is logged
-        verify { Events.error(FUNC_SEND, noInternetConnect) }
-
-        // entity is stored and worker is started
+        verify(exactly = 1) { Events.error(FUNC_SEND, noInternetConnect) }
         coVerify(exactly = 1) {
             RoomRequest.entityInsert(
                 ctx,
-                match { it is PushEventEntity && it.uid == UID_1 && it.type == TYPE_OPEN }
+                match {
+                    val e = it as? PushEventEntity ?: return@match false
+                    e.uid == UID_1 && e.type == TYPE_OPEN && e.requestID.isNotBlank()
+                }
             )
         }
-        verify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
+        coVerify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
     }
 
     /** - test_3: sendPushEvent online + retry result → inserts entity and starts worker. */
@@ -205,18 +183,22 @@ class PushEventTest {
     fun sendPushEvent_retry_insertsAndStartsWorker() = runTest {
         mockOnline(true)
 
-        coEvery { Request.request(ctx, any()) } returns DataClasses.RetryError("eventRequest")
+        coEvery { Request.request(ctx, any<PushEventEntity>()) } returns DataClasses.RetryError("eventRequest")
 
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, UID_1)
 
         coVerify(exactly = 1) {
             RoomRequest.entityInsert(
                 ctx,
-                match { it is PushEventEntity && it.uid == UID_1 && it.type == TYPE_OPEN }
+                match {
+                    val e = it as? PushEventEntity ?: return@match false
+                    e.uid == UID_1 && e.type == TYPE_OPEN && e.requestID.isNotBlank()
+                }
             )
         }
-        verify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
-        verify(exactly = 0) { Events.error(FUNC_SEND, any()) }
+        coVerify(exactly = 1) { LaunchFunctions.startPushEventCoroutineWorker(ctx) }
+        verify(exactly = 0) { Events.error(FUNC_SEND, noInternetConnect) }
+        verify(exactly = 0) { Events.error(FUNC_SEND, any<Exception>()) }
     }
 
     /** - test_4: sendPushEvent success → no DB insert and no worker start. */
@@ -224,37 +206,35 @@ class PushEventTest {
     fun sendPushEvent_success_doesNotInsertOrStartWorker() = runTest {
         mockOnline(true)
 
-        coEvery { Request.request(ctx, any()) } returns DataClasses.Event("ok")
+        coEvery { Request.request(ctx, any<PushEventEntity>()) } returns DataClasses.Event("ok")
 
         PushEvent.sendPushEvent(ctx, TYPE_OPEN, UID_1)
 
         coVerify(exactly = 0) { RoomRequest.entityInsert(any(), any()) }
-        verify(exactly = 0) { LaunchFunctions.startPushEventCoroutineWorker(any()) }
+        coVerify(exactly = 0) { LaunchFunctions.startPushEventCoroutineWorker(any()) }
         verify(exactly = 0) { Events.error(FUNC_SEND, noInternetConnect) }
+        verify(exactly = 0) { Events.error(FUNC_SEND, any<Exception>()) }
     }
 
     /** - test_5: isRetry with success → deletes entity and returns false. */
     @Test
     fun isRetry_success_deletesAndReturnsFalse() = runTest {
-        // one pending event before, none after
         coEvery { dao.getAllPushEvents() } returns listOf(entity) andThen emptyList()
-
-        coEvery { Request.pushEventRequest(ctx, entity) } returns DataClasses.Event("ok")
+        coEvery { Request.request(ctx, entity) } returns DataClasses.Event("ok")
 
         val result = PushEvent.isRetry(ctx)
 
         assertFalse(result)
         coVerify(exactly = 1) { RoomRequest.entityDelete(db, entity) }
         coVerify(exactly = 0) { RoomRequest.isRetryLimit(db, entity) }
+        coVerify(exactly = 0) { WorkerRequest.hasNewRequest(any(), any(), any()) }
     }
 
     /** - test_6: isRetry with retry result → marks retry limit, no delete, returns true. */
     @Test
     fun isRetry_withRetry_marksRetryLimitAndReturnsTrue() = runTest {
-        // events still present before and after sendAllPushEvents
         coEvery { dao.getAllPushEvents() } returnsMany listOf(listOf(entity), listOf(entity))
-
-        coEvery { Request.pushEventRequest(ctx, entity) } returns DataClasses.RetryError("eventRequest")
+        coEvery { Request.request(ctx, entity) } returns DataClasses.RetryError("eventRequest")
         coEvery { WorkerRequest.hasNewRequest(ctx, any(), any()) } returns false
 
         val result = PushEvent.isRetry(ctx)
@@ -267,11 +247,11 @@ class PushEventTest {
     /** - test_7: sendAllPushEvents parallel success → deletes both entities. */
     @Test
     fun sendAllPushEvents_parallelSuccessDeletesBoth() = runTest {
-        val e1 = PushEventEntity("u1", TYPE_OPEN)
-        val e2 = PushEventEntity("u2", "delivery")
+        val e1 = PushEventEntity(uid = "u1", type = TYPE_OPEN)
+        val e2 = PushEventEntity(uid = "u2", type = "delivery")
 
-        coEvery { Request.pushEventRequest(ctx, e1) } returns DataClasses.Event("ok1")
-        coEvery { Request.pushEventRequest(ctx, e2) } returns DataClasses.Event("ok2")
+        coEvery { Request.request(ctx, e1) } returns DataClasses.Event("ok1")
+        coEvery { Request.request(ctx, e2) } returns DataClasses.Event("ok2")
 
         PushEvent.sendAllPushEvents(ctx, db, listOf(e1, e2))
 

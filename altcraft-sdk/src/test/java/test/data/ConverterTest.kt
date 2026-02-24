@@ -58,7 +58,8 @@ class ConverterTest {
         private const val STR_SPACES = "  with spaces  "
         private const val STR_QUOTES = "quotes: \"double\" and 'single' and backslash \\ "
         private const val STR_UNICODE = "emoji: 😎 snow: ❄  cyrillic: кириллица"
-        private val SAMPLE_STR_LIST = listOf(STR_SIMPLE, STR_EMPTY, STR_SPACES, STR_QUOTES, STR_UNICODE)
+        private val SAMPLE_STR_LIST =
+            listOf(STR_SIMPLE, STR_EMPTY, STR_SPACES, STR_QUOTES, STR_UNICODE)
 
         private const val APP_ID = "AltcraftMobile"
         private const val APP_IID = "1.2.3"
@@ -71,7 +72,12 @@ class ConverterTest {
     @Before
     fun setUp() {
         mockkObject(Events)
-        every { Events.error(any(), any(), any()) } returns DataClasses.Error("converter", 400, "err", null)
+        every { Events.error(any(), any(), any()) } returns DataClasses.Error(
+            "converter",
+            400,
+            "err",
+            null
+        )
         every { Events.subscribe(any()) } just Runs
         every { Events.unsubscribe() } just Runs
     }

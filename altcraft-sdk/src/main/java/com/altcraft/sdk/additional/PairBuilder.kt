@@ -5,16 +5,18 @@ package com.altcraft.sdk.additional
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import com.altcraft.sdk.data.Constants.MOBILE_EVENT_REQUEST
-import com.altcraft.sdk.network.Response
+import com.altcraft.sdk.data.Constants.PROFILE_UPDATE_REQUEST
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
 import com.altcraft.sdk.data.Constants.STATUS_REQUEST
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
 import com.altcraft.sdk.data.Constants.SUCCESS_REQUEST
+import com.altcraft.sdk.data.Constants.SUSPEND_REQUEST
+import com.altcraft.sdk.data.Constants.UNSUBSCRIBE_REQUEST
 import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
-import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
+import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_REQUEST
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.EventList.pushProviderSet
-import com.altcraft.sdk.interfaces.RequestData
+import com.altcraft.sdk.network.Request.RequestName
 
 /**
  * Internal utility for generating structured response pairs used in SDK logging and error handling.
@@ -22,7 +24,7 @@ import com.altcraft.sdk.interfaces.RequestData
 internal object PairBuilder {
 
     /**
-     * Returns both the error and success messages for a given response and request context.
+     * Returns both the error and success (code, message) pairs for a request.
      *
      * @param code The HTTP status code.
      * @param response The API response object containing error details.
@@ -32,7 +34,7 @@ internal object PairBuilder {
     fun getRequestMessages(
         code: Int,
         response: DataClasses.Response?,
-        request: RequestData
+        request: DataClasses.RequestData
     ) = createErrorRequestPair(code, response, request) to createSuccessRequestPair(request)
 
     /**
@@ -44,29 +46,38 @@ internal object PairBuilder {
      *   - second: a success message string.
      */
     private fun createSuccessRequestPair(
-        request: RequestData
+        request: DataClasses.RequestData
     ): Pair<Int, String> {
-        return when (Response.getRequestName(request)) {
-            SUBSCRIBE_REQUEST ->
+        return when (request.requestName) {
+            RequestName.SUBSCRIBE_REQUEST ->
                 230 to "$SUCCESS_REQUEST $SUBSCRIBE_REQUEST"
 
-            UPDATE_REQUEST ->
-                231 to "$SUCCESS_REQUEST $UPDATE_REQUEST"
+            RequestName.SUSPEND_REQUEST ->
+                231 to "$SUCCESS_REQUEST $SUSPEND_REQUEST"
 
-            UNSUSPEND_REQUEST ->
-                232 to "$SUCCESS_REQUEST $UNSUSPEND_REQUEST"
+            RequestName.UNSUBSCRIBE_REQUEST ->
+                232 to "$SUCCESS_REQUEST $UNSUBSCRIBE_REQUEST"
 
-            STATUS_REQUEST ->
-                233 to "$SUCCESS_REQUEST $STATUS_REQUEST"
+            RequestName.TOKEN_UPDATE_REQUEST ->
+                233 to "$SUCCESS_REQUEST $TOKEN_UPDATE_REQUEST"
 
-            PUSH_EVENT_REQUEST -> {
+            RequestName.UNSUSPEND_REQUEST ->
+                234 to "$SUCCESS_REQUEST $UNSUSPEND_REQUEST"
+
+            RequestName.STATUS_REQUEST ->
+                235 to "$SUCCESS_REQUEST $STATUS_REQUEST"
+
+            RequestName.PROFILE_UPDATE_REQUEST ->
+                238 to "$SUCCESS_REQUEST $PROFILE_UPDATE_REQUEST"
+
+            RequestName.PUSH_EVENT_REQUEST -> {
                 val type = (request as? DataClasses.PushEventRequestData)?.type
-                234 to "$SUCCESS_REQUEST $PUSH_EVENT_REQUEST. Event type: $type"
+                236 to "$SUCCESS_REQUEST $PUSH_EVENT_REQUEST. Event type: $type"
             }
 
-            else -> {
+            RequestName.MOBILE_EVENT_REQUEST -> {
                 val name = (request as? DataClasses.MobileEventRequestData)?.name
-                235 to "$SUCCESS_REQUEST $MOBILE_EVENT_REQUEST. Event name: $name"
+                237 to "$SUCCESS_REQUEST $MOBILE_EVENT_REQUEST. Event name: $name"
             }
         }
     }
@@ -78,9 +89,12 @@ internal object PairBuilder {
      */
     private val retryableRequestErrorCodeMap = mapOf(
         SUBSCRIBE_REQUEST to (530 to 430),
-        UPDATE_REQUEST to (531 to 431),
-        PUSH_EVENT_REQUEST to (534 to 434),
-        MOBILE_EVENT_REQUEST to (535 to 435)
+        SUSPEND_REQUEST to (531 to 431),
+        UNSUBSCRIBE_REQUEST to (532 to 432),
+        TOKEN_UPDATE_REQUEST to (533 to 433),
+        PUSH_EVENT_REQUEST to (536 to 436),
+        MOBILE_EVENT_REQUEST to (537 to 437),
+        PROFILE_UPDATE_REQUEST to (538 to 438)
     )
 
     /**
@@ -96,11 +110,11 @@ internal object PairBuilder {
     private fun createErrorRequestPair(
         code: Int,
         response: DataClasses.Response?,
-        requestData: RequestData
+        requestData: DataClasses.RequestData
     ): Pair<Int, String> {
         val error = response?.error
         val text = response?.errorText
-        val requestName = Response.getRequestName(requestData)
+        val requestName = requestData.requestName.value
         val baseMsg = "request: $requestName, http code: $code, error: $error, errorText: $text"
 
         val errorMsg = when (requestData) {
@@ -114,8 +128,8 @@ internal object PairBuilder {
                 if (code in 500..599) code5xx to errorMsg else code4xx to errorMsg
             }
 
-            UNSUSPEND_REQUEST -> 432 to errorMsg
-            STATUS_REQUEST -> 433 to errorMsg
+            UNSUSPEND_REQUEST -> 434 to errorMsg
+            STATUS_REQUEST -> 435 to errorMsg
             else -> if (code in 500..599) 539 to "unknown request: $errorMsg" else
                 439 to "unknown request: $errorMsg"
         }

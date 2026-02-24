@@ -9,7 +9,8 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
-import com.altcraft.sdk.data.Constants.MESSAGE_ID
+import com.altcraft.sdk.data.Constants.EXTRA
+import com.altcraft.sdk.data.Constants.MSG_ID
 import com.altcraft.sdk.data.Constants.OPEN
 import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.data.Constants.URL
@@ -18,7 +19,6 @@ import com.altcraft.sdk.push.events.PushEvent.sendPushEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.String
 
 /**
  * Handles actions triggered by tapping a push notification:
@@ -64,21 +64,25 @@ internal object PushAction {
      * @param extras Bundle with keys:
      *  - [UID] (String),
      *  - [URL] (String, optional),
-     *  - [MESSAGE_ID] (Int, optional).
+     *  - [MSG_ID] (Int, optional),
+     *  - [EXTRA] (String, optional).
      */
     fun handleExtras(context: Context, extras: Bundle?) {
         try {
+            val id = extras?.getInt(MSG_ID)
             val uid = extras?.getString(UID)
             val link = extras?.getString(URL)
-            val id = extras?.getInt(MESSAGE_ID)
+            val extra = extras?.getString(EXTRA)
 
             openEvent(context, uid)
             closeNotification(context, id)
 
             if (!link.isNullOrEmpty() && this.uid != uid) {
-                this.uid = uid; openLink(context, link)
+                this.uid = uid
+                openLink(context, link, extra)
             } else {
-                this.uid = null; launchApp(context)
+                this.uid = null
+                launchApp(context, extra)
             }
         } catch (e: Exception) {
             error("handleExtras", e)
@@ -90,13 +94,17 @@ internal object PushAction {
      *
      * @param context Application context.
      * @param link URL to open.
+     * @param extra Value to pass via intent extra [EXTRA].
      */
-    private fun openLink(context: Context, link: String) {
+    private fun openLink(context: Context, link: String, extra: String?) {
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW).setData(link.toUri()))
+            val intent = Intent(Intent.ACTION_VIEW).setData(link.toUri())
+                .putExtra(EXTRA, extra)
+
+            context.startActivity(intent)
         } catch (e: Exception) {
             error("openLink", e)
-            launchApp(context)
+            launchApp(context, extra)
         }
     }
 
@@ -104,14 +112,22 @@ internal object PushAction {
      * Launches the app’s main activity.
      *
      * @param context Application context.
+     * @param extra Value to pass via intent extra [EXTRA].
      */
-    internal fun launchApp(context: Context) {
-        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
-            try {
-                context.startActivity(it)
-            } catch (e: Exception) {
-                error("launchApp", e)
+    internal fun launchApp(context: Context, extra: String?) {
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(
+                context.packageName
+            )?.apply {
+                putExtra(EXTRA, extra)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
+
+            if (intent != null) context.startActivity(intent)
+        } catch (e: Exception) {
+            error("launchApp", e)
         }
     }
 }

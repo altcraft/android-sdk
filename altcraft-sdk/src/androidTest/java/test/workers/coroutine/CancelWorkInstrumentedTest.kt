@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
 
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
+import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.Events
@@ -78,7 +78,7 @@ class CancelWorkInstrumentedTest {
     }
 
     private fun enqueueSubscribe() { wm.enqueue(Request.subscribeRequest()).result.get() }
-    private fun enqueueUpdate() { wm.enqueue(Request.updateRequest()).result.get() }
+    private fun enqueueUpdate() { wm.enqueue(Request.tokUpdateRequest()).result.get() }
     private fun enqueuePushEvent() { wm.enqueue(Request.pushEventRequest()).result.get() }
     private fun enqueueMobileEvent() { wm.enqueue(Request.mobileEventRequest()).result.get() }
 
@@ -104,15 +104,15 @@ class CancelWorkInstrumentedTest {
 
     /** - test_2: cancelUpdateWorkerTask() cancels UPDATE_C_WORK_TAG and calls onComplete. */
     @Test
-    fun cancelUpdateWorkerTask_cancels_and_calls_onComplete() {
+    fun cancelTokenUpdateWorkerTask_cancels_and_calls_onComplete() {
         enqueueUpdate()
 
         val latch = CountDownLatch(1)
-        CancelWork.cancelUpdateWorkerTask(context) { latch.countDown() }
+        CancelWork.cancelTokenUpdateWorkerTask(context) { latch.countDown() }
 
         val completed = latch.await(2, TimeUnit.SECONDS)
         assertThat(completed, `is`(true))
-        assertAllCancelled(UPDATE_C_WORK_TAG)
+        assertAllCancelled(TN_UPDATE_C_WORK_TAG)
     }
 
     /** - test_3: cancelPushEventWorkerTask() cancels PUSH_EVENT_C_WORK_TAG and calls onComplete. */
@@ -156,7 +156,7 @@ class CancelWorkInstrumentedTest {
         assertThat(completed, `is`(true))
 
         assertAllCancelled(SUBSCRIBE_C_WORK_TAG)
-        assertAllCancelled(UPDATE_C_WORK_TAG)
+        assertAllCancelled(TN_UPDATE_C_WORK_TAG)
         assertAllCancelled(PUSH_EVENT_C_WORK_TAG)
         assertAllCancelled(MOB_EVENT_C_WORK_TAG)
     }

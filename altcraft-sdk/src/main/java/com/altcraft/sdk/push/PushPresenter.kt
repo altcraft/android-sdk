@@ -23,7 +23,8 @@ import com.altcraft.sdk.sdk_events.EventList.channelNotCreated
 import com.altcraft.sdk.sdk_events.EventList.notificationErr
 import com.altcraft.sdk.push.PushChannel.isChannelCreated
 import com.altcraft.sdk.push.PushChannel.selectAndCreateChannel
-import com.altcraft.sdk.push.PushChannel.versionsSupportChannels
+import com.altcraft.sdk.push.PushChannel.versionSupportChannels
+import com.altcraft.sdk.push.action.Intent.getIntent
 
 /**
  * Manages creation and display of push notifications.
@@ -42,10 +43,10 @@ internal object PushPresenter {
             if (!checkingNotificationPermission(context)) exception(permissionDenied)
             val data = getNotificationData(context, push) ?: exception(pushDataIsNull)
             val notify = createNotification(context, data) ?: exception(notificationErr)
-            if (versionsSupportChannels) selectAndCreateChannel(context, data.channelInfo)
+            if (versionSupportChannels) selectAndCreateChannel(context, data.channelInfo)
             if (!isChannelCreated(context, data.channelInfo)) exception(channelNotCreated)
             NotificationManagerCompat.from(context).notify(data.messageId, notify)
-            event("showPush", pushIsPosted)
+            event("showPush", event = pushIsPosted, value = mapOf("push" to push))
         } catch (e: Exception) {
             error("showPush", e)
         }
@@ -63,9 +64,13 @@ internal object PushPresenter {
         data: DataClasses.NotificationData
     ): Notification? {
         return try {
+            val intent = getIntent(
+                context, data.messageId, data.url, data.uid, data.extra
+            )
             NotificationCompat.Builder(
                 context, data.channelInfo.first
             ).apply {
+                setPriority(NotificationCompat.PRIORITY_MAX)
                 data.smallImg?.let { setLargeIcon(it) }
                 applyBigPictureStyle(data)
                 setSmallIcon(data.icon)
@@ -73,36 +78,9 @@ internal object PushPresenter {
                 setContentText(data.body)
                 setAutoCancel(true)
                 setColor(data.color)
-                setContentIntent(data.pendingIntent)
-                setPriority(NotificationCompat.PRIORITY_MAX)
-                addActions(context, data.messageId, data.buttons, data.uid)
+                setContentIntent(intent)
+                addActions(context, data)
             }.build()
-        } catch (e: Exception) {
-            error("createNotification", e)
-            null
-        }
-    }
-
-    /**
-     * Creates a notification for foreground services/workers.
-     *
-     * @param context The context used to build the notification.
-     * @param channelId The ID of the notification channel to post on.
-     * @param body The text content of the notification.
-     * @param icon The resource ID of the small icon to display.
-     * @return A [Notification] instance, or `null` if building fails.
-     */
-    internal fun createNotification(
-        context: Context,
-        channelId: String,
-        body: String,
-        icon: Int
-    ): Notification? {
-        return try {
-            NotificationCompat.Builder(context, channelId)
-                .setContentText(body)
-                .setSmallIcon(icon)
-                .build()
         } catch (e: Exception) {
             error("createNotification", e)
             null

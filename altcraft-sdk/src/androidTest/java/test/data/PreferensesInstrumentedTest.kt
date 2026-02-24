@@ -1,33 +1,40 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.data
 
 //  Created by Andrey Pogodin.
-//  Copyright © 2025 Altcraft. All rights reserved.
+//
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.altcraft.sdk.data.DataClasses.TokenData
 import com.altcraft.sdk.data.Preferenses
 import com.altcraft.sdk.json.Converter.json
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
-import org.junit.*
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * PreferensesInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: setPushToken saves JSON; getManualToken retrieves the same TokenData.
- *  - test_2: setCurrentToken saves JSON; getSavedToken retrieves the same TokenData.
+ *  - test_2: setCurrentToken saves JSON; getSavedPushToken retrieves the same TokenData.
  *  - test_3: getMessageId returns 1 on first call and increments sequentially.
- *  - test_4: clear() removes all stored values; getters return null/defaults; getMessageId restarts from 1.
- *  - test_5: manual JSON round-trip works with TokenData.
+ *  - test_4: clear removes all stored values; getters return null/defaults; getMessageId restarts
+ *  from 1.
+ *  - test_5: manual JSON round-trip works with TokenData for SharedPreferences token.
  *
  * Negative scenarios:
- *  - test_6: getManualToken returns null if stored JSON is malformed.
- *  - test_7: getSavedToken returns null if stored JSON is malformed.
+ *  - test_7: getSavedPushToken returns null if stored JSON is malformed.
  *  - test_8: setCurrentToken(null) does not clear existing value (documents current behavior).
- *
  */
 @RunWith(AndroidJUnit4::class)
 class PreferensesInstrumentedTest {
@@ -37,120 +44,99 @@ class PreferensesInstrumentedTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        Preferenses.getPreferences(context).edit().clear().commit()
+        Preferenses.getPreferences(context).edit(commit = true) { clear() }
     }
 
     @After
     fun tearDown() {
-        Preferenses.getPreferences(context).edit().clear().commit()
+        if (::context.isInitialized) {
+            Preferenses.getPreferences(context).edit(commit = true) { clear() }
+        }
     }
 
-    /** setPushToken + getManualToken round-trip. */
+    /**
+     * test_2: setCurrentToken + getSavedPushToken round-trip.
+     */
     @Test
-    fun setPushToken_and_getManualToken_roundTrip_ok() {
-        val td = TokenData("android-firebase", "tok-123")
-        Preferenses.setPushToken(context, td.provider, td.token)
-
-        val loaded = Preferenses.getManualToken(context)
-        Assert.assertNotNull(loaded)
-        Assert.assertEquals(td.provider, loaded!!.provider)
-        Assert.assertEquals(td.token, loaded.token)
-    }
-
-    /** getManualToken returns null for malformed JSON. */
-    @Test
-    fun getManualToken_malformedJson_returnsNull() {
-        val key = getPrivateField("MANUAL_TOKEN_KEY")
-        Preferenses.getPreferences(context).edit().putString(key, "{not-json").commit()
-        Assert.assertNull(Preferenses.getManualToken(context))
-    }
-
-    /** setCurrentToken + getSavedToken round-trip. */
-    @Test
-    fun setCurrentToken_and_getSavedPushToken_roundTrip_ok() {
+    fun setCurrentToken_and_getSavedPushToken_roundTrip_ok() = runTest {
         val td = TokenData("android-huawei", "abc-456")
         Preferenses.setCurrentToken(context, td)
 
-        val saved = Preferenses.getSavedPushToken(context)
-        Assert.assertNotNull(saved)
-        Assert.assertEquals(td.provider, saved!!.provider)
-        Assert.assertEquals(td.token, saved.token)
+        val saved = requireNotNull(Preferenses.getSavedPushToken(context))
+        assertEquals(td.provider, saved.provider)
+        assertEquals(td.token, saved.token)
     }
 
-    /** Current behavior: setCurrentToken(null) does not clear existing value. */
+    /**
+     * test_8: Current behavior: setCurrentToken(null) does not clear existing value.
+     */
     @Test
-    fun setCurrentToken_null_doesNotClear_existingValue() {
+    fun setCurrentToken_null_doesNotClear_existingValue() = runTest {
         val first = TokenData("android-rustore", "777")
         Preferenses.setCurrentToken(context, first)
-        Assert.assertNotNull(Preferenses.getSavedPushToken(context))
+        requireNotNull(Preferenses.getSavedPushToken(context))
 
         Preferenses.setCurrentToken(context, null)
-        val after = Preferenses.getSavedPushToken(context)
-        Assert.assertNotNull(after)
-        Assert.assertEquals(first.token, after!!.token)
+
+        val after = requireNotNull(Preferenses.getSavedPushToken(context))
+        assertEquals(first.token, after.token)
     }
 
-    /** getSavedToken returns null for malformed JSON. */
+    /**
+     * test_7: getSavedPushToken returns null for malformed JSON.
+     */
     @Test
-    fun getSavedPushToken_malformedJson_returnsNull() {
-        val key = getPrivateField("TOKEN_KEY")
-        Preferenses.getPreferences(context).edit().putString(key, "{\"provider\":1}").commit()
-        Assert.assertNull(Preferenses.getSavedPushToken(context))
+    fun getSavedPushToken_malformedJson_returnsNull() = runTest {
+        Preferenses.getPreferences(context).edit(commit = true) {
+            putString(Preferenses.TOKEN_KEY, "{\"provider\":1}")
+        }
+        assertNull(Preferenses.getSavedPushToken(context))
     }
 
-    /** getMessageId returns 1 first, then increments sequentially. */
+    /**
+     * test_3: getMessageId returns 1 first, then increments sequentially.
+     */
     @Test
-    fun getMessageId_increments_fromOne() {
-        val id1 = Preferenses.getMessageId(context) // first call after clean state
+    fun getMessageId_increments_fromOne() = runTest {
+        val id1 = Preferenses.getMessageId(context)
         val id2 = Preferenses.getMessageId(context)
         val id3 = Preferenses.getMessageId(context)
 
-        Assert.assertEquals(1, id1)
-        Assert.assertEquals(2, id2)
-        Assert.assertEquals(3, id3)
+        assertEquals(1, id1)
+        assertEquals(2, id2)
+        assertEquals(3, id3)
     }
 
-    /** clear() resets all values; getMessageId restarts from 1. */
+    /**
+     * test_4: clear removes all stored values; getMessageId restarts from 1.
+     */
     @Test
-    fun clear_storage_resets_values_and_messageId() {
-        val m = TokenData("android-firebase", "tok-x")
+    fun clear_storage_resets_values_and_messageId() = runTest {
         val c = TokenData("android-huawei", "tok-y")
-        Preferenses.setPushToken(context, m.provider, m.token)
         Preferenses.setCurrentToken(context, c)
 
-        Assert.assertNotNull(Preferenses.getManualToken(context))
-        Assert.assertNotNull(Preferenses.getSavedPushToken(context))
+        requireNotNull(Preferenses.getSavedPushToken(context))
 
-        Preferenses.getPreferences(context).edit().clear().commit()
+        Preferenses.getPreferences(context).edit(commit = true) { clear() }
 
-        Assert.assertNull(Preferenses.getManualToken(context))
-        Assert.assertNull(Preferenses.getSavedPushToken(context))
-        Assert.assertEquals(
-            "After clear, first messageId should restart from 1",
-            1,
-            Preferenses.getMessageId(context)
-        )
+        assertNull(Preferenses.getSavedPushToken(context))
+        assertEquals(1, Preferenses.getMessageId(context))
     }
 
-    /** Manual JSON round-trip for TokenData via preferences. */
+    /**
+     * test_5: Manual JSON round-trip for TokenData via SharedPreferences token.
+     */
     @Test
-    fun tokenData_manual_json_roundTrip_ok() {
+    fun tokenData_manual_json_roundTrip_ok() = runTest {
         val td = TokenData("android-firebase", "tok-json")
-        val key = getPrivateField("TOKEN_KEY")
-
         val raw = json.encodeToString(td)
-        Preferenses.getPreferences(context).edit().putString(key, raw).commit()
 
-        val loaded = Preferenses.getSavedPushToken(context)
-        Assert.assertNotNull(loaded)
-        Assert.assertEquals(td.provider, loaded!!.provider)
-        Assert.assertEquals(td.token, loaded.token)
-    }
+        Preferenses.getPreferences(context).edit(commit = true) {
+            putString(Preferenses.TOKEN_KEY, raw)
+        }
 
-    // Helper to access private constants in Preferenses via reflection.
-    private fun getPrivateField(fieldName: String): String {
-        val field = Preferenses::class.java.getDeclaredField(fieldName)
-        field.isAccessible = true
-        return field.get(null) as String
+        val loaded = requireNotNull(Preferenses.getSavedPushToken(context))
+        assertEquals(td.provider, loaded.provider)
+        assertEquals(td.token, loaded.token)
     }
 }

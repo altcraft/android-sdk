@@ -59,7 +59,7 @@ class PartsFactoryTest {
         }""".trimIndent()
 
         val entity = MobileEventEntity(
-            id = 0L,
+            requestID = "req-0",
             userTag = "tag-1",
             timeZone = 180,
             time = fixedMs,
@@ -68,13 +68,13 @@ class PartsFactoryTest {
             eventName = "purchase",
             payload = """{"sum":9.99,"ok":true}""",
             matching = """{"m":"v"}""",
+            matchingType = "email",
             profileFields = """{"age":30}""",
             subscription = """{"channel":"email"}""",
             sendMessageId = """"sm-777"""",
+            utmTags = utmJson,
             retryCount = 0,
-            maxRetryCount = 3,
-            matchingType = "email",
-            utmTags = utmJson
+            maxRetryCount = 3
         )
 
         val parts = PartsFactory.createMobileEventParts(entity)
@@ -186,7 +186,7 @@ class PartsFactoryTest {
         val fixedMs = 1_700_000_100_000L
 
         val entity = MobileEventEntity(
-            id = 0L,
+            requestID = "req-1",
             userTag = "tag-2",
             timeZone = -120,
             time = fixedMs,
@@ -195,13 +195,13 @@ class PartsFactoryTest {
             eventName = "open",
             payload = null,
             matching = null,
+            matchingType = "none",
             profileFields = null,
             subscription = null,
             sendMessageId = null,
+            utmTags = null,
             retryCount = 0,
-            maxRetryCount = 3,
-            matchingType = "none",
-            utmTags = null
+            maxRetryCount = 3
         )
 
         val parts = PartsFactory.createMobileEventParts(entity)
@@ -231,7 +231,7 @@ class PartsFactoryTest {
     @Test
     fun test_3_order_is_preserved() {
         val entity = MobileEventEntity(
-            id = 0L,
+            requestID = "req-2",
             userTag = "tag",
             timeZone = 0,
             time = 2_000_000_000_000L,
@@ -240,12 +240,10 @@ class PartsFactoryTest {
             eventName = "evt",
             payload = """{"a":1}""",
             matching = """{"b":2}""",
+            matchingType = "phone",
             profileFields = """{"p":3}""",
             subscription = """{"s":4}""",
             sendMessageId = """"smid"""",
-            retryCount = 0,
-            maxRetryCount = 3,
-            matchingType = "phone",
             utmTags = """{
               "campaign":"C",
               "content":"Ct",
@@ -253,7 +251,9 @@ class PartsFactoryTest {
               "medium":"M",
               "source":"S",
               "temp":"T"
-            }""".trimIndent()
+            }""".trimIndent(),
+            retryCount = 0,
+            maxRetryCount = 3
         )
 
         val parts = PartsFactory.createMobileEventParts(entity)!!

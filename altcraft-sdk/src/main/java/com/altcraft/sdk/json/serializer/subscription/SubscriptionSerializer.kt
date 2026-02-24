@@ -36,7 +36,9 @@ object SubscriptionSerializer :
         element: JsonElement
     ): DeserializationStrategy<Subscription> {
         val obj = element as? JsonObject
-        val channel = obj?.get("channel")?.let { it as? JsonPrimitive }?.contentOrNull
+        val channel = obj?.get("channel")?.let {
+            it as? JsonPrimitive
+        }?.contentOrNull
 
         return when (channel) {
             EMAIL_CHANNEL -> EmailSubscription.serializer()

@@ -15,12 +15,16 @@ import com.altcraft.sdk.data.Constants.VERSION_MOB
 import com.altcraft.sdk.network.Response.processResponse
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.Collector.getMobileEventRequestData
+import com.altcraft.sdk.data.Collector.getProfileUpdateRequestData
 import com.altcraft.sdk.data.Collector.getStatusRequestData
 import com.altcraft.sdk.data.Collector.getPushEventRequestData
 import com.altcraft.sdk.data.Collector.getSubscribeRequestData
 import com.altcraft.sdk.data.Collector.getUnSuspendRequestData
-import com.altcraft.sdk.data.Collector.getUpdateRequestData
+import com.altcraft.sdk.data.Collector.getTokenUpdateRequestData
+import com.altcraft.sdk.data.Constants
+import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.data.room.ProfileUpdateEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.RequestEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
@@ -38,11 +42,28 @@ import com.altcraft.sdk.mob_events.PartsFactory.createMobileEventParts
 import com.altcraft.sdk.network.Network.getRetrofit
 import com.altcraft.sdk.sdk_events.EventList.mobileEventPartsIsNull
 import com.altcraft.sdk.sdk_events.EventList.mobEventRequestDataIsNull
+import com.altcraft.sdk.sdk_events.EventList.profileUpdateRequestDataIsNull
 
 /**
  * Enables functions for executing server requests.
  */
 internal object Request {
+
+    /**
+     * Identifiers of supported request types in the SDK.
+     */
+    @Suppress("SpellCheckingInspection")
+    internal enum class RequestName(val value: String) {
+        PROFILE_UPDATE_REQUEST(Constants.PROFILE_UPDATE_REQUEST),
+        TOKEN_UPDATE_REQUEST(Constants.TOKEN_UPDATE_REQUEST),
+        MOBILE_EVENT_REQUEST(Constants.MOBILE_EVENT_REQUEST),
+        UNSUBSCRIBE_REQUEST(Constants.UNSUBSCRIBE_REQUEST),
+        PUSH_EVENT_REQUEST(Constants.PUSH_EVENT_REQUEST),
+        SUBSCRIBE_REQUEST(Constants.SUBSCRIBE_REQUEST),
+        UNSUSPEND_REQUEST(Constants.UNSUSPEND_REQUEST),
+        SUSPEND_REQUEST(Constants.SUSPEND_REQUEST),
+        STATUS_REQUEST(Constants.STATUS_REQUEST)
+    }
 
     /**
      * Handles the process of subscribing a device.
@@ -52,24 +73,26 @@ internal object Request {
      * If the request fails, it triggers a retry mechanism.
      *
      * @param context The application context used for permission checks and data retrieval.
-     * @param item A [SubscribeEntity] containing subscription details.
+     * @param entity A [SubscribeEntity] containing subscription details.
      * @return A [DataClasses.Event] representing the outcome of the operation.
      */
     suspend fun pushSubscribeRequest(
         context: Context,
-        item: SubscribeEntity
+        entity: SubscribeEntity
     ): DataClasses.Event {
         return try {
-            if (!checkingNotificationPermission(context)) exception(permissionDenied)
-            val data =
-                getSubscribeRequestData(context, item) ?: exception(pushSubscribeRequestDataIsNull)
-
+            if (!checkingNotificationPermission(context) && entity.status == SUBSCRIBED) exception(
+                permissionDenied
+            )
+            val data = getSubscribeRequestData(context, entity) ?: exception(
+                pushSubscribeRequestDataIsNull
+            )
             val json = JsonFactory.createSubscribeJson(data)
 
             val response = getRetrofit().subscribe(
                 data.url,
                 data.authHeader,
-                data.uid,
+                data.requestId,
                 data.provider,
                 data.matchingMode,
                 data.sync,
@@ -86,7 +109,7 @@ internal object Request {
      * Handles the process of updating a device token.
      *
      * This function retrieves the update request data, validates required authentication parameters,
-     * and sends the token update request using the `update` API call. If the request fails,
+     * and sends the token update request using the `tokenUpdate` API call. If the request fails,
      * it triggers a retry mechanism.
      *
      * @param context The application context.
@@ -99,22 +122,25 @@ internal object Request {
     ): DataClasses.Event {
         return try {
             val data =
-                getUpdateRequestData(context, requestId) ?: exception(tokenUpdateRequestDataIsNull)
-            val json = JsonFactory.createUpdateJson(data)
+                getTokenUpdateRequestData(context, requestId) ?: exception(
+                    tokenUpdateRequestDataIsNull
+                )
+            val json = JsonFactory.createTokenUpdateJson(data)
 
-            val response = getRetrofit().update(
+            val response = getRetrofit().tokenUpdate(
                 data.url,
                 data.authHeader,
-                data.uid,
+                data.requestId,
                 data.newProvider,
                 data.oldToken,
+                data.sync,
                 json
             )
 
             processResponse(data, response)
 
         } catch (e: Exception) {
-            retry("updateRequest", e)
+            retry("tokenUpdateRequest", e)
         }
     }
 
@@ -135,13 +161,15 @@ internal object Request {
     ): DataClasses.Event {
         return try {
             val data =
-                getPushEventRequestData(context, event) ?: exception(pushEventRequestDataIsNull)
+                getPushEventRequestData(context, event) ?: exception(
+                    pushEventRequestDataIsNull
+                )
             val json = JsonFactory.createPushEventJson(data)
 
             val response = getRetrofit().pushEvent(
                 data.url,
                 data.authHeader,
-                data.uid,
+                data.requestId,
                 data.matchingMode,
                 json
             )
@@ -171,12 +199,17 @@ internal object Request {
         val func = "mobileEventRequest"
         return try {
             val data =
-                getMobileEventRequestData(context, event) ?: exception(mobEventRequestDataIsNull)
-            val parts = createMobileEventParts(event) ?: return error(func, mobileEventPartsIsNull)
+                getMobileEventRequestData(context, event) ?: exception(
+                    mobEventRequestDataIsNull
+                )
+            val parts = createMobileEventParts(event) ?: return error(
+                func, mobileEventPartsIsNull
+            )
 
             val response = getRetrofit().mobileEvent(
                 data.url,
                 data.authHeader,
+                event.requestID,
                 data.sid,
                 TRACKER_MOB,
                 TYPE_MOB,
@@ -191,25 +224,28 @@ internal object Request {
     }
 
     /**
-     * Executes an `unSuspend` request used during the user re-authentication process.
+     * Executes an `unSuspend` request to switch push subscriptions between profiles.
      *
-     * This function is called when a user needs to be re-logged into the system.
-     * If the request fails due to a network or server error, it will trigger the error handler.
+     * Suspends subscriptions with the same push token that belong to other profiles,
+     * restores suspended subscriptions for the profile referenced by the current JWT,
+     * and returns the current profile (if it exists).
      *
-     * @param context The application context.
-     * @return A [DataClasses.Event] representing the result of the API call.
+     * @param context Application context.
+     * @return A [DataClasses.Event] with the request result.
      */
     suspend fun unSuspendRequest(
         context: Context,
     ): DataClasses.Event {
         return try {
-            val data = getUnSuspendRequestData(context) ?: exception(unSuspendRequestDataIsNull)
+            val data = getUnSuspendRequestData(context) ?: exception(
+                unSuspendRequestDataIsNull
+            )
             val json = JsonFactory.createUnSuspendJson(data)
 
             val response = getRetrofit().unSuspend(
                 data.url,
                 data.authHeader,
-                data.uid,
+                data.requestId,
                 data.provider,
                 data.token,
                 json
@@ -218,7 +254,7 @@ internal object Request {
             processResponse(data, response)
 
         } catch (e: Exception) {
-            error("profileRequest", e)
+            error("unSuspendRequest", e)
         }
     }
 
@@ -240,7 +276,9 @@ internal object Request {
         targetProvider: String? = null
     ): DataClasses.Event {
         return try {
-            val data = getStatusRequestData(context) ?: exception(profileRequestDataIsNull)
+            val data = getStatusRequestData(context) ?: exception(
+                profileRequestDataIsNull
+            )
 
             val (provider, token) = when (mode) {
                 LATEST_SUBSCRIPTION -> null to null
@@ -251,7 +289,7 @@ internal object Request {
             val response = getRetrofit().getProfile(
                 data.url,
                 data.authHeader,
-                data.uid,
+                data.requestId,
                 data.matchingMode,
                 provider,
                 token
@@ -260,7 +298,42 @@ internal object Request {
             processResponse(data, response)
 
         } catch (e: Exception) {
-            error("profileRequest", e)
+            error("statusRequest", e)
+        }
+    }
+
+    /**
+     * Sends a profile fields update request.
+     *
+     * Builds request data and JSON payload, performs the `profileUpdate` API call,
+     * and processes the server response. On failure, triggers the retry mechanism.
+     *
+     * @param context The application context.
+     * @param entity Profile update data and options.
+     * @return A [DataClasses.Event] representing the request result.
+     */
+    suspend fun profileUpdateRequest(
+        context: Context,
+        entity: ProfileUpdateEntity
+    ): DataClasses.Event {
+        return try {
+            val data =
+                getProfileUpdateRequestData(context, entity) ?: exception(
+                    profileUpdateRequestDataIsNull
+                )
+            val json = JsonFactory.createProfileUpdateJson(data)
+
+            val response = getRetrofit().profileUpdate(
+                data.url,
+                data.authHeader,
+                data.requestId,
+                json
+            )
+
+            processResponse(data, response)
+
+        } catch (e: Exception) {
+            retry("profileUpdateRequest", e)
         }
     }
 
@@ -273,6 +346,7 @@ internal object Request {
      */
     suspend fun request(context: Context, entity: RequestEntity): DataClasses.Event {
         return when (entity) {
+            is ProfileUpdateEntity -> profileUpdateRequest(context, entity)
             is MobileEventEntity -> mobileEventRequest(context, entity)
             is SubscribeEntity -> pushSubscribeRequest(context, entity)
             is PushEventEntity -> pushEventRequest(context, entity)

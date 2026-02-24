@@ -51,6 +51,7 @@ android {
 }
 
 dependencies {
+
     // --- sdk modules ---
     implementation(project(":altcraft-sdk"))
 

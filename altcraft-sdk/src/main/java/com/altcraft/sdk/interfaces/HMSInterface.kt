@@ -28,5 +28,5 @@ interface HMSInterface {
      * @param context Context required for token deletion.
      * @param complete Callback with `true` if successful, `false` otherwise.
      */
-    suspend fun deleteToken(context: Context, complete: (Boolean) -> Unit)
+     fun deleteToken(context: Context, complete: (Boolean) -> Unit)
 }

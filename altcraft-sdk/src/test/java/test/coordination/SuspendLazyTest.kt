@@ -1,4 +1,4 @@
-package test.concurrency
+package test.coordination
 
 //  Created by Andrey Pogodin.
 //
@@ -69,7 +69,7 @@ class SuspendLazyTest {
     @Test
     fun singleInitialization_and_cache() = runBlocking {
         val calls = AtomicInteger(0)
-        val lazy = com.altcraft.sdk.concurrency.SuspendLazy {
+        val lazy = com.altcraft.sdk.coordination.SuspendLazy {
             calls.incrementAndGet()
             "value"
         }
@@ -86,7 +86,7 @@ class SuspendLazyTest {
     @Test
     fun error_is_swallowed_and_state_resets_then_retry_succeeds() = runBlocking {
         val calls = AtomicInteger(0)
-        val lazy = com.altcraft.sdk.concurrency.SuspendLazy {
+        val lazy = com.altcraft.sdk.coordination.SuspendLazy {
             when (calls.incrementAndGet()) {
                 1 -> throw IllegalStateException("boom")
                 else -> "ok"
@@ -106,7 +106,7 @@ class SuspendLazyTest {
     fun cancellation_is_swallowed_and_state_resets_then_retry_succeeds() = runBlocking {
         val calls = AtomicInteger(0)
         val started = CountDownLatch(1)
-        val lazy = com.altcraft.sdk.concurrency.SuspendLazy {
+        val lazy = com.altcraft.sdk.coordination.SuspendLazy {
             when (calls.incrementAndGet()) {
                 1 -> {
                     started.countDown()
@@ -130,7 +130,7 @@ class SuspendLazyTest {
     fun concurrent_calls_result_in_single_initialization() = runBlocking {
         val calls = AtomicInteger(0)
         val blocker = CompletableDeferred<Unit>()
-        val lazy = com.altcraft.sdk.concurrency.SuspendLazy {
+        val lazy = com.altcraft.sdk.coordination.SuspendLazy {
             calls.incrementAndGet()
             blocker.await()
             42

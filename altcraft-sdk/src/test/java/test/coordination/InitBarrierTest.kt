@@ -1,12 +1,12 @@
-package test.concurrency
+package test.coordination
 
 //  Created by Andrey Pogodin.
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.concurrency.InitBarrier
-import com.altcraft.sdk.concurrency.awaitInit
-import com.altcraft.sdk.concurrency.withInitReady
+import com.altcraft.sdk.coordination.InitBarrier
+import com.altcraft.sdk.coordination.awaitInit
+import com.altcraft.sdk.coordination.withInitReady
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async

@@ -6,7 +6,7 @@ package com.altcraft.sdk.push.token
 
 import android.content.Context
 import com.altcraft.sdk.additional.PairBuilder.createSetTokenEventPair
-import com.altcraft.sdk.concurrency.SuspendLazy
+import com.altcraft.sdk.coordination.SuspendLazy
 import com.altcraft.sdk.config.ConfigSetup.getConfig
 import com.altcraft.sdk.data.Constants.FCM_PROVIDER
 import com.altcraft.sdk.data.Constants.HMS_PROVIDER
@@ -26,7 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Handles push token operations — retrieving, validating, and deleting the device's push token.
+ * Handles push token operations: retrieving, validating, and selecting the active device token.
  * Supports integration with push notification providers.
  */
 internal object TokenManager {
@@ -63,40 +63,24 @@ internal object TokenManager {
     }
 
     /**
-     * Deletes the FCM (Firebase Cloud Messaging) token.
+     * Checks whether the push module is considered active.
      *
-     * @param result A callback that receives a `Boolean` indicating the success (`true`) or
-     * failure (`false`) of the operation.
-     */
-    suspend fun deleteFCMToken(result: (Boolean) -> Unit) =
-        fcmProvider?.deleteToken(result)
-
-    /**
-     * Deletes the HMS (Huawei Mobile Services) token.
+     * Returns `true` if any provider is configured or a manual token exists.
      *
-     * @param context The `Context` required to interact with HMS services.
-     * @param result A callback that receives a `Boolean` indicating the success (`true`) or
-     * failure (`false`) of the operation.
+     * @param context Application context used to read the stored manual token.
      */
-    suspend fun deleteHMSToken(context: Context, result: (Boolean) -> Unit) =
-        hmsProvider?.deleteToken(context, result)
-
-    /**
-     * Deletes the RuStore token.
-     *
-     * @param result A callback that receives a `Boolean` indicating the success (`true`) or
-     * failure (`false`) of the operation.
-     */
-    suspend fun deleteRuStoreToken(result: (Boolean) -> Unit) =
-        rustoreProvider?.deleteToken(result)
+    suspend fun pushModuleIsActive(context: Context): Boolean {
+        return fcmProvider != null
+                || hmsProvider != null
+                || rustoreProvider != null
+                || getManualToken(context) != null
+    }
 
     /**
      * Returns the active push token for the device.
      *
-     * First checks if a manual token is set and returns it immediately.
-     * If not, attempts to fetch a token based on the configured `providerPriorityList`.
-     * Falls back to the default order: FCM → HMS → RuStore.
-     * The first successfully retrieved token is logged once per session.
+     * Returns manual token if no providers are set; otherwise resolves via `providerPriorityList`
+     * (defaults to FCM → HMS → RuStore if empty).
      *
      * @param context The application context.
      * @return The selected [DataClasses.TokenData], or `null` if no token could be retrieved.
@@ -105,15 +89,25 @@ internal object TokenManager {
         context: Context
     ): DataClasses.TokenData? {
         return try {
-            (getManualToken(context) ?: getTokens(context).let {
+            if (
+                fcmProvider == null && hmsProvider == null && rustoreProvider == null
+            ) getManualToken(
+                context
+            ) else getTokens(context).let {
                 getPriorityToken(
                     getConfig(context)?.providerPriorityList,
-                    it.fcm::get, it.hms::get, it.rus::get
+                    it.fcm::get,
+                    it.hms::get,
+                    it.rus::get
                 )
-            }).also { tokenEvent(it) }
+            }
         } catch (e: Exception) {
             error("getCurrentToken", e)
             null
+        }.also {
+            tokenEvent(
+                it
+            )
         }
     }
 
@@ -169,11 +163,9 @@ internal object TokenManager {
     }
 
     /**
-     * Creates and sends a token analytics event exactly once per session.
+     * Sends a token "set" event once per process or when the token changes.
      *
-     * @param token Current push token of the device to be logged.
-     *              If `null`, the function returns immediately without any action.
-     *              Non-null token will trigger an analytics event on first call only.
+     * @param token Current device token. If `null`, no event is sent.
      */
     private suspend fun tokenEvent(token: DataClasses.TokenData?) {
         val func = "tokenEvent"

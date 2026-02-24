@@ -7,15 +7,15 @@ package com.altcraft.sdk.push.token
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.core.Environment
-import com.altcraft.sdk.data.Constants.UPDATE_C_WORK_TAG
-import com.altcraft.sdk.network.Request.tokenUpdateRequest
+import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.data.Preferenses.setCurrentToken
 import com.altcraft.sdk.data.error
 import com.altcraft.sdk.data.retry
+import com.altcraft.sdk.network.Request.tokenUpdateRequest
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.retry
-import com.altcraft.sdk.services.manager.ServiceManager.startUpdateWorker
 import com.altcraft.sdk.push.token.TokenManager.tokenLogShow
+import com.altcraft.sdk.workers.coroutine.LaunchFunctions.startTokenUpdateCoroutineWorker
 import com.altcraft.sdk.workers.coroutine.Request.hasNewRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal object TokenUpdate {
 
+    @Volatile
+    private var updateLock: Boolean = false
     private val tokenUpdateMutex = Mutex()
     private val updateProcessMutex = Mutex()
 
@@ -39,34 +41,35 @@ internal object TokenUpdate {
      *
      * @param context The application context used for retrieving configurations and managing
      * token storage.
+     * @return `true` if an update is not required or already completed; `false` otherwise.
      */
-    suspend fun pushTokenUpdate(context: Context) {
-        tokenUpdateMutex.withLock {
-            try {
-                val env = Environment.create(context)
-
-                if (env.savedToken == env.token()) return
-
-                tokenLogShow = AtomicBoolean(false)
-
-                if (!isAppInForegrounded()) isRetry(context)
-                else startUpdateWorker(context, env.config())
-            } catch (e: Exception) {
-                error("tokenUpdate", e)
+    suspend fun pushTokenUpdate(context: Context): Boolean = tokenUpdateMutex.withLock {
+        return try {
+            if (updateLock) return false
+            val env = Environment.create(context)
+            when {
+                env.savedToken == null || env.savedToken == env.token() || !isRetry(context)
+                    -> return true
+                else -> if (isAppInForegrounded()) startTokenUpdateCoroutineWorker(context)
             }
+            false
+        } catch (e: Exception) {
+            error("tokenUpdate", e)
+            false
         }
     }
 
     /**
-     * Runs the push token update logic and indicates whether a retry is required.
+     * Executes token update logic and determines whether a retry is needed.
      *
-     * @param context Application context used for environment and request execution.
-     * @param workerId Optional identifier of the current work request.
-     *
-     * @return `true` if the push/update request should be retried, otherwise `false`.
+     * @param context Application context.
+     * @param workerId Optional work identifier.
+     * @return `true` if another retry is required; `false` otherwise.
      */
     suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
+            tokenLogShow = AtomicBoolean(false); updateLock = true
+
             updateProcessMutex.withLock { logic(context, workerId) }
         } catch (e: Exception) {
             retry("isRetry :: pushTokenUpdate", e); true
@@ -85,13 +88,13 @@ internal object TokenUpdate {
      * @return `true` if the update should be retried; `false` otherwise.
      */
     private suspend fun logic(context: Context, id: UUID?): Boolean {
+        val tag = TN_UPDATE_C_WORK_TAG
         val env = Environment.create(context)
-
         val response = tokenUpdateRequest(context, id.toString())
 
+        if (response !is retry) updateLock = false
         if (response !is error) setCurrentToken(context, env.token())
-        return response is retry && !hasNewRequest(
-            context, UPDATE_C_WORK_TAG, id
-        )
+
+        return response is retry && !hasNewRequest(context, tag, id)
     }
 }

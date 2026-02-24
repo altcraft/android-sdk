@@ -8,6 +8,7 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import com.altcraft.sdk.additional.SubFunction
+import com.altcraft.sdk.additional.SubFunction.altcraftPush
 import com.altcraft.sdk.auth.JWTManager
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.push.token.PublicPushTokenFunctions
@@ -16,10 +17,11 @@ import com.altcraft.sdk.sdk_events.Events
 import com.altcraft.sdk.push.subscribe.PublicPushSubscriptionFunctions
 import com.altcraft.sdk.core.Init
 import com.altcraft.sdk.interfaces.JWTInterface
-import com.altcraft.sdk.core.Retry.retryControl
-import com.altcraft.sdk.mob_events.PublicMobileEventFunction
+import com.altcraft.sdk.core.InitialOperations.initControl
+import com.altcraft.sdk.mob_events.PublicMobileEventFunctions
+import com.altcraft.sdk.profile.PublicProfileFunctions
 import com.altcraft.sdk.push.IncomingPushManager.handlePush
-import com.altcraft.sdk.push.OpenPushStrategy.openPushStrategy
+import com.altcraft.sdk.push.PushPresenter.showPush
 import com.altcraft.sdk.push.events.PublicPushEventFunctions
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -30,25 +32,30 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Keep
 object AltcraftSDK {
 
-    //  Working with public subscription functions
+    /** Push subscription API: subscribe/suspend/unsubscribe and status queries. */
     @Keep
     val pushSubscriptionFunctions = PublicPushSubscriptionFunctions
 
-    // Working with public device token functions
+    /** Mobile event API: send mobile events. */
+    @Keep
+    val mobileEventFunctions = PublicMobileEventFunctions
+
+    /** Push token API: set/get token, configure providers, manage token lifecycle. */
     @Keep
     val pushTokenFunctions = PublicPushTokenFunctions
 
-    //Working with mobile events
+    /** Push event API: report delivery/open events. */
     @Keep
-    val mobileEventFunction = PublicMobileEventFunction
+    val pushEventFunctions = PublicPushEventFunctions
 
-    // Working with push events
+    /** Profile API: update profile fields. */
     @Keep
-    val pushEventFunction = PublicPushEventFunctions
+    val profileFunctions = PublicProfileFunctions
 
-    // Working with SDK events
+    /** SDK events API: subscribe/unsubscribe to SDK event stream. */
     @Keep
     val eventSDKFunctions = Events
+
 
     /**
      * Public entry point to initialize the Altcraft SDK.
@@ -86,13 +93,11 @@ object AltcraftSDK {
         JWTManager.register(provider)
     }
 
-    /**
-     * Resets the push module initialization flag for the current session,
-     * allowing reinitialization of the push module to occur.
-     */
+    /** Allows re-running initial retry/scheduling/token-check
+     *  logic in this process on next [initialization]. */
     @Keep
-    fun reinitializeRetryControlInThisSession() {
-        retryControl = AtomicBoolean(false)
+    fun unlockInitialOperationsInThisSession() {
+        initControl = AtomicBoolean(false)
     }
 
     /**
@@ -119,11 +124,21 @@ object AltcraftSDK {
          * @param context Context for service and operations.
          * @param message Push data payload.
          */
-        open fun pushHandler(context: Context, message: Map<String, String>) {
-            openPushStrategy(context, message)
+        open suspend fun pushHandler(context: Context, message: Map<String, String>) {
+            showPush(context, message)
         }
 
         companion object {
+
+            /**
+             * Checks whether a push notification belongs to Altcraft.
+             *
+             * @param message Push payload converted from `RemoteMessage.data`.
+             * @return `true` if this is an Altcraft push; otherwise `false`.
+             */
+            fun isAltcraftPush(message: Map<String, String>) = altcraftPush(
+                message
+            )
 
             /**
              * Delivers a push message to the SDK for processing.

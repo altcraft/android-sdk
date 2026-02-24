@@ -48,6 +48,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.22")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3")
+    //DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     //Glide
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("com.github.bumptech.glide:annotations:4.16.0")
@@ -73,13 +75,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.6.1")
     //Play-services
     implementation("com.google.android.gms:play-services-ads-identifier:18.2.0")
-
     // Unit tests
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.12")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.23")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-
     // Instrumented tests
     androidTestImplementation("junit:junit:4.13.2")
     androidTestImplementation("io.mockk:mockk-android:1.13.12")
@@ -89,7 +89,6 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-intents:3.5.1")
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-
     // WorkManager testing
     androidTestImplementation("androidx.work:work-testing:2.9.0")
 }
@@ -101,17 +100,18 @@ configurations.matching {
     exclude(group = "org.junit.platform")
 }
 
+
 mavenPublishing {
     publishToMavenCentral()
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "0.0.3")
+    coordinates("com.altcraft", "android-sdk", "1.0.3")
 
     pom {
         name = "Altcraft Android SDK"
         description = "Altcraft Android SDK"
-        inceptionYear = "2025"
+        inceptionYear = "2026"
         url = "https://github.com/altcraft/android-sdk"
         licenses {
             license {
@@ -133,3 +133,4 @@ mavenPublishing {
         }
     }
 }
+

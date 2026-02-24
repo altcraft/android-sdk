@@ -22,7 +22,7 @@ internal interface DAO {
 
     // Config
 
-    /** Inserts a configuration item. */
+    /** Inserts or replaces a configuration entry. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConfig(config: ConfigurationEntity)
 
@@ -30,7 +30,7 @@ internal interface DAO {
     @Query("SELECT * FROM configurationTable LIMIT 1")
     suspend fun getConfig(): ConfigurationEntity?
 
-    /** Deletes all configuration entries. */
+    /** Deletes all configuration entries and returns the number of rows deleted. */
     @Query("DELETE FROM configurationTable")
     suspend fun deleteConfig(): Int
 
@@ -41,22 +41,20 @@ internal interface DAO {
      */
     @Query(
         """
-    UPDATE configurationTable
-    SET providerPriorityList = :list
-    WHERE id = (
-        SELECT id FROM configurationTable
-        ORDER BY id ASC
-        LIMIT 1
-    )
-    """
+        UPDATE configurationTable
+        SET providerPriorityList = :list
+        WHERE id = (
+            SELECT id FROM configurationTable
+            ORDER BY id ASC
+            LIMIT 1
+        )
+        """
     )
     suspend fun updateProviderPriorityList(list: List<String>)
 
     // Subscribe
 
-// Subscribe
-
-    /** Inserts a subscription entry. */
+    /** Inserts a subscription entry and returns the new row ID. */
     @Insert
     suspend fun insertSubscribe(entity: SubscribeEntity): Long
 
@@ -64,17 +62,17 @@ internal interface DAO {
     @Query("SELECT * FROM subscribeTable WHERE userTag = :userTag ORDER BY time ASC")
     suspend fun allSubscriptionsByTag(userTag: String?): List<SubscribeEntity>
 
-    /** Deletes a subscription by UID. */
-    @Query("DELETE FROM subscribeTable WHERE uid = :uid")
-    suspend fun deleteSubscribeByUid(uid: String): Int
+    /** Deletes a subscription by request ID and returns the number of rows deleted. */
+    @Query("DELETE FROM subscribeTable WHERE requestID = :requestID")
+    suspend fun deleteSubscribeById(requestID: String): Int
 
-    /** Deletes all subscription entries. */
+    /** Deletes all subscription entries and returns the number of rows deleted. */
     @Query("DELETE FROM subscribeTable")
-    suspend fun deleteAllSubscriptions(): Int
+    suspend fun deleteAllSubscriptions()
 
-    /** Updates retry count for a subscription by UID. */
-    @Query("UPDATE subscribeTable SET retryCount = :newRetryCount WHERE uid = :uid")
-    suspend fun increaseSubscribeRetryCount(uid: String, newRetryCount: Int)
+    /** Updates the retry count for a subscription by request ID. */
+    @Query("UPDATE subscribeTable SET retryCount = :newRetryCount WHERE requestID = :requestID")
+    suspend fun increaseSubscribeRetryCount(requestID: String, newRetryCount: Int)
 
     /** Returns the number of stored subscriptions. */
     @Query("SELECT COUNT(*) FROM subscribeTable")
@@ -84,7 +82,7 @@ internal interface DAO {
     @Delete
     suspend fun deleteSubscriptions(subscriptions: List<SubscribeEntity>)
 
-    /** Returns oldest subscriptions up to a limit. */
+    /** Returns the oldest subscriptions up to a limit. */
     @Query("SELECT * FROM subscribeTable ORDER BY time ASC LIMIT :limit")
     suspend fun getOldestSubscriptions(limit: Int): List<SubscribeEntity>
 
@@ -98,9 +96,9 @@ internal interface DAO {
     @Query("SELECT * FROM pushEventTable ORDER BY time DESC")
     suspend fun getAllPushEvents(): List<PushEventEntity>
 
-    /** Deletes a push event by UID. */
-    @Query("DELETE FROM pushEventTable WHERE uid = :uid")
-    suspend fun deletePushEventByUid(uid: String): Int
+    /** Deletes a push event by request ID and returns the number of rows deleted. */
+    @Query("DELETE FROM pushEventTable WHERE requestID = :requestID")
+    suspend fun deletePushEventById(requestID: String): Int
 
     /** Deletes all push events. */
     @Query("DELETE FROM pushEventTable")
@@ -114,15 +112,15 @@ internal interface DAO {
     @Delete
     suspend fun deletePushEvents(events: List<PushEventEntity>)
 
-    /** Returns oldest push events up to a limit. */
+    /** Returns the oldest push events up to a limit. */
     @Query("SELECT * FROM pushEventTable ORDER BY time ASC LIMIT :limit")
     suspend fun getOldestPushEvents(limit: Int): List<PushEventEntity>
 
-    /** Updates retry count for a push event by UID. */
-    @Query("UPDATE pushEventTable SET retryCount = :newRetryCount WHERE uid = :uid")
-    suspend fun increasePushEventRetryCount(uid: String, newRetryCount: Int)
+    /** Updates the retry count for a push event by request ID. */
+    @Query("UPDATE pushEventTable SET retryCount = :newRetryCount WHERE requestID = :requestID")
+    suspend fun increasePushEventRetryCount(requestID: String, newRetryCount: Int)
 
-    //MobileEvent
+    // MobileEvent
 
     /** Inserts a mobile event. */
     @Insert
@@ -132,9 +130,9 @@ internal interface DAO {
     @Query("SELECT * FROM mobileEventTable WHERE userTag = :userTag ORDER BY time ASC")
     suspend fun allMobileEventsByTag(userTag: String?): List<MobileEventEntity>
 
-    /** Deletes a mobile event by ID. */
-    @Query("DELETE FROM mobileEventTable WHERE id = :id")
-    suspend fun deleteMobileEventById(id: Long): Int
+    /** Deletes a mobile event by request ID and returns the number of rows deleted. */
+    @Query("DELETE FROM mobileEventTable WHERE requestID = :requestID")
+    suspend fun deleteMobileEventById(requestID: String): Int
 
     /** Deletes all mobile events. */
     @Query("DELETE FROM mobileEventTable")
@@ -148,11 +146,45 @@ internal interface DAO {
     @Delete
     suspend fun deleteMobileEvents(events: List<MobileEventEntity>)
 
-    /** Returns oldest mobile events up to a limit. */
+    /** Returns the oldest mobile events up to a limit. */
     @Query("SELECT * FROM mobileEventTable ORDER BY time ASC LIMIT :limit")
     suspend fun getOldestMobileEvents(limit: Int): List<MobileEventEntity>
 
-    /** Updates retry count for a mobile event by ID. */
-    @Query("UPDATE mobileEventTable SET retryCount = :newRetryCount WHERE id = :id")
-    suspend fun increaseMobileEventRetryCount(id: Long, newRetryCount: Int)
+    /** Updates the retry count for a mobile event by request ID. */
+    @Query("UPDATE mobileEventTable SET retryCount = :newRetryCount WHERE requestID = :requestID")
+    suspend fun increaseMobileEventRetryCount(requestID: String, newRetryCount: Int)
+
+    // ProfileUpdate
+
+    /** Inserts a profile update request. */
+    @Insert
+    suspend fun insertProfileUpdate(entity: ProfileUpdateEntity)
+
+    /** Returns profile updates filtered by user tag, ordered from oldest to newest. */
+    @Query("SELECT * FROM profileUpdateTable WHERE userTag = :userTag ORDER BY time ASC")
+    suspend fun allProfileUpdatesByTag(userTag: String?): List<ProfileUpdateEntity>
+
+    /** Deletes a profile update by request ID and returns the number of rows deleted. */
+    @Query("DELETE FROM profileUpdateTable WHERE requestID = :requestID")
+    suspend fun deleteProfileUpdateById(requestID: String): Int
+
+    /** Deletes all profile updates. */
+    @Query("DELETE FROM profileUpdateTable")
+    suspend fun deleteAllProfileUpdates()
+
+    /** Returns the number of stored profile updates. */
+    @Query("SELECT COUNT(*) FROM profileUpdateTable")
+    suspend fun getProfileUpdateCount(): Int
+
+    /** Deletes the given list of profile updates. */
+    @Delete
+    suspend fun deleteProfileUpdates(entities: List<ProfileUpdateEntity>)
+
+    /** Returns the oldest profile updates up to a limit. */
+    @Query("SELECT * FROM profileUpdateTable ORDER BY time ASC LIMIT :limit")
+    suspend fun getOldestProfileUpdates(limit: Int): List<ProfileUpdateEntity>
+
+    /** Updates the retry count for a profile update by request ID. */
+    @Query("UPDATE profileUpdateTable SET retryCount = :newRetryCount WHERE requestID = :requestID")
+    suspend fun increaseProfileUpdateRetryCount(requestID: String, newRetryCount: Int)
 }

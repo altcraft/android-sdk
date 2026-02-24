@@ -8,7 +8,6 @@ import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isOnline
 import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
-import com.altcraft.sdk.network.Request.pushEventRequest
 import com.altcraft.sdk.data.retry
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.RoomRequest.entityDelete
@@ -37,7 +36,7 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 internal object PushEvent {
 
-    private val pushEventMutex = Mutex()
+    private val sendPushEventMutex = Mutex()
     private val sendAllPushEventMutex = Mutex()
 
     /**
@@ -50,20 +49,20 @@ internal object PushEvent {
      * @param messageUID Unique event identifier. Must not be null or empty.
      */
     suspend fun sendPushEvent(context: Context, type: String, messageUID: String?) {
-        val func = "sendPushEvent"
+        val function = "sendPushEvent"
         try {
-            pushEventMutex.withLock {
+            sendPushEventMutex.withLock {
                 if (messageUID.isNullOrEmpty()) exception(uidIsNull)
-                if (!isOnline(context)) error(func, noInternetConnect)
-                val pushEventEntity = PushEventEntity(messageUID, type)
+                if (!isOnline(context)) error(function, noInternetConnect)
+                val event = PushEventEntity(uid = messageUID, type = type)
 
-                if (request(context, pushEventEntity) is retry) {
-                    entityInsert(context, pushEventEntity)
+                if (request(context, event) is retry) {
+                    entityInsert(context, event)
                     startPushEventCoroutineWorker(context)
                 }
             }
         } catch (e: Exception) {
-            error("sendPushEvent", e)
+            error(function, e)
         }
     }
 
@@ -77,7 +76,7 @@ internal object PushEvent {
      */
     suspend fun isRetry(context: Context, workerId: UUID? = null): Boolean {
         return try {
-            sendAllPushEventMutex.withLock { logic(context, workerId) }
+            sendAllPushEventMutex.withLock{ logic(context, workerId) }
         } catch (e: Exception) {
             retry("isRetry :: pushEvent", e); true
         }
@@ -112,8 +111,9 @@ internal object PushEvent {
             events.map { event ->
                 async<Unit> {
                     try {
-                        if (pushEventRequest(context, event) !is retry) entityDelete(room, event)
-                        else isRetryLimit(room, event)
+                        if (request(context, event) !is retry) entityDelete(room, event) else {
+                            isRetryLimit(room, event)
+                        }
                     } catch (e: Exception) {
                         retry("sendAllPushEvents", e)
                     }

@@ -12,7 +12,6 @@ import com.google.firebase.messaging.RemoteMessage
  * FCM service for handling push tokens and messages.
  */
 class FCMService : FirebaseMessagingService() {
-
     /**
      * Called when a new FCM token is generated.
      *
@@ -30,8 +29,6 @@ class FCMService : FirebaseMessagingService() {
      * @param message The received [RemoteMessage].
      */
     override fun onMessageReceived(message: RemoteMessage) {
-        super.onMessageReceived(message)
-
-       AltcraftSDK.PushReceiver.takePush(this@FCMService, message.data)
+        AltcraftSDK.PushReceiver.takePush(this, message.data)
     }
 }

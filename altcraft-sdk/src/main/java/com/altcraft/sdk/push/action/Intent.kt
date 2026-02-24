@@ -7,9 +7,10 @@ package com.altcraft.sdk.push.action
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.core.os.bundleOf
+import android.os.Bundle
 import com.altcraft.sdk.additional.SubFunction.UniqueCodeGenerator.uniqueCode
-import com.altcraft.sdk.data.Constants.MESSAGE_ID
+import com.altcraft.sdk.data.Constants.EXTRA
+import com.altcraft.sdk.data.Constants.MSG_ID
 import com.altcraft.sdk.data.Constants.UID
 import com.altcraft.sdk.data.Constants.URL
 
@@ -17,17 +18,13 @@ import com.altcraft.sdk.data.Constants.URL
  * Utility object for creating PendingIntents to handle push notification clicks.
  */
 object Intent {
-
-    //target Activity
     private val target = AltcraftPushActionActivity::class.java
 
-    // Intent flags to reuse the activity if it exists, or start it fresh
     private const val FLAGS =
         Intent.FLAG_ACTIVITY_SINGLE_TOP or
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
 
-    //flag for pending intent
     private const val PENDING_FLAG = PendingIntent.FLAG_IMMUTABLE
 
     /**
@@ -35,14 +32,26 @@ object Intent {
      * notification is clicked.
      *
      * @param context Application context.
-     * @param id Notification ID used by `NotificationManager` to display/cancel the notification.
+     * @param id Notification ID used to display or cancel the notification.
      * @param url URL to open after the click.
      * @param uid Unique Altcraft message identifier.
+     * @param extra Optional extra payload passed via intent extra [EXTRA].
+     *   Empty values are not added to extras.
      */
-    fun getIntent(context: Context, id: Int, url: String, uid: String): PendingIntent {
-        val bundles = bundleOf(MESSAGE_ID to id, UID to uid, URL to url)
+    fun getIntent(
+        context: Context,
+        id: Int,
+        url: String,
+        uid: String,
+        extra: String
+    ): PendingIntent {
+        val intent = Intent(context, target)
+            .addFlags(FLAGS)
+            .putExtra(MSG_ID, id)
+            .putExtra(UID, uid)
+            .putExtra(URL, url)
 
-        val intent = Intent(context, target).addFlags(FLAGS).putExtras(bundles)
+        if (extra.isNotEmpty()) intent.putExtra(EXTRA, extra)
 
         return PendingIntent.getActivity(context, uniqueCode(uid), intent, PENDING_FLAG)
     }

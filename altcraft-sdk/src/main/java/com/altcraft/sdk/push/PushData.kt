@@ -17,7 +17,7 @@ internal class PushData(message: Map<String, String>) {
 
     val data: Map<String, String> = message
 
-    /** Unique message identifiers. */
+    /** Unique message identifier. */
     val uid = data["_uid"] ?: ""
 
     /** The body text of the push notification, or an empty string if not provided. */
@@ -32,11 +32,14 @@ internal class PushData(message: Map<String, String>) {
     /** The image URL for the push notification, or an empty string if not provided. */
     val image = data["_image"] ?: ""
 
-    /** URL to open on push click, or empty if not set. */
-    val url = data["_click_action"] ?: ""
-
     /** The color specified for the notification, or an empty string if not provided. */
     val color = data["_color"] ?: ""
+
+    /** Payload forwarded to the app as an Intent extra on notification click. */
+    val extra = data["_extra"] ?: ""
+
+    /** URL to open on push click, or empty if not set. */
+    val url = data["_click_action"] ?: ""
 
     /**
      * Indicates whether vibration is enabled for the push notification.
@@ -53,10 +56,9 @@ internal class PushData(message: Map<String, String>) {
         get() = data["_soundless"] == "true"
 
     /**
-     * Parses and returns an array of `ButtonStructure` objects from the push notification data,
-     * if available.
-     * Returns an array of `ButtonStructure` if the `_buttons` field is a string and can be parsed;
-     * otherwise, returns `null`.
+     * Parses and returns a list of `ButtonStructure` from the `_buttons` JSON field.
+     *
+     * Returns `null` if the field is missing or parsing fails.
      */
     val buttons: List<DataClasses.ButtonStructure>?
         get() = try {

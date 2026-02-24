@@ -24,5 +24,5 @@ interface RustoreInterface {
      *
      * @param complete Callback with `true` if successful, `false` otherwise.
      */
-    suspend fun deleteToken(complete: (Boolean) -> Unit)
+     fun deleteToken(complete: (Boolean) -> Unit)
 }

@@ -49,9 +49,7 @@ internal object AuthManager {
     }
 
     /**
-     * Checks that a Base64URL-encoded JWT payload fits the 16 KiB decoded limit.
-     *
-
+     * Checks whether a Base64URL-encoded JWT payload exceeds the 16 KiB decoded limit.
      *
      * @param b64 Base64URL (no padding) encoded JWT payload (the middle part of JWT).
      * @return `true` if the estimated decoded size ≤ 16 KiB, otherwise `false`.
@@ -59,6 +57,7 @@ internal object AuthManager {
     private fun jwtSizeExceeded(
         b64: String
     ): Boolean = (((b64.length + ((4 - (b64.length % 4)) % 4)) * 3) / 4) >= 16 * 1024
+
 
     /**
      * Decodes the payload part of a JWT string.
@@ -139,12 +138,12 @@ internal object AuthManager {
      * Returns an `Authorization` header and matching mode based on available tokens.
      *
      * Priority:
-     * 1. If `rToken` is present → `"Bearer rtoken@{rToken}"` with `push_sub` mode.
-     * 2. Else if JWT is present → `"Bearer {JWT}"` with extracted matching mode.
+     * 1. If `rToken` is present → `"Bearer rtoken@{rToken}"`, mode: `push_sub`.
+     * 2. Else if JWT with non-empty matching → `"Bearer {JWT}"`, extracted matching.
      * 3. Else → `null`.
      *
      * @param config Configuration containing tokens.
-     * @return A pair of the auth header and matching mode, or `null` if no token is available.
+     * @return A pair of (authHeader, matchingMode), or `null` if no token is available.
      */
     fun getAuthHeaderAndMatching(config: ConfigurationEntity): Pair<String, String>? {
         return try {

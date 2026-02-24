@@ -19,8 +19,6 @@ class AppDataClasses {
         val apiUrl: String,
         val icon: Int? = null,
         val rToken: String? = null,
-        val usingService: Boolean = false,
-        val serviceMessage: String? = null,
         val priorityProviders: List<String>? = null
     )
 

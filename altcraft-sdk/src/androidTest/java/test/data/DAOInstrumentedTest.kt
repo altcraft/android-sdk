@@ -16,7 +16,10 @@ import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
-import org.junit.*
+import org.junit.After
+import org.junit.Assert
+import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import test.room.TestRoom
 import java.util.UUID
@@ -77,8 +80,6 @@ class DaoInstrumentedTest {
             apiUrl = "https://api.example.com",
             rToken = "rt",
             appInfo = DataClasses.AppInfo(appID = "demo", appVer = "1.0", appIID = ""),
-            usingService = false,
-            serviceMessage = null,
             pushReceiverModules = listOf(FCM_PROVIDER, HMS_PROVIDER),
             providerPriorityList = listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER),
             pushChannelName = "ch",
@@ -112,8 +113,9 @@ class DaoInstrumentedTest {
     /** - test_2: Insert and verify ASC ordering for subscribe table by time. */
     @Test
     fun subscribe_insert_query_order_and_exists() = runBlocking {
-        val now = System.currentTimeMillis() / 1000
+        val now = System.currentTimeMillis()
         val e1 = SubscribeEntity(
+            requestID = "sub-1",
             userTag = "tagA",
             status = SUBSCRIBED,
             sync = null,
@@ -122,26 +124,26 @@ class DaoInstrumentedTest {
             cats = null,
             replace = null,
             skipTriggers = null,
-            uid = "sub-1",
             time = now - 10,
             retryCount = 0,
             maxRetryCount = 3
         )
-        val e2 = e1.copy(uid = "sub-2", time = now - 5)
-        val e3 = e1.copy(uid = "sub-3", time = now)
+        val e2 = e1.copy(requestID = "sub-2", time = now - 5)
+        val e3 = e1.copy(requestID = "sub-3", time = now)
 
         dao.insertSubscribe(e1)
         dao.insertSubscribe(e2)
         dao.insertSubscribe(e3)
 
         val list = dao.allSubscriptionsByTag("tagA")
-        Assert.assertEquals(listOf("sub-1", "sub-2", "sub-3"), list.map { it.uid })
+        Assert.assertEquals(listOf("sub-1", "sub-2", "sub-3"), list.map { it.requestID })
     }
 
     /** - test_3: Increase retry count and delete by UID for subscribe table. */
     @Test
     fun subscribe_increaseRetry_and_deleteByUid() = runBlocking {
         val e = SubscribeEntity(
+            requestID = "sub-x",
             userTag = "tagX",
             status = SUSPENDED,
             sync = null,
@@ -150,18 +152,17 @@ class DaoInstrumentedTest {
             cats = null,
             replace = null,
             skipTriggers = null,
-            uid = "sub-x",
-            time = System.currentTimeMillis() / 1000,
+            time = System.currentTimeMillis(),
             retryCount = 1,
             maxRetryCount = 5
         )
         dao.insertSubscribe(e)
 
         dao.increaseSubscribeRetryCount("sub-x", e.retryCount + 1)
-        val afterInc = dao.allSubscriptionsByTag("tagX").first { it.uid == "sub-x" }
+        val afterInc = dao.allSubscriptionsByTag("tagX").first { it.requestID == "sub-x" }
         Assert.assertEquals(2, afterInc.retryCount)
 
-        val del = dao.deleteSubscribeByUid("sub-x")
+        val del = dao.deleteSubscribeById("sub-x")
         Assert.assertEquals(1, del)
     }
 
@@ -169,25 +170,45 @@ class DaoInstrumentedTest {
     @Test
     fun subscribe_deleteAll() = runBlocking {
         dao.insertSubscribe(
-            SubscribeEntity("t", SUBSCRIBED, null, JsonNull, JsonNull, null, null, null, "a")
+            SubscribeEntity(
+                requestID = "a",
+                userTag = "t",
+                status = SUBSCRIBED,
+                sync = null,
+                profileFields = JsonNull,
+                customFields = JsonNull,
+                cats = null,
+                replace = null,
+                skipTriggers = null
+            )
         )
         dao.insertSubscribe(
-            SubscribeEntity("t", UNSUBSCRIBED, null, JsonNull, JsonNull, null, null, null, "b")
+            SubscribeEntity(
+                requestID = "b",
+                userTag = "t",
+                status = UNSUBSCRIBED,
+                sync = null,
+                profileFields = JsonNull,
+                customFields = JsonNull,
+                cats = null,
+                replace = null,
+                skipTriggers = null
+            )
         )
         Assert.assertEquals(2, dao.allSubscriptionsByTag("t").size)
 
-        val deleted = dao.deleteAllSubscriptions()
-        Assert.assertEquals(2, deleted)
+        dao.deleteAllSubscriptions()
         Assert.assertTrue(dao.allSubscriptionsByTag("t").isEmpty())
+        Assert.assertEquals(0, dao.getSubscribeCount())
     }
 
     /** - test_5: Insert push events, verify DESC order and count. */
     @Test
     fun push_insert_query_order_desc_and_exists_count() = runBlocking {
-        val now = System.currentTimeMillis() / 1000
-        val p1 = PushEventEntity(uid = "p1", type = "opened", time = now - 10)
-        val p2 = PushEventEntity(uid = "p2", type = "opened", time = now - 1)
-        val p3 = PushEventEntity(uid = "p3", type = "received", time = now)
+        val now = System.currentTimeMillis()
+        val p1 = PushEventEntity(requestID = "pe-1", uid = "p1", type = "opened", time = now - 10)
+        val p2 = PushEventEntity(requestID = "pe-2", uid = "p2", type = "opened", time = now - 1)
+        val p3 = PushEventEntity(requestID = "pe-3", uid = "p3", type = "received", time = now)
 
         dao.insertPushEvent(p1)
         dao.insertPushEvent(p2)
@@ -195,32 +216,55 @@ class DaoInstrumentedTest {
 
         val list = dao.getAllPushEvents()
         Assert.assertEquals(listOf("p3", "p2", "p1"), list.map { it.uid })
-
         Assert.assertEquals(3, dao.getPushEventCount())
     }
 
     /** - test_6: Increase retry, get oldest(limit), and delete for push events. */
     @Test
     fun push_increaseRetry_getOldest_limit_and_delete() = runBlocking {
-        val base = System.currentTimeMillis() / 1000
-        val p1 = PushEventEntity(uid = "pa", type = "opened", time = base - 30, retryCount = 0)
-        val p2 = PushEventEntity(uid = "pb", type = "opened", time = base - 20, retryCount = 1)
-        val p3 = PushEventEntity(uid = "pc", type = "opened", time = base - 10, retryCount = 2)
-        val p4 = PushEventEntity(uid = "pd", type = "opened", time = base, retryCount = 0)
+        val base = System.currentTimeMillis()
+        val p1 = PushEventEntity(
+            requestID = "pe-a",
+            uid = "pa",
+            type = "opened",
+            time = base - 30,
+            retryCount = 0
+        )
+        val p2 = PushEventEntity(
+            requestID = "pe-b",
+            uid = "pb",
+            type = "opened",
+            time = base - 20,
+            retryCount = 1
+        )
+        val p3 = PushEventEntity(
+            requestID = "pe-c",
+            uid = "pc",
+            type = "opened",
+            time = base - 10,
+            retryCount = 2
+        )
+        val p4 = PushEventEntity(
+            requestID = "pe-d",
+            uid = "pd",
+            type = "opened",
+            time = base,
+            retryCount = 0
+        )
 
         dao.insertPushEvent(p1)
         dao.insertPushEvent(p2)
         dao.insertPushEvent(p3)
         dao.insertPushEvent(p4)
 
-        dao.increasePushEventRetryCount("pb", 5)
-        val pb = dao.getAllPushEvents().first { it.uid == "pb" }
+        dao.increasePushEventRetryCount("pe-b", 5)
+        val pb = dao.getAllPushEvents().first { it.requestID == "pe-b" }
         Assert.assertEquals(5, pb.retryCount)
 
         val oldest2 = dao.getOldestPushEvents(2)
         Assert.assertEquals(listOf("pa", "pb"), oldest2.map { it.uid })
 
-        val delOne = dao.deletePushEventByUid("pc")
+        val delOne = dao.deletePushEventById("pe-c")
         Assert.assertEquals(1, delOne)
 
         dao.deletePushEvents(oldest2)
@@ -231,16 +275,12 @@ class DaoInstrumentedTest {
     /** - test_7: Delete all push events from table. */
     @Test
     fun push_deleteAll() = runBlocking {
-        dao.insertPushEvent(PushEventEntity("u1", "opened"))
-        dao.insertPushEvent(PushEventEntity("u2", "received"))
+        dao.insertPushEvent(PushEventEntity(requestID = "pe-1", uid = "u1", type = "opened"))
+        dao.insertPushEvent(PushEventEntity(requestID = "pe-2", uid = "u2", type = "received"))
 
         dao.deleteAllPushEvents()
         Assert.assertEquals(0, dao.getPushEventCount())
     }
-
-    // ----------------------
-    // MobileEvent tests
-    // ----------------------
 
     /** - test_8: Insert mobile events and verify count (by explicit userTag). */
     @Test
@@ -248,7 +288,7 @@ class DaoInstrumentedTest {
         val tag = "tagM"
 
         val e1 = MobileEventEntity(
-            id = 0L,
+            requestID = "me-1",
             userTag = tag,
             timeZone = 0,
             time = System.currentTimeMillis(),
@@ -257,16 +297,16 @@ class DaoInstrumentedTest {
             eventName = "evt-a",
             payload = null,
             matching = null,
+            matchingType = null,
             profileFields = null,
             subscription = null,
             sendMessageId = "smid-1",
-            matchingType = null,
             utmTags = null,
             retryCount = 0,
             maxRetryCount = 5
         )
         val e2 = e1.copy(
-            userTag = tag,
+            requestID = "me-2",
             sid = "sid-2",
             altcraftClientID = "cid-2",
             eventName = "evt-b",
@@ -291,7 +331,7 @@ class DaoInstrumentedTest {
     fun mobile_increaseRetry_and_deleteById() = runBlocking {
         val tag = "tagX"
         val e = MobileEventEntity(
-            id = 0L,
+            requestID = "me-x",
             userTag = tag,
             timeZone = 60,
             time = System.currentTimeMillis(),
@@ -300,25 +340,24 @@ class DaoInstrumentedTest {
             eventName = "evt-x",
             payload = null,
             matching = null,
+            matchingType = null,
             profileFields = null,
             subscription = null,
             sendMessageId = null,
-            matchingType = null,
             utmTags = null,
             retryCount = 0,
             maxRetryCount = 5
         )
         dao.insertMobileEvent(e)
 
-        val saved = dao.allMobileEventsByTag(tag).last()
-        val id = saved.id
-        Assert.assertTrue(id > 0)
+        val saved = dao.allMobileEventsByTag(tag).first { it.requestID == "me-x" }
+        Assert.assertEquals("me-x", saved.requestID)
 
-        dao.increaseMobileEventRetryCount(id, saved.retryCount + 1)
-        val afterInc = dao.allMobileEventsByTag(tag).first { it.id == id }
+        dao.increaseMobileEventRetryCount("me-x", saved.retryCount + 1)
+        val afterInc = dao.allMobileEventsByTag(tag).first { it.requestID == "me-x" }
         Assert.assertEquals(saved.retryCount + 1, afterInc.retryCount)
 
-        val del = dao.deleteMobileEventById(id)
+        val del = dao.deleteMobileEventById("me-x")
         Assert.assertEquals(1, del)
     }
 
@@ -329,20 +368,20 @@ class DaoInstrumentedTest {
         repeat(3) { idx ->
             dao.insertMobileEvent(
                 MobileEventEntity(
-                    id = 0L,
+                    requestID = "me-$idx",
                     userTag = "tagB",
                     timeZone = 0,
-                    time = base + idx, // ensure ASC order by time
+                    time = base + idx,
                     sid = "sid-$idx",
                     altcraftClientID = "cid-$idx",
                     eventName = "evt-$idx",
                     payload = null,
                     matching = null,
+                    matchingType = null,
                     profileFields = null,
                     subscription = null,
-                    matchingType = null,
-                    utmTags = null,
                     sendMessageId = UUID.randomUUID().toString(),
+                    utmTags = null,
                     retryCount = 0,
                     maxRetryCount = 5
                 )
@@ -359,9 +398,9 @@ class DaoInstrumentedTest {
         val remainingCount = dao.getMobileEventCount()
         Assert.assertEquals(beforeCount - 2, remainingCount)
 
-        val removedIds = oldest2.map { it.id }.toSet()
+        val removedIds = oldest2.map { it.requestID }.toSet()
         val remainingByTag = dao.allMobileEventsByTag("tagB")
-        Assert.assertTrue(remainingByTag.none { it.id in removedIds })
+        Assert.assertTrue(remainingByTag.none { it.requestID in removedIds })
     }
 
     /** - test_11: Delete all mobile events from table. */
@@ -370,7 +409,7 @@ class DaoInstrumentedTest {
         repeat(2) {
             dao.insertMobileEvent(
                 MobileEventEntity(
-                    id = 0L,
+                    requestID = "me-del-$it",
                     userTag = "tagC",
                     timeZone = 0,
                     time = System.currentTimeMillis() + it,
@@ -379,10 +418,10 @@ class DaoInstrumentedTest {
                     eventName = "e$it",
                     payload = null,
                     matching = null,
+                    matchingType = null,
                     profileFields = null,
                     subscription = null,
                     sendMessageId = null,
-                    matchingType = null,
                     utmTags = null,
                     retryCount = 0,
                     maxRetryCount = 5

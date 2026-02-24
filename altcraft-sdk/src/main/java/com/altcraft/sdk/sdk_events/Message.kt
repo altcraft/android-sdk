@@ -11,9 +11,10 @@ internal object Message {
 
     //periodical worker
     const val SUB_WORK_START = "::RetryPushSubscribeWorker is started"
-    const val UPDATE_WORK_START = "::RetryTokenUpdateWorker is started"
     const val PUSH_EVENT_WORK_START = "::RetryPushEventWorker is started"
     const val MOBILE_EVENT_WORK_START = "::RetryMobileEventWorker is started"
+    const val TOKEN_UPDATE_WORK_START = "::RetryTokenUpdateWorker is started"
+    const val PROFILE_UPDATE_WORK_START = "::RetryProfileUpdateWorker is started"
 
     //pushReceiver
     const val RECEIVER_REDEFINED = "receiver is redefined in:"
@@ -23,8 +24,8 @@ internal object Message {
 
     //logs
     const val LOG_HINT = "Altcraft SDK is integrated into the project. " +
-            "Please configure log publishing using the `enableLogging` " +
-            "parameter in the SDK configuration."
+            "You can enable SDK logs by setting the `enableLogging` parameter " +
+            "in the SDK configuration."
 
     //retry limit
     const val SUBSCRIBE_RETRY_LIMIT =
@@ -33,4 +34,6 @@ internal object Message {
         "exceeded the retry limit for push event operation for uid:"
     const val MOBILE_EVENT_RETRY_LIMIT =
         "exceeded the retry limit for mobile event operation for name:"
+    const val PROFILE_UPDATE_RETRY_LIMIT =
+        "exceeded the retry limit for profile update operation for id:"
 }

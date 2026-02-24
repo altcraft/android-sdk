@@ -9,8 +9,19 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.altcraft.sdk.sdk_events.Events.error
 import androidx.core.content.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.altcraft.sdk.json.Converter.json
 import kotlinx.serialization.encodeToString
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Stores and retrieves SDK-related data in persistent device storage using `SharedPreferences`.
@@ -21,8 +32,14 @@ import kotlinx.serialization.encodeToString
 internal object Preferenses {
     private const val TAG = "Altcraft_SDK"
     internal const val TOKEN_KEY: String = "${TAG}_TOKEN"
-    internal const val MANUAL_TOKEN_KEY: String = "${TAG}_MANUAL_TOKEN_KEY"
     internal const val MESSAGE_ID_KEY: String = "${TAG}_MESSAGE_ID"
+
+    private val Context.manualTokenDataStore by preferencesDataStore(
+        "${TAG}_MANUAL_TOKEN_STORE"
+    )
+    private val MANUAL_TOKEN_KEY = stringPreferencesKey(
+        "${TAG}_MANUAL_TOKEN_KEY"
+    )
 
     /**
      * Returns the `SharedPreferences` object associated with the application for storing and
@@ -36,49 +53,74 @@ internal object Preferenses {
     }
 
     /**
-     * Stores a manually obtained push token in SharedPreferences.
+     * Saves a manual push token to DataStore (or clears it if params are empty).
      *
-     * This method is intended to be used inside `onNewToken()` callbacks
-     * of push notification providers (e.g., FCM, HMS).
-     *
-     *
-     * @param context The application context.
-     * @param provider The name of the push provider.
-     * @param token The raw token string received from the provider.
+     * @param context Android context used to access the DataStore.
+     * @param provider Push provider id (e.g., FCM/HMS/RuStore). If null/empty,
+     * stored token is removed.
+     * @param token Push token value. If null/empty, stored token is removed.
      */
-    @SuppressLint("ApplySharedPref")
     fun setPushToken(context: Context, provider: String?, token: String?) {
-        try {
-            val data = if (provider.isNullOrEmpty() || token.isNullOrEmpty()) null
-            else json.encodeToString(DataClasses.TokenData(provider, token))
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val data: String? =
+                    if (provider.isNullOrEmpty() || token.isNullOrEmpty()) null
+                    else json.encodeToString(DataClasses.TokenData(provider, token))
 
-            getPreferences(context).edit(commit = true) {
-                putString(MANUAL_TOKEN_KEY, data)
+                context.manualTokenDataStore.edit { prefs ->
+                    if (data == null) prefs.remove(MANUAL_TOKEN_KEY)
+                    else prefs[MANUAL_TOKEN_KEY] = data
+                }
+            } catch (e: Exception) {
+                error("setPushToken", e)
             }
-        } catch (e: Exception) {
-            error("setPushToken", e)
         }
     }
 
     /**
-     * Retrieves the manually stored push token from SharedPreferences.
+     * Reads a manual push token from DataStore.
+     * Returns immediately if a token is already stored, otherwise waits up to 5 seconds
+     * for a non-empty value to appear.
      *
-     * This method deserializes the stored JSON string into a [DataClasses.TokenData] object.
-     * Intended to access a token previously saved in the `onNewToken()` callback.
-     *
-     * Returns `null` if no token is stored or deserialization fails.
-     *
-     * @param context The application context.
-     * @return The [DataClasses.TokenData] or `null` if unavailable.
+     * @param context Android context used to access the DataStore.
+     * @return Parsed TokenData, or null if missing/empty, timed out, or on error.
      */
-    fun getManualToken(context: Context): DataClasses.TokenData? {
+    suspend fun getManualToken(context: Context): DataClasses.TokenData? {
         return try {
-            getPreferences(context).getString(MANUAL_TOKEN_KEY, null)?.let {
+            val current = context.manualTokenDataStore.data.map {
+                it[MANUAL_TOKEN_KEY]
+            }.first()
+
+            val tokenJson: String? = if (!current.isNullOrEmpty()) {
+                current
+            } else {
+                withTimeoutOrNull(5_000) {
+                    context.manualTokenDataStore.data
+                        .map { it[MANUAL_TOKEN_KEY] }
+                        .distinctUntilChanged()
+                        .firstOrNull { !it.isNullOrEmpty() }
+                }
+            }
+
+            tokenJson?.let {
                 json.decodeFromString<DataClasses.TokenData>(it)
             }
         } catch (e: Exception) {
             error("getManualToken", e)
             null
+        }
+    }
+
+    /**
+     * Clears manual push token from DataStore.
+     *
+     * @param context The application context.
+     */
+    suspend fun clearManualToken(context: Context) {
+        try {
+            context.manualTokenDataStore.edit { it.remove(MANUAL_TOKEN_KEY) }
+        } catch (e: Exception) {
+            error("clearManualToken", e)
         }
     }
 

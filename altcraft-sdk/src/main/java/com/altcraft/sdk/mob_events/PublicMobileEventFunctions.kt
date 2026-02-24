@@ -11,7 +11,7 @@ import com.altcraft.sdk.mob_events.MobileEvent.sendMobileEvent
 
 /** Object containing public function for sending mobile event to server. */
 @Keep
-object PublicMobileEventFunction {
+object PublicMobileEventFunctions {
 
     /**
      * Public API for sending a mobile event to the server.

@@ -9,11 +9,11 @@ package test.mob_event
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.auth.AuthManager
-import com.altcraft.sdk.concurrency.CommandQueue
-import com.altcraft.sdk.concurrency.InitBarrier
+import com.altcraft.sdk.coordination.CommandQueue
+import com.altcraft.sdk.coordination.InitBarrier
 import com.altcraft.sdk.config.ConfigSetup
 import com.altcraft.sdk.core.Environment
-import com.altcraft.sdk.core.Retry
+import com.altcraft.sdk.core.InitialOperations
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.MobileEventEntity
@@ -53,7 +53,7 @@ import org.junit.Test
  *  - test_2: sendMobileEvent — invalid payload (nested objects) → emits error and DOES NOT insert.
  *  - test_6: isRetry — exception during processing → retry event is emitted and function returns true.
  */
-class MobileEventUnitTest {
+class MobileEventTest {
 
     private lateinit var ctx: Context
 
@@ -63,8 +63,6 @@ class MobileEventUnitTest {
         apiUrl = "https://api.example.com",
         rToken = "rt-1",
         appInfo = null,
-        usingService = false,
-        serviceMessage = null,
         pushReceiverModules = null,
         providerPriorityList = null,
         pushChannelName = null,
@@ -117,8 +115,8 @@ class MobileEventUnitTest {
         mockkObject(WorkerRequest)
         coEvery { WorkerRequest.hasNewRequest(any(), any(), any()) } returns false
 
-        mockkObject(Retry)
-        coEvery { Retry.awaitMobileEventRetryStarted() } returns Unit
+        mockkObject(InitialOperations)
+        coEvery { InitialOperations.awaitMobileEventRetryStarted() } returns Unit
 
         mockkObject(Events)
         every { Events.error(any(), any(), any()) } returns
@@ -199,7 +197,7 @@ class MobileEventUnitTest {
         coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
-            id = 10,
+            requestID = "req-10",
             userTag = "user-tag",
             timeZone = 0,
             time = System.currentTimeMillis(),
@@ -241,7 +239,7 @@ class MobileEventUnitTest {
         coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
-            id = 11,
+            requestID = "req-11",
             userTag = "user-tag",
             timeZone = 0,
             time = System.currentTimeMillis(),
@@ -283,7 +281,7 @@ class MobileEventUnitTest {
         coEvery { env.userTag() } returns "user-tag"
 
         val e = MobileEventEntity(
-            id = 12,
+            requestID = "req-12",
             userTag = "user-tag",
             timeZone = 0,
             time = System.currentTimeMillis(),

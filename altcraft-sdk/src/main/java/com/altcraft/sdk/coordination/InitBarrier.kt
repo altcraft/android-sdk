@@ -1,4 +1,4 @@
-package com.altcraft.sdk.concurrency
+package com.altcraft.sdk.coordination
 
 //  Created by Andrey Pogodin.
 //
@@ -54,7 +54,7 @@ internal object InitBarrier {
  * On timeout, emits a failure event and returns without throwing.
  *
  * @param function Logical source tag (e.g., caller name) used for event logging
- *                 when emitting `initAwait` / `initAwaitFailure`.
+ *                 when emitting `initAwait` / `sdkInitWaitingExpired`.
  * @param gate The gate to wait for (defaults to a snapshot of `InitBarrier.current()`).
  * @param timeoutMs Max wait in milliseconds.
  */

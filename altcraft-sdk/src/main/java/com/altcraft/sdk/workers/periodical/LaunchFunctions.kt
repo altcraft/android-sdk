@@ -6,14 +6,16 @@ package com.altcraft.sdk.workers.periodical
 
 import android.content.Context
 import com.altcraft.sdk.additional.Logger.log
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.SUB_P_WORK_NANE
-import com.altcraft.sdk.data.Constants.UPDATE_P_WORK_NANE
+import com.altcraft.sdk.data.Constants.MOBILE_EVENT_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.PROFILE_UPDATE_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.PUSH_EVENT_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.SUB_P_WORK_NAME
+import com.altcraft.sdk.data.Constants.TOKEN_UPDATE_P_WORK_NAME
 import com.altcraft.sdk.sdk_events.Message.MOBILE_EVENT_WORK_START
+import com.altcraft.sdk.sdk_events.Message.PROFILE_UPDATE_WORK_START
 import com.altcraft.sdk.sdk_events.Message.PUSH_EVENT_WORK_START
 import com.altcraft.sdk.sdk_events.Message.SUB_WORK_START
-import com.altcraft.sdk.sdk_events.Message.UPDATE_WORK_START
+import com.altcraft.sdk.sdk_events.Message.TOKEN_UPDATE_WORK_START
 import com.altcraft.sdk.workers.periodical.CommonFunctions.createRequest
 import com.altcraft.sdk.workers.periodical.CommonFunctions.createWorker
 
@@ -30,7 +32,7 @@ internal object LaunchFunctions {
      * Schedules periodic token update retries using `RetryUpdateWorker`.
      */
     private val updateRequest by lazy {
-        createRequest(Workers.RetryUpdateWorker::class.java)
+        createRequest(Workers.RetryTokenUpdateWorker::class.java)
     }
 
     /**
@@ -61,12 +63,21 @@ internal object LaunchFunctions {
     }
 
     /**
+     * Lazily initialized `PeriodicWorkRequest` for the profile update worker.
+     *
+     * Schedules periodic profile update retries using `RetryProfileUpdateWorker`.
+     */
+    private val profileUpdateRequest by lazy {
+        createRequest(Workers.RetryProfileUpdateWorker::class.java)
+    }
+
+    /**
      * Starts the periodic work manager for push event tasks.
      *
      * @param context The context of the application, used to access `WorkManager`.
      */
     fun startPeriodicalPushEventWorker(context: Context) {
-        createWorker(context, PUSH_EVENT_P_WORK_NANE, pushEventRequest)
+        createWorker(context, PUSH_EVENT_P_WORK_NAME, pushEventRequest)
         log(PUSH_EVENT_WORK_START)
     }
 
@@ -76,7 +87,7 @@ internal object LaunchFunctions {
      * @param context The context of the application, used to access `WorkManager`.
      */
     fun startPeriodicalMobileEventWorker(context: Context) {
-        createWorker(context, MOBILE_EVENT_P_WORK_NANE, mobileEventRequest)
+        createWorker(context, MOBILE_EVENT_P_WORK_NAME, mobileEventRequest)
         log(MOBILE_EVENT_WORK_START)
     }
 
@@ -85,9 +96,9 @@ internal object LaunchFunctions {
      *
      * @param context The context of the application, used to access `WorkManager`.
      */
-    fun startPeriodicalUpdateWorker(context: Context) {
-        createWorker(context, UPDATE_P_WORK_NANE, updateRequest)
-        log(UPDATE_WORK_START)
+    fun startPeriodicalTokenUpdateWorker(context: Context) {
+        createWorker(context, TOKEN_UPDATE_P_WORK_NAME, updateRequest)
+        log(TOKEN_UPDATE_WORK_START)
     }
 
     /**
@@ -96,7 +107,17 @@ internal object LaunchFunctions {
      * @param context The context of the application, used to access `WorkManager`.
      */
     fun startPeriodicalSubscribeWorker(context: Context) {
-        createWorker(context, SUB_P_WORK_NANE, subscribeRequest)
+        createWorker(context, SUB_P_WORK_NAME, subscribeRequest)
         log(SUB_WORK_START)
+    }
+
+    /**
+     * Starts the periodic work manager for profile update tasks.
+     *
+     * @param context The context of the application, used to access `WorkManager`.
+     */
+    fun startPeriodicalProfileUpdateWorker(context: Context) {
+        createWorker(context, PROFILE_UPDATE_P_WORK_NAME, profileUpdateRequest)
+        log(PROFILE_UPDATE_WORK_START)
     }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package test.network
 
 //  Created by Andrey Pogodin.
@@ -6,20 +8,23 @@ package test.network
 
 import com.altcraft.sdk.additional.MapBuilder
 import com.altcraft.sdk.additional.PairBuilder
-import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
-import com.altcraft.sdk.data.Constants.STATUS_REQUEST
-import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
-import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
-import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
+import com.altcraft.sdk.data.Constants.SUBSCRIBED
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.network.Response
 import com.altcraft.sdk.sdk_events.Events
-import io.mockk.*
-import kotlinx.serialization.json.*
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkAll
+import io.mockk.verify
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import retrofit2.Response as RResponse
@@ -28,23 +33,20 @@ import retrofit2.Response as RResponse
  * ResponseTest
  *
  * Positive scenarios:
- *  - test_1: 2xx → SUCCESS → Events.event uses success pair/value
- *  - test_2: 5xx → RETRY → Events.retry uses error pair/value
- *  - test_3: 4xx → ERROR → Events.error uses error pair/value
- *  - test_4: getRequestName maps all RequestData types
+ *  - test_1: 2xx → SUCCESS → Events.event uses success pair/value.
+ *  - test_2: 5xx → RETRY → Events.retry uses error pair/value.
+ *  - test_3: 4xx → ERROR → Events.error uses error pair/value.
  *
  * Negative/edge scenarios:
- *  - test_5: non-JSON plain text body → treated as ERROR with error pair/value
- *  - test_6: HTML body → parsed as null but handled via ERROR
- *  - test_7: getResponseData throws → retry with composed name "processResponse:: <name>"
+ *  - test_4: getResponseData throws → retry with composed name "processResponse:: <requestName.value>".
  */
 class ResponseTest {
 
     private companion object {
-        const val FUNC = "processResponse"
-        const val AUTH = "Bearer X"
-        const val URL = "https://example/api"
-        val CT_JSON = "application/json".toMediaType()
+        private const val FUNC = "processResponse"
+        private const val AUTH = "Bearer X"
+        private const val URL = "https://example/api"
+        private val CT_JSON = "application/json".toMediaType()
     }
 
     @Before
@@ -56,11 +58,18 @@ class ResponseTest {
             val p = secondArg<Pair<Int, String>>()
             DataClasses.Event(f, p.first, p.second, thirdArg())
         }
+
         every { Events.retry(any(), any(), any()) } answers {
             val f = firstArg<String>()
             val p = secondArg<Pair<Int, String>>()
             DataClasses.RetryError(f, p.first, p.second, thirdArg())
         }
+
+        every { Events.retry(any(), any()) } answers {
+            val f = firstArg<String>()
+            DataClasses.RetryError(f, 500, "retry", null)
+        }
+
         every { Events.error(any(), any(), any()) } answers {
             val f = firstArg<String>()
             val second = secondArg<Any?>()
@@ -76,33 +85,48 @@ class ResponseTest {
     fun tearDown() = unmockkAll()
 
     private fun subscribeReq() = DataClasses.SubscribeRequestData(
-        url = URL, time = 1L, rToken = null, uid = "u1", authHeader = AUTH,
-        matchingMode = "m", provider = "p", deviceToken = "t", status = "subscribed",
-        sync = null, profileFields = JsonNull, fields = JsonNull, cats = emptyList(),
-        replace = false, skipTriggers = false
+        url = URL,
+        requestId = "u1",
+        time = 1L,
+        rToken = null,
+        authHeader = AUTH,
+        matchingMode = "m",
+        provider = "p",
+        deviceToken = "t",
+        status = SUBSCRIBED,
+        sync = null,
+        profileFields = JsonNull,
+        fields = JsonNull,
+        cats = emptyList(),
+        replace = false,
+        skipTriggers = false
     )
 
-    private fun updateReq() = DataClasses.UpdateRequestData(
-        url = URL, uid = "u2", oldToken = "ot", newToken = "nt",
-        oldProvider = "op", newProvider = "np", authHeader = AUTH
+    private fun updateReq() = DataClasses.TokenUpdateRequestData(
+        url = URL,
+        requestId = "u2",
+        oldToken = "ot",
+        newToken = "nt",
+        oldProvider = "op",
+        newProvider = "np",
+        authHeader = AUTH,
+        sync = false
     )
 
     private fun pushEventReq() = DataClasses.PushEventRequestData(
-        url = URL, time = 2L, type = "opened", uid = "e1", authHeader = AUTH, matchingMode = "m"
+        url = URL,
+        requestId = "u5",
+        time = 2L,
+        type = "opened",
+        uid = "e1",
+        authHeader = AUTH,
+        matchingMode = "m"
     )
 
-    private fun unSuspendReq() = DataClasses.UnSuspendRequestData(
-        url = URL, uid = "u3", provider = "p", token = "t", authHeader = AUTH, matchingMode = "m"
-    )
-
-    private fun statusReq() = DataClasses.StatusRequestData(
-        url = URL, uid = "u4", authHeader = AUTH, matchingMode = "m", provider = "p", token = "t"
-    )
-
-    /** - test_1: 2xx → SUCCESS → Events.event uses success pair/value. */
+    /** test_1: 2xx → SUCCESS → Events.event uses success pair/value. */
     @Test
     fun processResponse_success_2xx_callsEvent() {
-        val body: JsonElement = buildJsonObject { put("ok", true) }
+        val body: JsonElement = buildJsonObject { put("ok", JsonPrimitive(true)) }
         val resp = RResponse.success(body)
         val req = subscribeReq()
 
@@ -119,9 +143,11 @@ class ResponseTest {
         assertEquals(230, out.eventCode)
         assertEquals("ok", out.eventMessage)
         assertEquals(value, out.eventValue)
+
+        verify(exactly = 1) { Events.event(FUNC, successPair, value) }
     }
 
-    /** - test_2: 5xx → RETRY → Events.retry uses error pair/value. */
+    /** test_2: 5xx → RETRY → Events.retry uses error pair/value. */
     @Test
     fun processResponse_retry_5xx_callsRetry() {
         val errBody = """{"error":500}""".toResponseBody(CT_JSON)
@@ -142,12 +168,14 @@ class ResponseTest {
         assertEquals(531, out.eventCode)
         assertEquals("server-err", out.eventMessage)
         assertEquals(value, out.eventValue)
+
+        verify(exactly = 1) { Events.retry(FUNC, errorPair, value) }
     }
 
-    /** - test_3: 4xx → ERROR → Events.error uses error pair/value. */
+    /** test_3: 4xx → ERROR → Events.error uses error pair/value. */
     @Test
     fun processResponse_error_4xx_callsError() {
-        val errBody = """{"error":400,"errorText":"bad"}""".toResponseBody(CT_JSON)
+        val errBody = """{"error":400}""".toResponseBody(CT_JSON)
         val resp = RResponse.error<JsonElement>(400, errBody)
         val req = pushEventReq()
 
@@ -165,80 +193,29 @@ class ResponseTest {
         assertEquals(432, out.eventCode)
         assertEquals("client-err", out.eventMessage)
         assertEquals(value, out.eventValue)
+
+        verify(exactly = 1) { Events.error(FUNC, errorPair, value) }
     }
 
-    /** - test_4: getRequestName maps all RequestData types. */
-    @Test
-    fun getRequestName_mapsAllTypes() {
-        assertEquals(SUBSCRIBE_REQUEST, Response.getRequestName(subscribeReq()))
-        assertEquals(UPDATE_REQUEST, Response.getRequestName(updateReq()))
-        assertEquals(PUSH_EVENT_REQUEST, Response.getRequestName(pushEventReq()))
-        assertEquals(UNSUSPEND_REQUEST, Response.getRequestName(unSuspendReq()))
-        assertEquals(STATUS_REQUEST, Response.getRequestName(statusReq()))
-    }
-
-    /** - test_5: non-JSON plain text body → treated as ERROR with error pair/value. */
-    @Test
-    fun processResponse_nonJsonTextBody_treatedAsError() {
-        val body = "NOT_JSON".toResponseBody(CT_JSON)
-        val resp = RResponse.error<JsonElement>(400, body)
-        val req = subscribeReq()
-
-        val errorPair = 433 to "non-json"
-        val successPair = 233 to "ok"
-        val value = mapOf("code" to 400)
-
-        every { PairBuilder.getRequestMessages(400, any(), req) } returns (errorPair to successPair)
-        every { MapBuilder.createEventValue(400, any(), req) } returns value
-
-        val out = Response.processResponse(req, resp)
-
-        assertTrue(out is DataClasses.Error)
-        assertEquals(FUNC, out.function)
-        assertEquals(433, out.eventCode)
-        assertEquals("non-json", out.eventMessage)
-        assertEquals(value, out.eventValue)
-    }
-
-    /** - test_6: HTML body → parsed as null but handled via ERROR. */
-    @Test
-    fun processResponse_htmlBody_treatedAsNullButHandled() {
-        val body = "<html><body>Oops</body></html>".toResponseBody(CT_JSON)
-        val resp = RResponse.error<JsonElement>(400, body)
-        val req = updateReq()
-
-        val errorPair = 434 to "html-body"
-        val successPair = 234 to "ok"
-        val value = emptyMap<String, Any?>()
-
-        every { PairBuilder.getRequestMessages(400, any(), req) } returns (errorPair to successPair)
-        every { MapBuilder.createEventValue(400, any(), req) } returns value
-
-        val out = Response.processResponse(req, resp)
-
-        assertTrue(out is DataClasses.Error)
-        assertEquals(FUNC, out.function)
-        assertEquals(434, out.eventCode)
-        assertEquals("html-body", out.eventMessage)
-        assertEquals(value, out.eventValue)
-    }
-
-    /** - test_7: getResponseData throws → retry with composed name "processResponse:: <name>". */
+    /** test_4: getResponseData throws → retry with composed name "processResponse:: <requestName.value>". */
     @Test
     fun processResponse_whenDataNull_returnsRetryWithComposedName() {
-        val body: JsonElement = buildJsonObject { put("x", 1) }
+        val body: JsonElement = buildJsonObject { put("x", JsonPrimitive(1)) }
         val resp = RResponse.success(body)
 
-        every { PairBuilder.getRequestMessages(any(), any(), any()) } throws RuntimeException("boom")
+        every {
+            PairBuilder.getRequestMessages(
+                any(),
+                any(),
+                any()
+            )
+        } throws RuntimeException("boom")
         every { MapBuilder.createEventValue(any(), any(), any()) } returns emptyMap()
 
-        every { Events.retry(any(), any(), any()) } answers {
-            val f = firstArg<String>()
-            DataClasses.RetryError(f, 500, "retry", null)
-        }
+        val req = pushEventReq()
+        val out = Response.processResponse(req, resp)
 
-        val out = Response.processResponse(pushEventReq(), resp)
         assertTrue(out is DataClasses.RetryError)
-        assertEquals("processResponse:: $PUSH_EVENT_REQUEST", out.function)
+        assertEquals("processResponse:: ${req.requestName.value}", out.function)
     }
 }

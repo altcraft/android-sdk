@@ -16,31 +16,31 @@ internal object StringBuilder {
      * Generates the URL for push notification subscription requests.
      *
      * @param apiUrl The base API URL.
-     * @return The complete URL for subscribing to push notifications.
+     * @return The full URL for subscribing to push notifications.
      */
     fun subscribeUrl(apiUrl: String) = "$apiUrl/subscription/push/subscribe/"
 
     /**
-     * Generates a URL for updating the push token of subscriptions.
+     * Generates a URL for updating the push token for subscriptions.
      *
-     * @param apiUrl Returns the base API URL.
-     * @returns the complete URL for updating push subscriptions.
+     * @param apiUrl The base API URL.
+     * @return The full URL for updating push subscriptions.
      */
-    fun updateUrl(apiUrl: String) = "$apiUrl/subscription/push/update/"
+    fun tokenUpdateUrl(apiUrl: String) = "$apiUrl/subscription/push/update/"
 
     /**
      * Generates the URL for retrieving push notification subscription status.
      *
      * @param apiUrl The base API URL.
-     * @return The complete URL for fetching push subscription status.
+     * @return The full URL for fetching push subscription status.
      */
     fun statusUrl(apiUrl: String) = "$apiUrl/subscription/push/status/"
 
     /**
-     * Generates the URL for unSuspend request.
+     * Generates the URL for an unsuspend request.
      *
      * @param apiUrl The base API URL.
-     * @return The complete URL for fetching push subscription status.
+     * @return The full URL for unsuspending a push subscription.
      */
     @Suppress("SpellCheckingInspection")
     fun unSuspendUrl(apiUrl: String) = "$apiUrl/subscription/push/unsuspend/"
@@ -50,7 +50,7 @@ internal object StringBuilder {
      *
      * @param apiUrl The base API URL.
      * @param type The type of the push event (e.g., "open", "delivery").
-     * @return The full URL with event type appended.
+     * @return The full URL with the event type appended.
      */
     fun eventPushUrl(apiUrl: String, type: String) = "$apiUrl/event/push/$type"
 
@@ -58,9 +58,17 @@ internal object StringBuilder {
      * Generates the URL for mobile event tracking.
      *
      * @param apiUrl The base API URL.
-     * @return The full URL with event type appended.
+     * @return The full URL for posting a mobile event.
      */
     fun eventMobileUrl(apiUrl: String) = "$apiUrl/event/post"
+
+    /**
+     * Generates the URL for profile update requests.
+     *
+     * @param apiUrl The base API URL.
+     * @return The full URL for updating a profile.
+     */
+    fun profileUpdateUrl(apiUrl: String) = "$apiUrl/profile/update"
 
     /**
      * Builds a Bearer authorization header using the given JWT token.
@@ -68,7 +76,7 @@ internal object StringBuilder {
      * @param jwtToken The JWT token to format.
      * @return A string in the format "Bearer <jwtToken>".
      */
-    fun bearerJwtToken(jwtToken: String?) = "Bearer $jwtToken"
+    fun bearerJwtToken(jwtToken: String) = "Bearer $jwtToken"
 
     /**
      * Constructs an authorization string in the format: "Bearer rtoken@<token>".
@@ -79,39 +87,54 @@ internal object StringBuilder {
     fun bearerRToken(rToken: String) = "Bearer rtoken@$rToken"
 
     /**
-     * Generates a message about deleted push events.
+     * Builds a message for cleanup when the push event storage overflows.
      *
-     * @param totalCount The total number of events before deletion.
-     * @return A summary message indicating deletion count.
+     * Removes 100 oldest push events to reduce stored items.
+     *
+     * @param totalCount Total number of push events before cleanup.
+     * @return Cleanup summary message.
      */
     fun deletedPushEventsMsg(totalCount: Int) =
         "Deleted 100 oldest push events. Total count before: $totalCount"
 
     /**
-     * Generates a message about deleted mobile events.
+     * Builds a message for cleanup when the mobile event storage overflows.
      *
-     * @param totalCount The total number of events before deletion.
-     * @return A summary message indicating deletion count.
+     * Removes 100 oldest mobile events to reduce stored items.
+     *
+     * @param totalCount Total number of mobile events before cleanup.
+     * @return Cleanup summary message.
      */
     fun deletedMobileEventsMsg(totalCount: Int) =
         "Deleted 100 oldest mobile events. Total count before: $totalCount"
 
     /**
-     * Generates a message about deleted subscriptions.
+     * Builds a message for cleanup when the subscription storage overflows.
      *
-     * @param totalCount The total number of subscriptions before deletion.
-     * @return A summary message indicating deletion count.
+     * Removes 100 oldest subscriptions to reduce stored items.
+     *
+     * @param totalCount Total number of subscriptions before cleanup.
+     * @return Cleanup summary message.
      */
     fun deletedSubscriptionsMsg(totalCount: Int) =
         "Deleted 100 oldest subscriptions. Total count before: $totalCount"
 
     /**
-     * Creates a message for an event indicating the presence of invalid fields that are objects in
-     * mobile event parameters.
+     * Builds a message for cleanup when the profile update storage overflows.
      *
-     * @param eventName The name of the mobile event that contains invalid fields
-     * @return Error message string indicating that the mobile event payload contains non-primitive
-     * values
+     * Removes 100 oldest profile updates to reduce stored items.
+     *
+     * @param totalCount Total number of profile updates before cleanup.
+     * @return Cleanup summary message.
+     */
+    fun deletedProfileUpdatesMsg(totalCount: Int) =
+        "Deleted 100 oldest profile updates. Total count before: $totalCount"
+
+    /**
+     * Creates a message indicating invalid (non-primitive) values in mobile event parameters.
+     *
+     * @param eventName The name of the mobile event that contains invalid fields.
+     * @return An error message describing the invalid mobile event payload.
      */
     fun mobileEventPayloadInvalid(eventName: String) =
         "invalid mobile event payload: not all values are primitives. Event name: $eventName"
@@ -125,14 +148,6 @@ internal object StringBuilder {
      */
     fun serviceExceptionMessage(serviceName: String, exception: Exception) =
         "$serviceName exception: $exception"
-
-    /**
-     * Generates an error message indicating an unsupported entity type.
-     *
-     * @param entity The name of the entity that caused the error (nullable).
-     * @return A formatted error message describing the unsupported entity.
-     */
-    fun errorEntityType(entity: String?) = "Unsupported entity type: $entity"
 
     /**
      * Builds a formatted log string for an event.
@@ -149,10 +164,10 @@ internal object StringBuilder {
     }
 
     /**
-     * Returns a description of an invalid configuration or an error message.
+     * Builds a description of an invalid configuration.
      *
      * @param config Configuration to validate.
-     * @return Description of the issue or exception message.
+     * @return A message describing all detected configuration issues.
      */
     fun invalidConfigMsg(config: ConfigurationEntity): String {
         val errors = mutableListOf<String>()
@@ -172,6 +187,7 @@ internal object StringBuilder {
      *
      * @param list Providers to check.
      * @param valid Allowed providers.
+     * @return A message describing invalid providers and the allowed set.
      */
     private fun invalidProvidersMsg(list: List<String>, valid: Set<String>) =
         "providerPriorityList contains invalid values:$list. Allowed: $valid"

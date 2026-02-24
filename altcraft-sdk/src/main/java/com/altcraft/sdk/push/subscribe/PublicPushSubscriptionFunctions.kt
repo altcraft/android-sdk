@@ -102,7 +102,7 @@ object PublicPushSubscriptionFunctions {
      * Initiates a push unsubscription request, notifying the server
      * to stop sending push notifications for the current profile.
      *
-     *status = UNSUBSCRIBED
+     * status = UNSUBSCRIBED
      *
      * @param context The application context for the unsubscription request.
      * @param sync Flag that controls execution mode: `true` — synchronous, `false` — asynchronous.
@@ -134,14 +134,13 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Updates push subscription statuses based on the provided matching mode.
+     * Switches push subscriptions between profiles (LogIn/LogOut transition).
      *
-     * - Subscriptions matching the given `matching` are changed from `suspended` to `subscribed`.
-     * - Other active subscriptions with the same push token are set to `suspended`.
+     * Suspends other profiles’ `subscribed` push subscriptions with the same push token,
+     * restores `suspended` subscriptions for the profile referenced by the current JWT,
+     * and returns that profile (or `null` if it does not exist).
      *
-     * Executes a one-time request. Returns `null` if the operation fails.
-     *
-     * @param context Android [Context] for configuration and request execution.
+     * @param context Android [Context] for request execution.
      * @return [DataClasses.ResponseWithHttpCode] with HTTP code and response, or `null` on failure.
      */
     suspend fun unSuspendPushSubscription(context: Context): DataClasses.ResponseWithHttpCode? {
@@ -156,7 +155,9 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Returns the status of the latest subscription in profile.
+     * Returns [DataClasses.ResponseWithHttpCode] for the latest subscription in the profile.
+     *
+     * Subscription status (if present): `response.profile?.subscription?.status`.
      *
      * @param context Application context used for internal request resolution.
      */
@@ -174,10 +175,9 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Returns the status of the latest subscription for a push provider.
+     * Returns [DataClasses.ResponseWithHttpCode] for the latest subscription for a provider.
      *
-     * If [provider] is specified, queries the latest subscription for that provider.
-     * If null, uses the current push provider.
+     * Subscription status (if present): `response.profile?.subscription?.status`.
      *
      * @param context Application context used for internal request resolution.
      * @param provider Optional push provider name to override the current one.
@@ -198,7 +198,9 @@ object PublicPushSubscriptionFunctions {
     }
 
     /**
-     * Returns the status of a subscription matching the current push token and current push provider.
+     * Returns [DataClasses.ResponseWithHttpCode] for the current token/provider subscription.
+     *
+     * Subscription status (if present): `response.profile?.subscription?.status`.
      *
      * @param context Application context used for internal request resolution.
      */

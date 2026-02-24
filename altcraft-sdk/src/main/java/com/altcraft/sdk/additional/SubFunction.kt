@@ -102,7 +102,7 @@ internal object SubFunction {
      * Checks if the app has notification permission.
      *
      * @param context The context used to access the system services.
-     * @return `true` if notifications are enabled; `false` otherwise.
+     * @return `true` if notifications are enabled; `false` otherwise.=
      */
     fun checkingNotificationPermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -166,23 +166,15 @@ internal object SubFunction {
     }
 
     /**
-     * Determines if a given push notification is an Altcraft push notification.
+     * Checks whether a push notification belongs to Altcraft.
      *
-     * This function checks the data payload of a `RemoteMessage` to see if it contains the key
-     * "_ac_push", which identifies it as a push notification from Altcraft.
+     * The `RemoteMessage` payload is expected to be converted to `Map<String, String>`.
+     * The message is considered an Altcraft push if it contains the `_ac_push` key.
      *
-     * @param message The `RemoteMessage` object representing the push notification received.
-     * @return `true` if the message is an Altcraft push notification; `false` otherwise.
+     * @param message Push payload converted from `RemoteMessage.data`.
+     * @return `true` if this is an Altcraft push; otherwise `false`.
      */
     fun altcraftPush(message: Map<String, String>) = message.containsKey(AC_PUSH)
-
-
-    /** Returns `true` if the string starts like a JSON object or array. */
-    fun String?.isJsonString(): Boolean {
-        if (this.isNullOrBlank()) return false
-        val trimmed = this.trimStart()
-        return trimmed.startsWith("{") || trimmed.startsWith("[")
-    }
 
     /**
      * Safely parses a hex color string into an Int color.
@@ -194,6 +186,14 @@ internal object SubFunction {
         value?.toColorInt() ?: Color.BLACK
     } catch (_: Exception) {
         Color.BLACK
+    }
+
+    /** Returns `true` if the string starts like a JSON object or array. */
+    fun String?.isJsonString(): Boolean {
+        if (this.isNullOrBlank()) return false
+        val trimmed = this.trimStart()
+
+        return trimmed.startsWith("{") || trimmed.startsWith("[")
     }
 
     /**

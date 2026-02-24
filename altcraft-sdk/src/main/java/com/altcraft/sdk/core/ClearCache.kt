@@ -7,11 +7,9 @@ package com.altcraft.sdk.core
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.content.edit
-import com.altcraft.sdk.data.Constants.SUBSCRIBE_SERVICE
-import com.altcraft.sdk.data.Constants.UPDATE_SERVICE
 import com.altcraft.sdk.data.Preferenses
 import com.altcraft.sdk.data.room.SDKdb
-import com.altcraft.sdk.services.manager.ServiceManager.stopService
+
 import com.altcraft.sdk.data.Preferenses.getPreferences
 import com.altcraft.sdk.sdk_events.EventList.sdkCleared
 import com.altcraft.sdk.sdk_events.Events.error
@@ -25,7 +23,8 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.altcraft.sdk.config.ConfigSetup.configuration
-import com.altcraft.sdk.core.Retry.retryControl
+import com.altcraft.sdk.core.InitialOperations.initControl
+import com.altcraft.sdk.data.Preferenses.clearManualToken
 import com.altcraft.sdk.push.token.TokenManager.tokens
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,7 +48,7 @@ internal object ClearCache {
         try {
             CoroutineScope(Dispatchers.IO).launch {
                 configuration = null
-                retryControl = AtomicBoolean(false)
+                initControl = AtomicBoolean(false)
                 tokens.clear()
 
                 // Cancel any ongoing workers or tasks
@@ -69,15 +68,13 @@ internal object ClearCache {
                 room.request().deleteAllSubscriptions()
                 room.request().deleteAllPushEvents()
                 room.request().deleteAllMobileEvents()
+                room.request().deleteAllProfileUpdates()
 
-                // Intent to close services
-                stopService(context, SUBSCRIBE_SERVICE)
-                stopService(context, UPDATE_SERVICE)
-
+                //clear manual push token
+                clearManualToken(context)
                 // Clear specific preferences related to SDK
                 getPreferences(context).edit {
                     remove(Preferenses.TOKEN_KEY)
-                    remove(Preferenses.MANUAL_TOKEN_KEY)
                     remove(Preferenses.MESSAGE_ID_KEY)
                 }
 

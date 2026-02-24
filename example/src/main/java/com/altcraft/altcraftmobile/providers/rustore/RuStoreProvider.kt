@@ -24,15 +24,17 @@ class RuStoreProvider : RustoreInterface {
      */
     override suspend fun getToken(): String? {
         val deferred = CompletableDeferred<String?>()
+
         try {
             val token = RuStorePushClient.getToken().await()
-
+            SubFunction.logger(token)
             RuStorePushClient.checkPushAvailability().addOnSuccessListener { result ->
                 when (result) {
                     FeatureAvailabilityResult.Available -> deferred.complete(token)
                     is FeatureAvailabilityResult.Unavailable -> deferred.complete(null)
                 }
             }.addOnFailureListener {
+                SubFunction.logger(it.message)
                 deferred.complete(null)
             }
         } catch (_: Exception) {
@@ -47,15 +49,11 @@ class RuStoreProvider : RustoreInterface {
      *
      * @param complete Callback with `true` on success, `false` on failure.
      */
-    override suspend fun deleteToken(complete: (Boolean) -> Unit) {
+    override fun deleteToken(complete: (Boolean) -> Unit) {
         try {
             RuStorePushClient.deleteToken()
-                .addOnSuccessListener {
-                    complete(true)
-                }
-                .addOnFailureListener {
-                    complete(false)
-                }
+                .addOnSuccessListener { complete(true) }
+                .addOnFailureListener { complete(false) }
         } catch (_: Exception) {
             complete(false)
         }

@@ -24,14 +24,11 @@ internal object ConfigSetup {
     private val configMutex = Mutex()
 
     /**
-     * Sets up and updates the SDK configuration in the local database.
+     * Saves SDK configuration to the database and updates the cache.
      *
-     * Converts the provided [AltcraftConfiguration] into a database entity, validates it,
-     * and checks if the `userTag` is associated with the `rToken`.
-     * Updates an existing configuration or inserts a new one.
+     * Converts [AltcraftConfiguration] to an entity and inserts or updates it.
      *
-     * @param context The application context for database access.
-     * @param newConfig The [AltcraftConfiguration] instance with new SDK settings.
+     * @return The stored [ConfigurationEntity], or `null` if invalid or on error.
      */
     suspend fun setConfig(
         context: Context,
@@ -51,11 +48,14 @@ internal object ConfigSetup {
     }
 
     /**
-     * Clears pending push subscription requests and all mobile events  when the rToken changes.
+     * When `rToken` changes, deletes:
+     * - all subscriptions
+     * - all mobile events
+     * - all profile field updates
      *
      * @param newConfig The new configuration containing the current rToken.
      * @param oldConfig The previous configuration containing the old rToken.
-     * @param dao Data access object used to clear pending subscription requests and mobile events.
+     * @param dao Data access object used to clear stored data.
      */
     private suspend fun rTokenChange(
         newConfig: ConfigurationEntity?,
@@ -64,6 +64,7 @@ internal object ConfigSetup {
     ) {
         val (newRToken, oldRToken) = newConfig?.rToken to oldConfig?.rToken
         if (newRToken != null && oldRToken != null && newRToken != oldRToken) {
+            dao.deleteAllProfileUpdates()
             dao.deleteAllSubscriptions()
             dao.deleteAllMobileEvents()
         }
@@ -77,7 +78,7 @@ internal object ConfigSetup {
      * @param newConfig The new configuration to store and activate.
      * @param oldConfig The previously stored configuration.
      * @param dao Data access object used to persist configuration.
-     * @return true if the new configuration was successfully set, false otherwise.
+     * @return The active configuration, or `null` if [newConfig] is `null`.
      */
     private suspend fun configInstall(
         newConfig: ConfigurationEntity?,
@@ -91,14 +92,14 @@ internal object ConfigSetup {
     }
 
     /**
-     * Retrieves configuration data with retry logic.
+     * Retrieves configuration with retry logic (up to 3 attempts, 1 second delay).
      *
-     * Fetches config data from the database, checking `init == true` if the app is in the
-     * foreground, or without checking if in the background.
-     * Retries up to 3 times with 1-second delays between attempts.
+     * Uses the in-memory cache if available. Otherwise fetches from the database.
+     * If the app is in the background, returns the database value immediately.
+     * If the app is in the foreground, waits and retries (to allow config to be set).
      *
      * @param context The application context for database access.
-     * @return The configuration data, or `null` if not found after retries.
+     * @return The configuration, or `null` if not found after retries.
      */
     suspend fun getConfig(context: Context): ConfigurationEntity? {
         return configMutex.withLock {
@@ -121,10 +122,7 @@ internal object ConfigSetup {
     }
 
     /**
-     * Updates the cached configuration instance after changing the provider priority list.
-     *
-     * Used to refresh the in-memory `configuration` value from the database
-     * after updating the `providerPriorityList` in `ConfigurationEntity`.
+     * Refreshes the in-memory configuration value from the database.
      *
      * @param context Application context used to access the database.
      */

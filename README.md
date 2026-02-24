@@ -21,8 +21,9 @@ Altcraft Android SDK is a library for managing push notifications, user profiles
 * [x] Automatic push token update when it changes.
 * [x] Automatic transmission of notification delivery and open events.
 * [x] Mobile events registration.
+* [x] Update profile fields.
 * [x] Automatic retry of failed requests.
-* [x] Support for push providers: APNS, Firebase, Huawei.
+* [x] Support for push providers: Firebase, Huawei, Rustore.
 * [x] Secure requests using JWT and flexible identifier matching.
 * [x] Support for rToken for simple subscription scenarios.
 * [x] SDK data cleanup and background tasks termination.
@@ -31,7 +32,7 @@ Altcraft Android SDK is a library for managing push notifications, user profiles
 
 ## Dependency
 
-`com.altcraft:android-sdk:1.0.2` 
+`com.altcraft:android-sdk:1.0.3` 
 
 ---
 
@@ -74,16 +75,16 @@ Profile lookup is limited to the push token identifier.
 
 Detailed information on SDK setup, functionality, and usage is available on the Altcraft documentation portal. You can navigate to the required section using the links below:
 
-- [**Quick Start**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/quick-start)
-- [**SDK Functionality**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/functionality)
-- [**SDK Configuration**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/setup)
-- [**Classes and Structures**](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/api)
+- [**Quick Start**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/quick-start)
+- [**SDK Functionality**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/functionality)
+- [**SDK Configuration**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/setup)
+- [**Classes and Structures**](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/api)
 
 **Provider Setup**
 
-- [FCM](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/fcm/)
-- [HMS](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/hms/)
-- [RuStore](https://guides.altcraft.com/en/developer-guide/sdk/v1/android/providers/rustore/)
+- [FCM](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/fcm/)
+- [HMS](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/hms/)
+- [RuStore](https://guides.altcraft.com/en/developer-guide/sdk/mobile/android/providers/rustore/)
 
 ---
 
@@ -147,3 +148,4 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [Glide](https://github.com/bumptech/glide) — **BSD-2-Clause** 
 * [JUnit 4](https://junit.org/junit4/) — **EPL-1.0 (Eclipse Public License 1.0)**
 * [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
+

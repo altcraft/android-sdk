@@ -8,19 +8,12 @@ import com.altcraft.sdk.additional.MapBuilder.createEventValue
 import com.altcraft.sdk.additional.PairBuilder.getRequestMessages
 import com.altcraft.sdk.additional.SubFunction.isJsonString
 import com.altcraft.sdk.additional.SubFunction.stringContainsHtml
-import com.altcraft.sdk.data.Constants.MOBILE_EVENT_REQUEST
-import com.altcraft.sdk.data.Constants.PUSH_EVENT_REQUEST
-import com.altcraft.sdk.data.Constants.STATUS_REQUEST
-import com.altcraft.sdk.data.Constants.SUBSCRIBE_REQUEST
-import com.altcraft.sdk.data.Constants.UNSUSPEND_REQUEST
-import com.altcraft.sdk.data.Constants.UPDATE_REQUEST
 import com.altcraft.sdk.data.DataClasses
 import com.altcraft.sdk.sdk_events.EventList.responseDataIsNull
 import com.altcraft.sdk.sdk_events.Events.retry
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.sdk_events.Events.event
 import com.altcraft.sdk.extension.ExceptionExtension.exception
-import com.altcraft.sdk.interfaces.RequestData
 import com.altcraft.sdk.json.Converter.json
 import kotlinx.serialization.json.JsonElement
 import retrofit2.Response
@@ -57,7 +50,7 @@ internal object Response {
             val body = if (response.isSuccessful) response.body()?.toString()
             else response.errorBody()?.string()
             when {
-                body.isNullOrEmpty() || stringContainsHtml(body)-> null
+                body.isNullOrEmpty() || stringContainsHtml(body) -> null
                 body.isJsonString() -> json.decodeFromString<DataClasses.Response>(body)
                 else -> DataClasses.Response(error = null, errorText = body, profile = null)
             }
@@ -76,7 +69,7 @@ internal object Response {
      * @return Processed response data or null on failure.
      */
     private fun getResponseData(
-        response: Response<JsonElement>, request: RequestData
+        response: Response<JsonElement>, request: DataClasses.RequestData
     ): DataClasses.ResponseResult? {
         return try {
             parseResponse(response).let {
@@ -101,10 +94,10 @@ internal object Response {
     }
 
     /**
-     * Determines the response status based on the given HTTP and internal error codes.
+     * Determines the response status from the HTTP status code.
      *
-     * @param code  HTTP status code (nullable).
-     * @return The corresponding [ResponseStatus] indicating how the response should be handled.
+     * @param code  HTTP status code.
+     * @return Mapped [ResponseStatus].
      */
     private fun responseStatus(code: Int?): ResponseStatus {
         return when (code) {
@@ -122,7 +115,7 @@ internal object Response {
      * @return A typed [DataClasses.Event]: success, retry, or error.
      */
     fun processResponse(
-        requestData: RequestData,
+        requestData: DataClasses.RequestData,
         response: Response<JsonElement>
     ): DataClasses.Event {
         val func = "processResponse"
@@ -134,24 +127,7 @@ internal object Response {
                 ResponseStatus.ERROR -> error(func, data.errorPair, data.eventValue)
             }
         } catch (e: Exception) {
-            retry("processResponse:: ${getRequestName(requestData)}", e)
-        }
-    }
-
-    /**
-     * Determines the request name based on the request type.
-     *
-     * @param requestData The request object to inspect.
-     * @return A request name string.
-     */
-    fun getRequestName(requestData: RequestData): String {
-        return when (requestData) {
-            is DataClasses.MobileEventRequestData -> MOBILE_EVENT_REQUEST
-            is DataClasses.UnSuspendRequestData -> UNSUSPEND_REQUEST
-            is DataClasses.SubscribeRequestData -> SUBSCRIBE_REQUEST
-            is DataClasses.StatusRequestData -> STATUS_REQUEST
-            is DataClasses.UpdateRequestData -> UPDATE_REQUEST
-            else -> PUSH_EVENT_REQUEST
+            retry("$func:: ${requestData.requestName.value}", e)
         }
     }
 }

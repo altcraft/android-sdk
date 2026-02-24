@@ -25,14 +25,10 @@ internal data class ConfigurationEntity(
     var icon: Int? = null,
     @ColumnInfo(name = "apiUrl")
     var apiUrl: String,
-    @ColumnInfo(name = "resToken")
+    @ColumnInfo(name = "rToken")
     var rToken: String?,
     @ColumnInfo(name = "appInfo")
     val appInfo: DataClasses.AppInfo?,
-    @ColumnInfo(name = "usingService")
-    var usingService: Boolean,
-    @ColumnInfo(name = "serviceMessage")
-    var serviceMessage: String?,
     @ColumnInfo(name = "pushReceiverModules")
     var pushReceiverModules: List<String>? = null,
     @ColumnInfo(name = "providerPriorityList")
@@ -45,7 +41,7 @@ internal data class ConfigurationEntity(
     /**
      * Validates the ConfigurationEntity object.
      *
-     * @return true if all required fields are non-empty and valid, otherwise false.
+     * @return `true` if `apiUrl` is not empty and providers are valid.
      */
     fun isValid() = apiUrl.isNotEmpty() && allProvidersValid(providerPriorityList)
 }
@@ -54,36 +50,41 @@ internal data class ConfigurationEntity(
 sealed interface RequestEntity
 
 /**
+ * Generates a random UUID string.
+ */
+private fun uuid() = UUID.randomUUID().toString()
+
+/**
  * SubscribeEntity — entity for storing subscribe request data.
  */
 @Entity(tableName = "subscribeTable")
 internal data class SubscribeEntity(
-    @ColumnInfo(name = "userTag")
-    var userTag: String?,
-    @ColumnInfo(name = "status")
-    var status: String,
-    @ColumnInfo(name = "sync")
-    var sync: Int?,
-    @ColumnInfo(name = "profileFields")
-    var profileFields: JsonElement?,
-    @ColumnInfo(name = "customFields")
-    var customFields: JsonElement?,
-    @ColumnInfo(name = "cats")
-    var cats: List<DataClasses.CategoryData>?,
-    @ColumnInfo(name = "replace")
-    var replace: Boolean?,
-    @ColumnInfo(name = "skipTriggers")
-    var skipTriggers: Boolean?,
     @PrimaryKey
-    @ColumnInfo(name = "uid")
-    var uid: String = UUID.randomUUID().toString(),
+    @ColumnInfo(name = "requestID")
+    val requestID: String = uuid(),
+    @ColumnInfo(name = "userTag")
+    val userTag: String?,
+    @ColumnInfo(name = "status")
+    val status: String,
+    @ColumnInfo(name = "sync")
+    val sync: Int?,
+    @ColumnInfo(name = "profileFields")
+    val profileFields: JsonElement?,
+    @ColumnInfo(name = "customFields")
+    val customFields: JsonElement?,
+    @ColumnInfo(name = "cats")
+    val cats: List<DataClasses.CategoryData>?,
+    @ColumnInfo(name = "replace")
+    val replace: Boolean?,
+    @ColumnInfo(name = "skipTriggers")
+    val skipTriggers: Boolean?,
     @ColumnInfo(name = "time")
-    var time: Long = System.currentTimeMillis(),
+    val time: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "retryCount")
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
-    var maxRetryCount: Int = MAX_RETRY_COUNT,
-): RequestEntity
+    val maxRetryCount: Int = MAX_RETRY_COUNT,
+) : RequestEntity
 
 /**
  * Entity representing a push event stored in the database.
@@ -91,54 +92,78 @@ internal data class SubscribeEntity(
 @Entity(tableName = "pushEventTable")
 internal data class PushEventEntity(
     @PrimaryKey
+    @ColumnInfo(name = "requestID")
+    val requestID: String = uuid(),
     @ColumnInfo(name = "uid")
-    var uid: String,
+    val uid: String,
     @ColumnInfo(name = "type")
-    var type: String,
+    val type: String,
     @ColumnInfo(name = "time")
-    var time: Long = System.currentTimeMillis(),
+    val time: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "retryCount")
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
-    var maxRetryCount: Int = MAX_RETRY_COUNT,
-): RequestEntity
+    val maxRetryCount: Int = MAX_RETRY_COUNT,
+) : RequestEntity
 
 /**
  * Entity representing a mobile event stored in the database.
  */
 @Entity(tableName = "mobileEventTable")
 internal data class MobileEventEntity(
-    @PrimaryKey(autoGenerate = true)
-    @ColumnInfo(name = "id")
-    var id: Long = 0L,
+    @PrimaryKey
+    @ColumnInfo(name = "requestID")
+    val requestID: String = uuid(),
     @ColumnInfo(name = "userTag")
-    var userTag: String,
+    val userTag: String,
     @ColumnInfo(name = "tz")
-    var timeZone: Int,
+    val timeZone: Int,
     @ColumnInfo(name = "time")
-    var time: Long = System.currentTimeMillis(),
+    val time: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "sid")
-    var sid: String,
+    val sid: String,
     @ColumnInfo(name = "altcraftClientID")
-    var altcraftClientID: String?,
+    val altcraftClientID: String?,
     @ColumnInfo(name = "eventName")
-    var eventName: String,
+    val eventName: String,
     @ColumnInfo(name = "payload")
-    var payload: String?,
+    val payload: String?,
     @ColumnInfo(name = "matching")
-    var matching: String?,
+    val matching: String?,
     @ColumnInfo(name = "matchingType")
-    var matchingType: String?,
+    val matchingType: String?,
     @ColumnInfo(name = "profileFields")
-    var profileFields: String?,
+    val profileFields: String?,
     @ColumnInfo(name = "subscription")
-    var subscription: String?,
+    val subscription: String?,
     @ColumnInfo(name = "sendMessageId")
-    var sendMessageId: String?,
+    val sendMessageId: String?,
     @ColumnInfo(name = "utm")
-    var utmTags: String?,
+    val utmTags: String?,
     @ColumnInfo(name = "retryCount")
     var retryCount: Int = START_RETRY_COUNT,
     @ColumnInfo(name = "maxRetryCount")
-    var maxRetryCount: Int = MAX_RETRY_COUNT,
-): RequestEntity
+    val maxRetryCount: Int = MAX_RETRY_COUNT,
+) : RequestEntity
+
+/**
+ * Entity representing a profile update stored in the database.
+ */
+@Entity(tableName = "profileUpdateTable")
+internal data class ProfileUpdateEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "requestID")
+    val requestID: String = uuid(),
+    @ColumnInfo(name = "userTag")
+    val userTag: String?,
+    @ColumnInfo(name = "time")
+    val time: Long,
+    @ColumnInfo(name = "profileFields")
+    val profileFields: JsonElement?,
+    @ColumnInfo(name = "skipTriggers")
+    val skipTriggers: Boolean?,
+    @ColumnInfo(name = "retryCount")
+    var retryCount: Int = START_RETRY_COUNT,
+    @ColumnInfo(name = "maxRetryCount")
+    val maxRetryCount: Int = MAX_RETRY_COUNT,
+) : RequestEntity

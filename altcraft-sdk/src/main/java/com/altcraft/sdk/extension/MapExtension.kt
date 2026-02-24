@@ -4,7 +4,6 @@ package com.altcraft.sdk.extension
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import androidx.work.Data
 import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
@@ -13,38 +12,15 @@ import java.util.Collections
 import java.util.IdentityHashMap
 
 /**
- * `MapExtension` provides helpers to convert maps to WorkManager `Data` and JSON structures.
+ * `MapExtension` provides helpers for converting maps to JSON structures.
  */
 internal object MapExtension {
 
     /**
-     * Converts a [Map] of [String] keys and [String] values into a [Data] object
-     * suitable for WorkManager, or returns `null` if building the [Data] fails.
+     * Converts a Map<String, Any?> to [JsonElement].
      *
-     * @receiver Map of key-value pairs to encode.
-     * @return [Data] if conversion is successful; `null` otherwise.
-     */
-    fun Map<String, String>.toWorkDataOrNull(): Data? {
-        return try {
-            Data.Builder().apply {
-                forEach { (k, v) -> putString(k, v) }
-            }.build()
-        } catch (e: Exception) {
-            error("toWorkDataOrNull", e)
-            null
-        }
-    }
-
-    /**
-     * Converts a [Map] with `String` keys and arbitrary values into a [JsonElement].
-     *
-     * Supports nested maps, collections, sequences, arrays, primitives, enums, and nulls.
-     * Cyclic references are safely ignored, and non-string keys are skipped.
-     *
-     * @receiver The source map to convert.
-     * @param maxDepth Maximum recursion depth before returning [JsonNull].
-     * @param maxCollectionElements Maximum number of elements per collection or array.
-     * @return A [JsonElement] representing the entire map structure.
+     * Supports nested structures. Cycles and values beyond [maxDepth]
+     * are represented as [JsonNull]. In nested maps, only String keys are included.
      */
     fun Map<String, Any?>.mapToJson(
         maxDepth: Int = 64,

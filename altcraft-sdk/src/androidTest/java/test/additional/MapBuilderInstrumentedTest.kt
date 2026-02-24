@@ -51,9 +51,7 @@ class MapBuilderInstrumentedTest {
             icon = null,
             apiUrl = "https://api.test",
             rToken = null,
-            appInfo = null,
-            usingService = false,
-            serviceMessage = null
+            appInfo = null
         )
         val custom = mapOf("x" to 1)
         val result = MapBuilder.unionMaps(context, config, custom)
@@ -71,9 +69,7 @@ class MapBuilderInstrumentedTest {
             icon = null,
             apiUrl = "https://api.test",
             rToken = null,
-            appInfo = appInfo,
-            usingService = false,
-            serviceMessage = null
+            appInfo = appInfo
         )
         val result = MapBuilder.unionMaps(context, config, emptyMap())
         assertNotNull(MSG_NOT_NULL, result)
@@ -91,9 +87,7 @@ class MapBuilderInstrumentedTest {
             icon = null,
             apiUrl = "https://api.test",
             rToken = null,
-            appInfo = null,
-            usingService = false,
-            serviceMessage = null
+            appInfo = null
         )
         val result = MapBuilder.unionMaps(context, config, emptyMap())
         assertNotNull(MSG_NOT_NULL, result)

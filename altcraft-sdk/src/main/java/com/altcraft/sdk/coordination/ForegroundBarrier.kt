@@ -1,4 +1,4 @@
-package com.altcraft.sdk.concurrency
+package com.altcraft.sdk.coordination
 
 //  Created by Andrey Pogodin.
 //
@@ -23,10 +23,10 @@ import com.altcraft.sdk.sdk_events.Events.error
 /**
  * ForegroundGate — detects when the app enters foreground.
  *
- * `foregroundCallback` invokes the callback immediately if already active,
+ * `foreground` invokes the callback immediately if already active,
  * or once lifecycle reaches STARTED. Safe from any thread, deduplicates calls.
  */
-object ForegroundGate {
+object ForegroundBarrier {
 
     private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -39,18 +39,17 @@ object ForegroundGate {
      * Non-blocking; safe from any thread.
      * If a wait is already in-flight, subsequent calls are ignored.
      */
-    fun foreground(callback: (Boolean) -> Unit) {
+    fun foreground(block: suspend (Boolean) -> Unit) {
         if (!hasSubscription.compareAndSet(false, true)) return
-
         internalScope.launch {
             try {
                 val ok = awaitForegroundInternal()
-                withContext(Dispatchers.Main.immediate) {
-                    try {
-                        callback(ok)
-                    } catch (e: Exception) {
-                        error("foregroundCallback", e)
+                try {
+                    withContext(Dispatchers.Main.immediate) {
+                        block(ok)
                     }
+                } catch (e: Exception) {
+                    error("foregroundBlock", e)
                 }
             } finally {
                 hasSubscription.set(false)

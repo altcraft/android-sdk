@@ -79,8 +79,8 @@ object SubFunction {
  * ```
  * NotificationPermissionHandler.isGranted(
  *     activity = this,
- *     onGranted = {
- *         AltcraftSDK.pushSubscriptionFunctions.pushSubscribe(context = this)
+ *     complete = { granted ->
+ *         if (granted) AltcraftSDK.pushSubscriptionFunctions.pushSubscribe(context = this)
  *     }
  * )
  * ```
@@ -97,11 +97,10 @@ object NotificationPermissionHandler {
     @Suppress("MemberVisibilityCanBePrivate")
     fun isGranted(
         activity: ComponentActivity,
-        onGranted: () -> Unit,
-        onDenied: (() -> Unit)? = null
+        complete: (Boolean) -> Unit
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            onGranted()
+            complete(true)
             return
         }
 
@@ -111,14 +110,14 @@ object NotificationPermissionHandler {
             permission
         ) == PackageManager.PERMISSION_GRANTED
         if (granted) {
-            onGranted()
+            complete(true)
             return
         }
 
         val launcher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            if (isGranted) onGranted() else onDenied?.invoke()
+            complete(isGranted)
         }
 
         launcher.launch(permission)

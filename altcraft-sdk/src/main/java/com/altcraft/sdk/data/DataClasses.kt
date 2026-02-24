@@ -4,15 +4,17 @@ package com.altcraft.sdk.data
 //
 //  Copyright © 2025 Altcraft. All rights reserved.
 
-import android.app.PendingIntent
 import android.graphics.Bitmap
 import androidx.annotation.Keep
 import com.altcraft.sdk.data.Constants.DB_ID
 import com.altcraft.sdk.data.Constants.MATCHING
 import com.altcraft.sdk.data.Constants.MATCHING_ID
 import com.altcraft.sdk.data.Constants.PROVIDER
+import com.altcraft.sdk.data.Constants.SUBSCRIBED
+import com.altcraft.sdk.data.Constants.SUSPENDED
 import com.altcraft.sdk.data.Constants.TOKEN
 import com.altcraft.sdk.json.serializer.subscription.SubscriptionSerializer
+import com.altcraft.sdk.network.Request.RequestName
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -34,9 +36,8 @@ object DataClasses {
     /**
      * A data class representing token data used for push notifications.
      *
-     * @property provider The push notification provider (
-     * android-firebase, android-huawei, android-rustore
-     * ).
+     * @property provider The push notification provider
+     *   (e.g., "android-firebase", "android-huawei", "android-rustore").
      * @property token The device-specific token used for push notifications.
      */
     @Keep
@@ -54,9 +55,9 @@ object DataClasses {
     }
 
     /**
-     * Holds basic metadata about the application for Firebase analytics.
+     * Holds basic metadata about the application (e.g. for analytics).
      *
-     * @property appID The unique Firebase App identifier.
+     * @property appID The unique application identifier.
      * @property appIID The installation identifier (Instance ID) for this app.
      * @property appVer The version string of the application.
      */
@@ -100,7 +101,7 @@ object DataClasses {
      * @property error The numeric error code.
      * @property errorText The descriptive error message.
      * @property profile The user profile data, if available.
-     * Contains information about the user's profile, including status and subscriptions.
+     *   Contains information about the user's profile, including status and subscriptions.
      */
     @Keep
     @Serializable
@@ -186,6 +187,7 @@ object DataClasses {
         val resourceId: Int
         val status: String?
         val priority: Int?
+
         @SerialName("custom_fields")
         val customFields: Map<String, @Contextual Any?>?
         val cats: List<String>?
@@ -310,15 +312,15 @@ object DataClasses {
     /**
      * UTM params for mobile events (all optional).
      *
-     * @property campaign UTM Campaign
-     * @property content  UTM Content
-     * @property keyword  UTM Keyword/Term
-     * @property medium   UTM Medium
-     * @property source   UTM Source
-     * @property temp     UTM Temp
+     * @property campaign UTM Campaign.
+     * @property content  UTM Content.
+     * @property keyword  UTM Keyword/Term.
+     * @property medium   UTM Medium.
+     * @property source   UTM Source.
+     * @property temp     UTM Temp.
      */
     @Serializable
-    data class UTM (
+    data class UTM(
         val campaign: String? = null,
         val content: String? = null,
         val keyword: String? = null,
@@ -333,7 +335,7 @@ object DataClasses {
      * @property function The name or identifier of the function where the event occurred.
      * @property eventCode An optional code identifying the event type.
      * @property eventMessage An optional message providing additional details about the event.
-     * @property eventValue An optional value associated with the event.
+     * @property eventValue An optional map with additional event-related metadata.
      * @property date The date and time when the event occurred.
      */
     @Keep
@@ -353,7 +355,7 @@ object DataClasses {
      * @param function The name or identifier of the function where the error occurred.
      * @param eventCode An optional code identifying the error type.
      * @param eventMessage An optional message providing details about the error.
-     * @param eventValue An optional value associated with the error.
+     * @param eventValue An optional map with additional error-related metadata.
      * @param date The date and time when the error occurred.
      */
     @Keep
@@ -367,12 +369,12 @@ object DataClasses {
 
     /**
      * Represents a retryable error event.
-     * This class extends `Error` and is used for errors that support retry mechanisms.
+     * This class extends [Error] and is used for errors that support retry mechanisms.
      *
      * @param function The name or identifier of the function where the retryable error occurred.
      * @param eventCode An optional code identifying the retryable error type.
      * @param eventMessage An optional message providing details about the retryable error.
-     * @param eventValue An optional value associated with the retryable error.
+     * @param eventValue An optional map with additional error-related metadata.
      * @param date The date and time when the retryable error occurred.
      */
     @Keep
@@ -385,6 +387,7 @@ object DataClasses {
     ) : Error(function, eventCode, eventMessage, eventValue, date)
 
     //internal
+
     /**
      * Data model for the JWT "matching" claim.
      *
@@ -417,7 +420,7 @@ object DataClasses {
          *
          * Order: email / phone / profileId / fieldName / fieldValue / provider / subscriptionId.
          *
-         * @return Combined string if at least one matching field is present,
+         * @return Combined JSON string if at least one matching field is present,
          *         otherwise `null` (no matching identifiers provided).
          */
         fun asString(): String? {
@@ -448,18 +451,30 @@ object DataClasses {
     }
 
     /**
+     * Common contract for all network request payload models used inside the SDK.
+     *
+     * Each implementation must provide a stable [RequestName] identifying the request type.
+     */
+    internal sealed interface RequestData {
+        val requestName: RequestName
+    }
+
+    /**
      * Represents the data required to create a subscription request.
      *
      * @property url API endpoint URL.
+     * @property requestId Unique request ID.
      * @property time Request timestamp (epoch millis).
      * @property rToken Resource token (optional).
-     * @property uid Unique request ID.
      * @property authHeader Authorization header.
      * @property matchingMode Matching type for profile search.
-     * @property provider Push provider (e.g., android-firebase).
+     * @property provider Push provider (e.g., "android-firebase").
      * @property deviceToken Current device token.
      * @property status Subscription status.
-     * @property sync `1` for sync, `0` for async (optional).
+     * @property sync Optional request execution mode:
+     * - `true`  — synchronous mode (server returns the final processing result);
+     * - `false` — asynchronous mode (server returns only queue/acceptance status);
+     * - `null`  — use server/default behavior (treated as synchronous by SDK).
      * @property profileFields Profile fields payload (optional).
      * @property fields Extra subscription fields payload (optional).
      * @property cats List of category objects (optional).
@@ -468,85 +483,105 @@ object DataClasses {
      */
     internal data class SubscribeRequestData(
         val url: String,
+        val requestId: String,
         val time: Long,
         val rToken: String?,
-        val uid: String,
         val authHeader: String,
         val matchingMode: String,
         val provider: String,
         val deviceToken: String,
         val status: String,
-        val sync: Int?,
+        val sync: Boolean?,
         val profileFields: JsonElement?,
         val fields: JsonElement?,
         val cats: List<CategoryData>?,
         val replace: Boolean?,
         val skipTriggers: Boolean?,
-    ) : com.altcraft.sdk.interfaces.RequestData
+    ) : RequestData {
+
+        override val requestName: RequestName
+            get() = when (status) {
+                SUBSCRIBED -> RequestName.SUBSCRIBE_REQUEST
+                SUSPENDED -> RequestName.SUSPEND_REQUEST
+                else -> RequestName.UNSUBSCRIBE_REQUEST
+            }
+    }
 
     /**
-     * Contains the data required to send a token update request.
+     * Data required to send a push token update request.
      *
-     * This class holds all necessary parameters for replacing an existing token
-     * and identifying the request during processing.
+     * Contains both old and new token/provider values used to replace
+     * an existing device token on the backend.
      *
-     * @property url The endpoint to which the update request is sent.
-     * @property uid The unique identifier associated with the request.
-     * @property oldToken The token to be replaced.
-     * @property newToken The new token to be sent.
-     * @property oldProvider The provider of the old token (e.g., android-firebase).
-     * @property newProvider The provider of the new token.
-     * @property authHeader The authorization header used to authenticate the request.
+     * @property url API endpoint for the update request.
+     * @property requestId Unique request identifier.
+     * @property oldToken Previous token value, if available.
+     * @property newToken New token value to be registered.
+     * @property oldProvider Provider of the previous token.
+     * @property newProvider Provider of the new token.
+     * @property authHeader Authorization header.
+     * @property sync Indicates whether the request should be executed synchronously.
      */
-    internal data class UpdateRequestData(
+    internal data class TokenUpdateRequestData(
         val url: String,
-        val uid: String,
+        val requestId: String,
         val oldToken: String?,
         val newToken: String,
         val oldProvider: String?,
         val newProvider: String,
-        val authHeader: String
-    ) : com.altcraft.sdk.interfaces.RequestData
+        val authHeader: String,
+        val sync: Boolean
+    ) : RequestData {
+        override val requestName = RequestName.TOKEN_UPDATE_REQUEST
+    }
 
     /**
      * Data class representing the necessary data for sending a push event request.
      *
      * @property url The full API endpoint for the push event.
+     * @property requestId Unique request ID.
      * @property time The event timestamp (epoch millis).
      * @property type The push event type ("delivery", "open").
-     * @property uid The unique request identifier (matches uid in PushEventEntity).
+     * @property uid The unique notification identifier.
      * @property authHeader The authorization header (Bearer token).
      * @property matchingMode Matching type for profile search.
      */
     internal data class PushEventRequestData(
         val url: String,
+        val requestId: String,
         val time: Long,
         val type: String,
         val uid: String,
         val authHeader: String,
         val matchingMode: String
-    ) : com.altcraft.sdk.interfaces.RequestData
+    ) : RequestData {
+        override val requestName = RequestName.PUSH_EVENT_REQUEST
+    }
 
     /**
      * Data class representing the necessary data for sending a mobile event request.
      *
      * @property url The full API endpoint for the mobile event.
+     * @property requestId The unique request identifier.
      * @property sid The string ID of the pixel.
      * @property name The event name.
      * @property authHeader The authorization header (Bearer token).
      */
     internal data class MobileEventRequestData(
         val url: String,
+        val requestId: String,
         val sid: String,
         val name: String,
         val authHeader: String
-    ) : com.altcraft.sdk.interfaces.RequestData
+    ) : RequestData {
+        override val requestName = RequestName.MOBILE_EVENT_REQUEST
+    }
 
     /**
      * Represents the data required for a profile status request.
      *
      * @property url The full API endpoint.
-     * @property uid The unique request identifier.
+     * @property requestId The unique request identifier.
      * @property authHeader The authorization header (Bearer token).
      * @property matchingMode Matching type for profile search.
      * @property provider The provider identifier (optional).
@@ -554,18 +589,20 @@ object DataClasses {
      */
     internal data class StatusRequestData(
         val url: String,
-        val uid: String,
+        val requestId: String,
         val authHeader: String,
         val matchingMode: String,
         val provider: String?,
         val token: String?
-    ) : com.altcraft.sdk.interfaces.RequestData
+    ) : RequestData {
+        override val requestName = RequestName.STATUS_REQUEST
+    }
 
     /**
      * Data model for the unSuspend request payload.
      *
      * @property url The full API endpoint.
-     * @property uid The unique request identifier.
+     * @property requestId The unique request identifier.
      * @property provider Push notification provider name.
      * @property token Device push token.
      * @property authHeader The authorization header (Bearer token).
@@ -573,20 +610,44 @@ object DataClasses {
      */
     internal data class UnSuspendRequestData(
         val url: String,
-        val uid: String,
+        val requestId: String,
         val provider: String,
         val token: String,
         val authHeader: String,
         val matchingMode: String,
-    ) : com.altcraft.sdk.interfaces.RequestData
+    ) : RequestData {
+        override val requestName = RequestName.UNSUSPEND_REQUEST
+    }
+
+    /**
+     * Represents the data required to create a profile update request.
+     *
+     * @property url API endpoint URL.
+     * @property requestId Unique request ID.
+     * @property authHeader Authorization header.
+     * @property profileFields Profile fields payload (optional).
+     * @property skipTriggers If `true`, skips trigger execution (optional).
+     */
+    internal data class ProfileUpdateRequestData(
+        val url: String,
+        val requestId: String,
+        val authHeader: String,
+        val profileFields: JsonElement?,
+        val skipTriggers: Boolean?,
+    ) : RequestData {
+        override val requestName = RequestName.PROFILE_UPDATE_REQUEST
+    }
 
     /**
      * Holds all contextual data extracted from a processed response.
      *
-     * @property status The result status (SUCCESS, RETRY, or ERROR).
+     * @property status The resulting response status (SUCCESS, RETRY, or ERROR).
+     * @property httpCode The HTTP status code returned by the server.
+     * @property error The numeric error code from the response, if any.
      * @property errorPair A generated message describing the error or failure.
      * @property successPair A generated message for a successful result.
      * @property eventValue Map with additional event-related metadata.
+     * @property response The parsed API response, if available.
      */
     internal data class ResponseResult(
         val status: com.altcraft.sdk.network.Response.ResponseStatus,
@@ -599,40 +660,41 @@ object DataClasses {
     )
 
     /**
-     * Notification data used to build and display a notification.
+     * Immutable data required to construct and display a notification.
      *
-     * @property uid Unique identifier for the notification.
-     * @property title Notification title.
-     * @property body Notification content text.
-     * @property icon Icon resource ID.
+     * @property uid Unique notification identifier.
+     * @property title Notification title text.
+     * @property body Notification message content.
+     * @property icon Small icon resource ID.
+     * @property smallImg Optional small bitmap.
+     * @property largeImage Optional large bitmap.
+     * @property color Accent color applied to the notification.
+     * @property extra Additional extras.
      * @property messageId Internal message ID.
-     * @property channelInfo Notification channel name and description.
-     * @property smallImg Small image (icon/logo), nullable.
-     * @property largeImage Large image (banner), nullable.
-     * @property color Accent color.
-     * @property pendingIntent Click action.
-     * @property buttons Optional action buttons.
+     * @property buttons Optional list of action buttons.
+     * @property channelInfo Pair containing notification channel ID and channel description.
      */
     internal data class NotificationData(
         val uid: String,
         val title: String,
         val body: String,
         val icon: Int,
-        val messageId: Int,
-        val channelInfo: Pair<String, String>,
         val smallImg: Bitmap?,
         val largeImage: Bitmap?,
         val color: Int,
-        val pendingIntent: PendingIntent,
-        val buttons: List<ButtonStructure>?
+        val url: String,
+        val extra: String,
+        val messageId: Int,
+        val buttons: List<ButtonStructure>?,
+        val channelInfo: Pair<String, String>,
     )
 
     /**
      * Represents the structure of buttons in push notifications.
      *
      * @property label The label or text displayed on the button.
-     * @property link The URL or deep link to navigate to a specific section of the application
-     *                after clicking the button.
+     * @property link The URL or deep link to navigate to a specific section
+     *   of the application after clicking the button.
      */
     @Serializable
     internal data class ButtonStructure(val label: String, val link: String)

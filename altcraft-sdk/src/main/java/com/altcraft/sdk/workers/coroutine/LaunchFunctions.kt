@@ -8,9 +8,11 @@ import android.content.Context
 import androidx.work.WorkManager
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.workers.coroutine.Request.mobileEventRequest
+import com.altcraft.sdk.workers.coroutine.Request.prUpdateRequest
 import com.altcraft.sdk.workers.coroutine.Request.pushEventRequest
+import com.altcraft.sdk.workers.coroutine.Request.pushProcessingRequest
 import com.altcraft.sdk.workers.coroutine.Request.subscribeRequest
-import com.altcraft.sdk.workers.coroutine.Request.updateRequest
+import com.altcraft.sdk.workers.coroutine.Request.tokUpdateRequest
 
 /**
  * Provides entry points to enqueue coroutine-based WorkManager tasks.
@@ -51,13 +53,38 @@ internal object LaunchFunctions {
     }
 
     /**
-     * Enqueues update worker without awaiting its result.
+     * Enqueues token update worker without awaiting its result.
      *
      * @param context Application context.
      */
-    fun startUpdateCoroutineWorker(context: Context) = try {
-        WorkManager.getInstance(context).enqueue(updateRequest())
+    fun startTokenUpdateCoroutineWorker(context: Context) = try {
+        WorkManager.getInstance(context).enqueue(tokUpdateRequest())
     } catch (e: Exception) {
-        error("startUpdateCoroutineWorker", e)
+        error("startTokenUpdateCoroutineWorker", e)
+    }
+
+    /**
+     * Enqueues profile update worker without awaiting its result.
+     *
+     * @param context Application context.
+     */
+    fun startProfileUpdateCoroutineWorker(context: Context) = try {
+        WorkManager.getInstance(context).enqueue(prUpdateRequest())
+    } catch (e: Exception) {
+        error("startProfileUpdateCoroutineWorker", e)
+    }
+
+    /**
+     * Enqueues push processing worker without awaiting its result.
+     *
+     * @param context Application context.
+     * @param message Push payload.
+     */
+    fun startPushProcessingCoroutineWorker(
+        context: Context, message: Map<String, String>
+    ) = try {
+        WorkManager.getInstance(context).enqueue(pushProcessingRequest(message))
+    } catch (e: Exception) {
+        error("startPushProcessingCoroutineWorker", e)
     }
 }

@@ -31,7 +31,7 @@ class HMSService : HmsMessageService() {
      * @param message The received [RemoteMessage].
      */
     override fun onMessageReceived(message: RemoteMessage) {
-        AltcraftSDK.PushReceiver.takePush(this@HMSService, message.dataOfMap)
+        AltcraftSDK.PushReceiver.takePush(this, message.dataOfMap)
     }
 }
 

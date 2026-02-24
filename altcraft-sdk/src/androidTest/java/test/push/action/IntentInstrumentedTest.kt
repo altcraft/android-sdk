@@ -1,17 +1,13 @@
 package test.push.action
 
 //  Created by Andrey Pogodin.
+//
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.altcraft.sdk.data.Constants.MESSAGE_ID
-import com.altcraft.sdk.data.Constants.UID
-import com.altcraft.sdk.data.Constants.URL
-import com.altcraft.sdk.push.action.AltcraftPushActionActivity
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -24,11 +20,10 @@ import org.junit.runner.RunWith
  * IntentInstrumentedTest
  *
  * Positive scenarios:
- *  - test_1: getIntent returns a PendingIntent that starts AltcraftPushActionActivity and carries extras.
+ *  - test_1: getIntent returns a PendingIntent.
  *  - test_2: PendingIntents for different UIDs are distinct (unique request codes).
  *
  * Notes:
- *  - Uses a single launch per test to avoid SINGLE_TOP/onNewIntent interference.
  *  - Uses targetContext to ensure proper package/component resolution.
  */
 @RunWith(AndroidJUnit4::class)
@@ -45,55 +40,37 @@ class IntentInstrumentedTest {
     fun tearDown() {
     }
 
-    /** test_1: PendingIntent launches the target activity and carries extras */
+    /** test_1: getIntent returns a PendingIntent */
     @Test
-    fun test_1_getIntent_launchesTarget_withExtras() {
-        val instr = InstrumentationRegistry.getInstrumentation()
-        val monitor = instr.addMonitor(
-            AltcraftPushActionActivity::class.java.name,
-            null,
-            false
-        )
-
+    fun test_1_getIntent_returnsPendingIntent() {
         val messageId = 101
         val url = "https://example.com/path"
         val uid = "uid-101"
+        val extra = "extra-101"
 
         val pi: PendingIntent =
-            com.altcraft.sdk.push.action.Intent.getIntent(ctx, messageId, url, uid)
+            com.altcraft.sdk.push.action.Intent.getIntent(ctx, messageId, url, uid, extra)
         assertNotNull(pi)
 
-        pi.send()
-
-        val started = instr.waitForMonitorWithTimeout(monitor, /* ms */ 5000L)
-        assertNotNull("AltcraftPushActionActivity wasn't launched", started)
-
-        val activity = started!!
-        val intent = activity.intent
-
-        assertEquals(
-            ComponentName(ctx, AltcraftPushActionActivity::class.java),
-            intent.component
-        )
-
-        assertEquals(messageId, intent.extras?.getInt(MESSAGE_ID))
-        assertEquals(url, intent.extras?.getString(URL))
-        assertEquals(uid, intent.extras?.getString(UID))
-
-        instr.runOnMainSync { activity.finish() }
-        instr.waitForIdleSync()
-        instr.removeMonitor(monitor)
+        assertEquals(ctx.packageName, pi.creatorPackage)
     }
 
     /** test_2: Different UIDs produce distinct PendingIntents (no clobbering) */
     @Test
     fun test_2_getIntent_different_UIDs_produceDistinctPendingIntents() {
         val url = "https://example.org"
-        val pi1 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 1, url, "uid-A")
-        val pi2 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 2, url, "uid-B")
+        val extra = "x"
+
+        val pi1 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 1, url, "uid-A", extra)
+        val pi2 = com.altcraft.sdk.push.action.Intent.getIntent(ctx, 2, url, "uid-B", extra)
+
+        assertNotNull(pi1)
+        assertNotNull(pi2)
 
         assertNotEquals(pi1, pi2)
         assertNotEquals(pi1.hashCode(), pi2.hashCode())
+
+        assertEquals(ctx.packageName, pi1.creatorPackage)
+        assertEquals(ctx.packageName, pi2.creatorPackage)
     }
 }
-

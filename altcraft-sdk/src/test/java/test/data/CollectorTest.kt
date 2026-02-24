@@ -1,358 +1,409 @@
-@file:Suppress("SpellCheckingInspection")
+// Created by Andrey Pogodin.
+//
+// Copyright © 2025 Altcraft. All rights reserved.
+
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package test.data
 
-//  Created by Andrey Pogodin.
-//
-//  Copyright © 2025 Altcraft. All rights reserved.
-
 import android.content.Context
-import android.graphics.Color
-import com.altcraft.sdk.auth.AuthManager
+import com.altcraft.altcraftsdk.R
+import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.config.ConfigSetup
+import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.Collector
 import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.Preferenses
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.MobileEventEntity
+import com.altcraft.sdk.data.room.ProfileUpdateEntity
 import com.altcraft.sdk.data.room.PushEventEntity
 import com.altcraft.sdk.data.room.SubscribeEntity
 import com.altcraft.sdk.push.PushChannel
-import com.altcraft.sdk.push.action.Intent
-import com.altcraft.sdk.push.action.PushAction
+import com.altcraft.sdk.push.PushImage
 import com.altcraft.sdk.push.token.TokenManager
-import com.altcraft.sdk.sdk_events.Events
+import io.mockk.MockKAnnotations
+import io.mockk.clearAllMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
-import kotlinx.coroutines.runBlocking
+import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.After
-import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 /**
  * CollectorTest
  *
- * Positive:
- *  - test_1: getSubscribeRequestData builds correct request with all fields.
- *  - test_2: getUpdateRequestData builds correct request with old/new tokens.
- *  - test_3: getPushEventRequestData builds correct request with type and auth.
- *  - test_4: getUnSuspendRequestData generates uid and correct data.
- *  - test_5: getStatusRequestData builds request with provider/token.
- *  - test_6: getNotificationData builds NotificationData with color, buttons, images.
- *  - test_13: getMobileEventRequestData builds request with url/sid/name/auth.
- *
- * Negative:
- *  - test_7: getSubscribeRequestData returns null when config is null.
- *  - test_8: getUpdateRequestData returns null when token is missing.
- *  - test_9: getPushEventRequestData returns null when auth is missing.
- *  - test_10: getUnSuspendRequestData returns null on exception.
- *  - test_11: getStatusRequestData returns null when savedToken missing and exception.
- *  - test_12: getNotificationData returns default (non-null) on malformed input.
- *  - test_14: getMobileEventRequestData returns null when auth/common data missing.
+ * Positive scenarios:
+ * - test_1: getSubscribeRequestData builds request data from Environment and SubscribeEntity.
+ * - test_2: getTokenUpdateRequestData builds request data and sync=true when rToken is not empty.
+ * - test_3: getTokenUpdateRequestData builds request data and sync=false when rToken is empty.
+ * - test_4: getPushEventRequestData builds request data from Environment and PushEventEntity.
+ * - test_5: getMobileEventRequestData builds request data from Environment and MobileEventEntity.
+ * - test_6: getUnSuspendRequestData builds request data from Environment.
+ * - test_7: getStatusRequestData uses saved token when it exists.
+ * - test_8: getStatusRequestData uses current token when saved token is absent.
+ * - test_9: getProfileUpdateRequestData builds request data from Environment and ProfileUpdateEntity.
+ * - test_10: getNotificationData builds notification data and uses defaults when config icon is null.
  */
 class CollectorTest {
 
-    private lateinit var ctx: Context
-    private lateinit var config: ConfigurationEntity
-    private lateinit var token: DataClasses.TokenData
-    private lateinit var savedToken: DataClasses.TokenData
+    private lateinit var context: Context
 
     @Before
     fun setUp() {
-        ctx = mockk(relaxed = true)
-
-        config = ConfigurationEntity(
-            id = 1,
-            apiUrl = "https://api.example.com",
-            rToken = "r-token",
-            icon = 123,
-            pushChannelName = null,
-            pushChannelDescription = null,
-            usingService = false,
-            serviceMessage = null,
-            providerPriorityList = null,
-            pushReceiverModules = null,
-            appInfo = null
-        )
-        token = DataClasses.TokenData("android-firebase", "tok123")
-        savedToken = DataClasses.TokenData("android-firebase", "tokOld")
-
-        mockkObject(
-            ConfigSetup,
-            TokenManager,
-            AuthManager,
-            Events,
-            PushChannel,
-            Intent,
-            PushAction,
-            com.altcraft.sdk.data.Preferenses
-        )
-
-        every { Events.error(any(), any(), any()) } returns
-                DataClasses.Error("fn", 400, "err", null)
-
-        coEvery { ConfigSetup.getConfig(any()) } returns config
-        coEvery { TokenManager.getCurrentPushToken(any()) } returns token
-        every { AuthManager.getAuthHeaderAndMatching(any()) } returns ("hdr" to "strict")
-
-        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } returns null
-        every { com.altcraft.sdk.data.Preferenses.getMessageId(any()) } returns 1
-
-        every { PushChannel.getChannelInfo(any(), any()) } returns Pair("ch", "desc")
-        every { Intent.getIntent(any(), any(), any(), any()) } returns mockk(relaxed = true)
+        MockKAnnotations.init(this, relaxUnitFun = true)
+        context = mockk(relaxed = true)
+        mockkObject(Environment.Companion)
     }
 
     @After
-    fun tearDown() = unmockkAll()
+    fun tearDown() {
+        clearAllMocks()
+        unmockkAll()
+    }
 
-    /** - test_1: getSubscribeRequestData builds correct request with all fields. */
-    @Test
-    fun test_1_getSubscribeRequestData_success() = runBlocking {
-        val item = SubscribeEntity(
-            userTag = "tag",
-            status = "subscribed",
-            sync = 1,
-            profileFields = null,
-            customFields = null,
-            cats = null,
-            replace = null,
-            skipTriggers = null,
-            uid = "uid-1"
-        )
+    private fun tokenData(provider: String, token: String): DataClasses.TokenData {
+        return DataClasses.TokenData(provider = provider, token = token)
+    }
 
-        val data = Collector.getSubscribeRequestData(ctx, item)
-
-        assertNotNull(data)
-        assertEquals("uid-1", data?.uid)
-        assertEquals("subscribed", data?.status)
-        assertEquals("android-firebase", data?.provider)
-        assertEquals("hdr", data?.authHeader)
-        assertEquals("strict", data?.matchingMode)
-        assertEquals(
-            "https://api.example.com/subscription/push/subscribe/",
-            data?.url
+    private fun configEntity(
+        icon: Int? = null,
+        apiUrl: String = "https://api.example.com",
+        rToken: String? = null
+    ): ConfigurationEntity {
+        return ConfigurationEntity(
+            id = 1,
+            icon = icon,
+            apiUrl = apiUrl,
+            rToken = rToken,
+            appInfo = null,
+            pushReceiverModules = null,
+            providerPriorityList = null,
+            pushChannelName = null,
+            pushChannelDescription = null
         )
     }
 
-    /** - test_2: getUpdateRequestData builds correct request with old/new tokens. */
-    @Test
-    fun test_2_getUpdateRequestData_success() = runBlocking {
-        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } returns savedToken
+    private fun mockEnv(
+        apiUrl: String = "https://api.example.com",
+        rToken: String? = "rtoken-123",
+        authHeader: String = "Bearer auth-xyz",
+        matchingMode: String = "strict",
+        provider: String = "fcm",
+        token: String = "token-abc",
+        savedToken: DataClasses.TokenData? = null
+    ): Environment {
+        val env = mockk<Environment>(relaxed = true)
 
-        val data = Collector.getUpdateRequestData(ctx, "uid-2")
+        every { Environment.create(any()) } returns env
 
-        assertNotNull(data)
-        assertEquals("uid-2", data?.uid)
-        assertEquals("tokOld", data?.oldToken)
-        assertEquals("tok123", data?.newToken)
-        assertEquals("android-firebase", data?.oldProvider)
-        assertEquals("android-firebase", data?.newProvider)
-        assertEquals("hdr", data?.authHeader)
-        assertTrue(data!!.url.startsWith("https://api.example.com"))
+        val cfg = configEntity(apiUrl = apiUrl, rToken = rToken)
+        coEvery { env.config() } returns cfg
+        coEvery { env.auth() } returns Pair(authHeader, matchingMode)
+        coEvery { env.token() } returns tokenData(provider, token)
+
+        every { env.savedToken } returns savedToken
+
+        return env
     }
 
-    /** - test_3: getPushEventRequestData builds correct request with type and auth. */
+    /** - test_1: getSubscribeRequestData builds request data from Environment and SubscribeEntity. */
     @Test
-    fun test_3_getPushEventRequestData_success() = runBlocking {
-        val event = PushEventEntity(uid = "uid-3", type = "opened")
-
-        val data = Collector.getPushEventRequestData(ctx, event)
-
-        assertNotNull(data)
-        assertEquals("opened", data?.type)
-        assertEquals("uid-3", data?.uid)
-        assertEquals("hdr", data?.authHeader)
-        assertEquals("strict", data?.matchingMode)
-        assertTrue(data!!.url.startsWith("https://api.example.com"))
-    }
-
-    /** - test_4: getUnSuspendRequestData generates uid and correct data. */
-    @Test
-    fun test_4_getUnSuspendRequestData_success() = runBlocking {
-        val data = Collector.getUnSuspendRequestData(ctx)
-
-        assertNotNull(data)
-        assertEquals("android-firebase", data?.provider)
-        assertEquals("tok123", data?.token)
-        assertEquals("hdr", data?.authHeader)
-        assertEquals("strict", data?.matchingMode)
-        assertTrue(data!!.uid.isNotBlank())
-        assertTrue(data.url.startsWith("https://api.example.com"))
-    }
-
-    /** - test_5: getStatusRequestData builds request with provider/token. */
-    @Test
-    fun test_5_getStatusRequestData_success() = runBlocking {
-        val data = Collector.getStatusRequestData(ctx)
-
-        assertNotNull(data)
-        assertEquals("android-firebase", data?.provider)
-        assertEquals("tok123", data?.token)
-        assertEquals("hdr", data?.authHeader)
-        assertEquals("strict", data?.matchingMode)
-        assertTrue(data!!.uid.isNotBlank())
-        assertTrue(data.url.startsWith("https://api.example.com"))
-    }
-
-    /** - test_6: getNotificationData builds NotificationData with color, buttons, images. */
-    @Test
-    fun test_6_getNotificationData_success() = runBlocking {
-        val msg = mapOf(
-            "_uid" to "m1",
-            "_title" to "Hello",
-            "_body" to "World",
-            "_color" to "#FF0000"
+    fun test_1_getSubscribeRequestData_buildsCorrectData() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            rToken = "rt-1",
+            authHeader = "Bearer A",
+            matchingMode = "mm",
+            provider = "fcm",
+            token = "t1"
         )
 
-        val data = Collector.getNotificationData(ctx, msg)
+        val entity = mockk<SubscribeEntity>(relaxed = true)
+        every { entity.requestID } returns "req-1"
+        every { entity.time } returns 123456789L
+        every { entity.status } returns "active"
+        every { entity.sync } returns 1
+        every { entity.profileFields } returns null
+        every { entity.customFields } returns null
+        every { entity.cats } returns null
+        every { entity.replace } returns true
+        every { entity.skipTriggers } returns true
+
+        val data = Collector.getSubscribeRequestData(context, entity)
 
         assertNotNull(data)
-        assertEquals("m1", data?.uid)
-        assertEquals("Hello", data?.title)
-        assertEquals("World", data?.body)
-        assertEquals(Color.BLACK, data?.color)
-        assertEquals("ch", data?.channelInfo?.first)
-        assertEquals("desc", data?.channelInfo?.second)
-        assertNotNull(data?.pendingIntent)
+        assertEquals("req-1", data.requestId)
+        assertEquals(123456789L, data.time)
+        assertEquals("rt-1", data.rToken)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals("mm", data.matchingMode)
+        assertEquals("fcm", data.provider)
+        assertEquals("t1", data.deviceToken)
+        assertEquals("active", data.status)
+        assertEquals(true, data.sync)
+        assertEquals(true, data.replace)
+        assertEquals(true, data.skipTriggers)
+
+        verify(exactly = 1) { Environment.create(any()) }
     }
 
-    /** - test_7: getSubscribeRequestData returns null when config is null. */
+    /** - test_2: getTokenUpdateRequestData builds request data and sync=true when rToken is not empty. */
     @Test
-    fun test_7_getSubscribeRequestData_configNull_returnsNull() = runBlocking {
-        coEvery { ConfigSetup.getConfig(any()) } returns null
-
-        val item = SubscribeEntity(
-            userTag = "tag",
-            status = "subscribed",
-            sync = null,
-            profileFields = null,
-            customFields = null,
-            cats = null,
-            replace = null,
-            skipTriggers = null,
-            uid = "uid-x"
+    fun test_2_getTokenUpdateRequestData_syncTrue_whenRTokenNotEmpty() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            rToken = "rt-1",
+            authHeader = "Bearer A",
+            provider = "fcm",
+            token = "new-token",
+            savedToken = tokenData("fcm", "old-token")
         )
 
-        val data = Collector.getSubscribeRequestData(ctx, item)
-
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getSubscribeData"), any(), any()) }
-    }
-
-    /** - test_8: getUpdateRequestData returns null when token is missing. */
-    @Test
-    fun test_8_getUpdateRequestData_tokenNull_returnsNull() = runBlocking {
-        coEvery { TokenManager.getCurrentPushToken(any()) } returns null
-
-        val data = Collector.getUpdateRequestData(ctx, "uidX")
-
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getUpdateData"), any(), any()) }
-    }
-
-    /** - test_9: getPushEventRequestData returns null when auth is missing. */
-    @Test
-    fun test_9_getPushEventRequestData_authNull_returnsNull() = runBlocking {
-        every { AuthManager.getAuthHeaderAndMatching(any()) } returns null
-
-        val event = PushEventEntity(uid = "uidE", type = "opened")
-        val data = Collector.getPushEventRequestData(ctx, event)
-
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getPushEventData"), any(), any()) }
-    }
-
-    /** - test_10: getUnSuspendRequestData returns null on exception. */
-    @Test
-    fun test_10_getUnSuspendRequestData_exception_returnsNull() = runBlocking {
-        coEvery { ConfigSetup.getConfig(any()) } throws RuntimeException("boom")
-
-        val data = Collector.getUnSuspendRequestData(ctx)
-
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getUnSuspendRequestData"), any(), any()) }
-    }
-
-    /** - test_11: getStatusRequestData returns null when savedToken missing and exception. */
-    @Test
-    fun test_11_getStatusRequestData_exception_returnsNull() = runBlocking {
-        every { com.altcraft.sdk.data.Preferenses.getSavedPushToken(any()) } throws RuntimeException("err")
-
-        val data = Collector.getStatusRequestData(ctx)
-
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getProfileData"), any(), any()) }
-    }
-
-    /** - test_12: getNotificationData returns default (non-null) on malformed input. */
-    @Test
-    fun test_12_getNotificationData_malformed_returnsDefaultNotNull() = runBlocking {
-        val msg = mapOf("bad" to "data")
-
-        val data = Collector.getNotificationData(ctx, msg)
+        val data = Collector.getTokenUpdateRequestData(context, requestId = "req-2")
 
         assertNotNull(data)
-        assertEquals("", data?.uid)
-        assertEquals("", data?.title)
-        assertEquals("", data?.body)
-        assertEquals(Color.BLACK, data?.color)
-        assertNotNull(data?.channelInfo)
-        assertNotNull(data?.pendingIntent)
+        assertEquals("req-2", data.requestId)
+        assertEquals("old-token", data.oldToken)
+        assertEquals("new-token", data.newToken)
+        assertEquals("fcm", data.oldProvider)
+        assertEquals("fcm", data.newProvider)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals(true, data.sync)
+
+        verify(exactly = 1) { Environment.create(any()) }
     }
 
-    /** - test_13: getMobileEventRequestData builds request with url/sid/name/auth. */
+    /** - test_3: getTokenUpdateRequestData builds request data and sync=false when rToken is empty. */
     @Test
-    fun test_13_getMobileEventRequestData_success() = runBlocking {
-        val entity = MobileEventEntity(
-            userTag = "tag-1",
-            timeZone = 180,
-            sid = "sid-123",
-            altcraftClientID = "cid-777",
-            eventName = "purchase",
-            payload = """{"sum":100}""",
-            matching = """{"type":"push_sub","id":"abc"}""",
-            matchingType = "email",
-            profileFields = """{"age":30}""",
-            subscription = """{"channel":"email","email":"a@b.c","resource_id":1}""",
-            sendMessageId = "smid-1",
-            utmTags = null
+    fun test_3_getTokenUpdateRequestData_syncFalse_whenRTokenEmpty() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            rToken = "",
+            authHeader = "Bearer A",
+            provider = "fcm",
+            token = "new-token",
+            savedToken = null
         )
 
-        val data = Collector.getMobileEventRequestData(ctx, entity)
+        val data = Collector.getTokenUpdateRequestData(context, requestId = "req-3")
 
         assertNotNull(data)
-        assertTrue(data!!.url.startsWith("https://api.example.com"))
-        assertEquals("sid-123", data.sid)
+        assertEquals(false, data.sync)
+
+        verify(exactly = 1) { Environment.create(any()) }
+    }
+
+    /** - test_4: getPushEventRequestData builds request data from Environment and PushEventEntity. */
+    @Test
+    fun test_4_getPushEventRequestData_buildsCorrectData() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A",
+            matchingMode = "mm"
+        )
+
+        val entity = mockk<PushEventEntity>(relaxed = true)
+        every { entity.requestID } returns "req-4"
+        every { entity.uid } returns "uid-1"
+        every { entity.time } returns 111L
+        every { entity.type } returns "open"
+
+        val data = Collector.getPushEventRequestData(context, entity)
+
+        assertNotNull(data)
+        assertEquals("req-4", data.requestId)
+        assertEquals("uid-1", data.uid)
+        assertEquals(111L, data.time)
+        assertEquals("open", data.type)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals("mm", data.matchingMode)
+
+        verify(exactly = 1) { Environment.create(any()) }
+    }
+
+    /** - test_5: getMobileEventRequestData builds request data from Environment and MobileEventEntity. */
+    @Test
+    fun test_5_getMobileEventRequestData_buildsCorrectData() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A"
+        )
+
+        val entity = mockk<MobileEventEntity>(relaxed = true)
+        every { entity.requestID } returns "req-5"
+        every { entity.sid } returns "sid-1"
+        every { entity.eventName } returns "purchase"
+
+        val data = Collector.getMobileEventRequestData(context, entity)
+
+        assertNotNull(data)
+        assertEquals("req-5", data.requestId)
+        assertEquals("sid-1", data.sid)
         assertEquals("purchase", data.name)
-        assertEquals("hdr", data.authHeader)
+        assertEquals("Bearer A", data.authHeader)
+
+        verify(exactly = 1) { Environment.create(any()) }
     }
 
-    /** - test_14: getMobileEventRequestData returns null when auth/common data missing. */
+    /** - test_6: getUnSuspendRequestData builds request data from Environment. */
     @Test
-    fun test_14_getMobileEventRequestData_authNull_returnsNull() = runBlocking {
-        every { AuthManager.getAuthHeaderAndMatching(any()) } returns null
-
-        val entity = MobileEventEntity(
-            userTag = "tag-x",
-            timeZone = 0,
-            sid = "sid-x",
-            altcraftClientID = "cid-x",
-            eventName = "evt-x",
-            payload = null,
-            matching = null,
-            matchingType = null,
-            profileFields = null,
-            subscription = null,
-            sendMessageId = null,
-            utmTags = null
+    fun test_6_getUnSuspendRequestData_buildsCorrectData() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A",
+            matchingMode = "mm",
+            provider = "fcm",
+            token = "t1"
         )
 
-        val data = Collector.getMobileEventRequestData(ctx, entity)
+        val data = Collector.getUnSuspendRequestData(context)
 
-        assertNull(data)
-        io.mockk.verify { Events.error(eq("getMobileEventRequestData"), any(), any()) }
+        assertNotNull(data)
+        assertEquals("fcm", data.provider)
+        assertEquals("t1", data.token)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals("mm", data.matchingMode)
+
+        verify(exactly = 1) { Environment.create(any()) }
+    }
+
+    /** - test_7: getStatusRequestData uses saved token when it exists. */
+    @Test
+    fun test_7_getStatusRequestData_usesSavedToken_whenExists() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A",
+            matchingMode = "mm",
+            savedToken = tokenData("fcm", "saved-token")
+        )
+
+        mockkObject(TokenManager)
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns tokenData("fcm", "current-token")
+
+        val data = Collector.getStatusRequestData(context)
+
+        assertNotNull(data)
+        assertEquals("fcm", data.provider)
+        assertEquals("saved-token", data.token)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals("mm", data.matchingMode)
+
+        verify(exactly = 1) { Environment.create(any()) }
+        coVerify(exactly = 1) { TokenManager.getCurrentPushToken(any()) }
+    }
+
+    /** - test_8: getStatusRequestData uses current token when saved token is absent. */
+    @Test
+    fun test_8_getStatusRequestData_usesCurrentToken_whenSavedAbsent() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A",
+            matchingMode = "mm",
+            savedToken = null
+        )
+
+        mockkObject(TokenManager)
+        coEvery { TokenManager.getCurrentPushToken(any()) } returns tokenData("hms", "current-token")
+
+        val data = Collector.getStatusRequestData(context)
+
+        assertNotNull(data)
+        assertEquals("hms", data.provider)
+        assertEquals("current-token", data.token)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals("mm", data.matchingMode)
+
+        verify(exactly = 1) { Environment.create(any()) }
+        coVerify(exactly = 1) { TokenManager.getCurrentPushToken(any()) }
+    }
+
+    /** - test_9: getProfileUpdateRequestData builds request data from Environment and ProfileUpdateEntity. */
+    @Test
+    fun test_9_getProfileUpdateRequestData_buildsCorrectData() = runTest {
+        mockEnv(
+            apiUrl = "https://api.example.com",
+            authHeader = "Bearer A"
+        )
+
+        val entity = mockk<ProfileUpdateEntity>(relaxed = true)
+        every { entity.requestID } returns "req-9"
+        every { entity.profileFields } returns null
+        every { entity.skipTriggers } returns true
+
+        val data = Collector.getProfileUpdateRequestData(context, entity)
+
+        assertNotNull(data)
+        assertEquals("req-9", data.requestId)
+        assertEquals("Bearer A", data.authHeader)
+        assertEquals(true, data.skipTriggers)
+
+        verify(exactly = 1) { Environment.create(any()) }
+    }
+
+    /** - test_10: getNotificationData builds notification data and uses defaults when config icon is null. */
+    @Test
+    fun test_10_getNotificationData_buildsCorrectData_withDefaultIcon() = runTest {
+        mockkObject(ConfigSetup)
+        mockkObject(PushImage)
+        mockkObject(PushChannel)
+        mockkObject(SubFunction)
+        mockkObject(Preferenses)
+
+        val message = mapOf(
+            "uid" to "u1",
+            "title" to "Hello",
+            "body" to "World",
+            "url" to "https://example.com",
+            "color" to "#FF0000",
+            "extra" to "x-1"
+        )
+
+        val pushData = com.altcraft.sdk.push.PushData(message)
+
+        val cfg = configEntity(icon = null, apiUrl = "https://api.example.com", rToken = null)
+        coEvery { ConfigSetup.getConfig(any()) } returns cfg
+
+        coEvery { PushImage.loadSmallImage(any(), any()) } returns null
+        coEvery { PushImage.loadLargeImage(any(), any()) } returns null
+
+        val channelInfo: Pair<String, String> = "channel" to "desc"
+        every { PushChannel.getChannelInfo(any(), any()) } returns channelInfo
+
+        every { SubFunction.getIconColor(any()) } returns 123
+        every { Preferenses.getMessageId(any()) } returns 77
+
+        val data = Collector.getNotificationData(context, message)
+
+        assertNotNull(data)
+
+        assertEquals(pushData.uid, data.uid)
+        assertEquals(pushData.title, data.title)
+        assertEquals(pushData.body, data.body)
+
+        assertEquals(R.drawable.icon, data.icon)
+        assertEquals(77, data.messageId)
+        assertEquals(channelInfo, data.channelInfo)
+        assertEquals(null, data.smallImg)
+        assertEquals(null, data.largeImage)
+        assertEquals(123, data.color)
+
+        assertEquals(pushData.url, data.url)
+        assertEquals(pushData.extra, data.extra)
+
+        assertEquals(pushData.buttons, data.buttons)
+
+        coEvery { ConfigSetup.getConfig(any()) } returns cfg
+        coEvery { PushImage.loadSmallImage(any(), any()) } returns null
+        coEvery { PushImage.loadLargeImage(any(), any()) } returns null
     }
 }

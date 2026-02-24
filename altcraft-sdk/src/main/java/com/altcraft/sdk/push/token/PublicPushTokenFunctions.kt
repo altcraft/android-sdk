@@ -7,6 +7,7 @@ package com.altcraft.sdk.push.token
 import android.content.Context
 import androidx.annotation.Keep
 import com.altcraft.sdk.config.ConfigSetup.updateConfigCache
+import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.push.token.TokenManager.fcmProvider
 import com.altcraft.sdk.push.token.TokenManager.hmsProvider
 import com.altcraft.sdk.push.token.TokenManager.rustoreProvider
@@ -30,8 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Provides public access to the functions of the `TokenManager` object.
- *
+ * Public facade for configuring push token providers and managing device tokens.
  */
 @Keep
 @Suppress("MemberVisibilityCanBePrivate")
@@ -40,28 +40,23 @@ object PublicPushTokenFunctions {
     /**
      * Manually sets the push token for the given provider.
      *
-     * This method is intended to be called from `onNewToken()` callbacks
-     * inside push provider services (FCM, HMS, RuStore).
-     * It stores the token and provider information in shared preferences
-     * for later retrieval by the SDK.
+     * Persists the token in the SDK storage (DataStore).
+     * Manual token has lower priority than provider tokens.
      *
      * @param context The application context.
      * @param provider The push provider identifier (e.g., "android-firebase").
      * @param token The push token received from the provider.
      */
     @Suppress("unused")
-    fun setPushToken(context: Context, provider: String, token: String) {
+    fun setPushToken(context: Context, provider: String?, token: String?) {
         Preferenses.setPushToken(context, provider, token)
     }
 
     /**
-     * Retrieves the token data for the device.
+     * Returns the current device token data, if available.
      *
-     * This function delegates the token retrieval operation to the `TokenManager`.
-     *
-     * @param context The `Context` required for token retrieval.
-     * @return A nullable `DataClasses.TokenData` containing the token information,
-     * or `null` if no token is available.
+     * @param context The [Context] required for token retrieval.
+     * @return [DataClasses.TokenData] or `null` if no token is available.
      */
     suspend fun getPushToken(context: Context): DataClasses.TokenData? {
         return TokenManager.getCurrentPushToken(context)
@@ -70,8 +65,7 @@ object PublicPushTokenFunctions {
     /**
      * Sets the Firebase Cloud Messaging (FCM) token provider.
      *
-     * @param provider The `FCMInterface` implementation to be used as the FCM token provider,
-     * or `null` to unset it.
+     * @param provider The [FCMInterface] implementation to be used, or `null` to unset it.
      */
     fun setFCMTokenProvider(provider: FCMInterface?) {
         fcmProvider = provider
@@ -80,8 +74,7 @@ object PublicPushTokenFunctions {
     /**
      * Sets the Huawei Mobile Services (HMS) token provider.
      *
-     * @param provider The `HMSInterface` implementation to be used as the HMS token provider,
-     * or `null` to unset it.
+     * @param provider The [HMSInterface] implementation to be used, or `null` to unset it.
      */
     fun setHMSTokenProvider(provider: HMSInterface?) {
         hmsProvider = provider
@@ -90,71 +83,74 @@ object PublicPushTokenFunctions {
     /**
      * Sets the RuStore token provider.
      *
-     * @param provider The `RustoreInterface` implementation to be used as the RuStore token provider,
-     * or `null` to unset it.
+     * @param provider The [RustoreInterface] implementation to be used, or `null` to unset it.
      */
     fun setRuStoreTokenProvider(provider: RustoreInterface?) {
         rustoreProvider = provider
     }
 
     /**
-     * Deletes the device token for a specified provider.
+     * Deletes the device token for the specified provider.
      *
-     * This function delegates the token deletion operation to the `TokenManager` based on
-     * the specified provider.
-     *
-     * @param context The `Context` required for token deletion.
-     * @param provider A `String` representing the token provider (`FCM_PROVIDER`, `HMS_PROVIDER`,
-     * or `RUSTORE_PROVIDER`).
-     * @param complete A callback function invoked after the token deletion operation is complete.
+     * @param context The [Context] required for token deletion.
+     * @param provider Provider identifier: [FCM_PROVIDER], [HMS_PROVIDER], or [RUS_PROVIDER].
+     * @param complete Callback invoked after the delete call is dispatched.
      */
-    suspend fun deleteDeviceToken(
+    fun deleteDeviceToken(
         context: Context,
         provider: String,
         complete: () -> Unit = {}
     ) {
         when (provider) {
-            FCM_PROVIDER -> TokenManager.deleteFCMToken { complete() }
-            RUS_PROVIDER -> TokenManager.deleteRuStoreToken { complete() }
-            HMS_PROVIDER -> TokenManager.deleteHMSToken(context) { complete() }
+            FCM_PROVIDER -> fcmProvider?.deleteToken { complete() }
+            RUS_PROVIDER -> rustoreProvider?.deleteToken { complete() }
+            HMS_PROVIDER -> hmsProvider?.deleteToken(context) { complete() }
         }
     }
 
     /**
-     * Forces a token refresh by deleting the current device token and triggering an update flow.
+     * Triggers token refresh: deletes the current device token and runs token update flow.
      *
-     * This function:
-     * - Deletes the existing push token using its provider.
-     * - Then performs a full token update via [TokenUpdate.pushTokenUpdate].
-     * - Calls [complete] upon successful completion of the update flow.
+     * Steps:
+     * - Requests token deletion via the current provider.
+     * - Then calls [TokenUpdate.pushTokenUpdate].
+     * - Invokes [complete] after the update call finishes.
      *
-     * All operations run on [Dispatchers.IO].
+     * Runs on [Dispatchers.IO].
      *
      * @param context Application context used for token and update operations.
-     * @param complete Callback invoked after the update finishes.
+     * @param complete Callback invoked after the update call finishes.
      */
-    fun forcedTokenUpdate(context: Context, complete: () -> Unit) {
+    fun forcedTokenUpdate(
+        context: Context, complete: () -> Unit
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
+            val func = "forcedTokenUpdate"
             try {
-                deleteDeviceToken(context, getPushToken(context)?.provider ?: return@launch) {
+                val env = Environment.create(context)
+                val provider = env.token().provider
+
+                deleteDeviceToken(context, provider) {
                     CoroutineScope(Dispatchers.IO).launch {
-                        pushTokenUpdate(context)
-                        complete()
+                        try {
+                            pushTokenUpdate(context)
+                            complete()
+                        } catch (e: Exception) {
+                            error(func, e)
+                        }
                     }
                 }
             } catch (e: Exception) {
-                error("forcedTokenUpdate", e)
+                error(func, e)
             }
         }
     }
 
     /**
-     * Updates the provider priority list in the local configuration and triggers token update.
+     * Updates provider priority list in local configuration and triggers token update.
      *
      * @param context The application context.
-     * @param priorityList A list of push provider identifiers (e.g., "android-firebase").
-     *
-     * @throws IllegalStateException If configuration is missing or contains invalid provider names.
+     * @param priorityList List of push provider identifiers (e.g., "android-firebase").
      */
     suspend fun changePushProviderPriorityList(context: Context, priorityList: List<String>) {
         try {
