@@ -131,7 +131,6 @@ object Constants {
     internal const val SUBSCRIBE_C_WORK_TAG: String = "SUBSCRIBE_CWT"
     internal const val TN_UPDATE_C_WORK_TAG: String = "TOKEN_UPDATE_CWT"
     internal const val PR_UPDATE_C_WORK_TAG: String = "PROFILE_UPDATE_CWT"
-    internal const val PUSH_PROC_C_WORK_TAG: String = "PUSH_PROCESSING_CWT"
     internal const val PID = "pid"
 
     //periodical worker

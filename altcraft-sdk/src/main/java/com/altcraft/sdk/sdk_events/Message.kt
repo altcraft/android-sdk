@@ -8,14 +8,6 @@ package com.altcraft.sdk.sdk_events
  * Contains message constants used in events
  */
 internal object Message {
-
-    //periodical worker
-    const val SUB_WORK_START = "::RetryPushSubscribeWorker is started"
-    const val PUSH_EVENT_WORK_START = "::RetryPushEventWorker is started"
-    const val MOBILE_EVENT_WORK_START = "::RetryMobileEventWorker is started"
-    const val TOKEN_UPDATE_WORK_START = "::RetryTokenUpdateWorker is started"
-    const val PROFILE_UPDATE_WORK_START = "::RetryProfileUpdateWorker is started"
-
     //pushReceiver
     const val RECEIVER_REDEFINED = "receiver is redefined in:"
 

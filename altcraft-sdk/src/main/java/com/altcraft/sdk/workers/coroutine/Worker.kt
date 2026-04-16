@@ -10,23 +10,24 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
-import com.altcraft.sdk.data.Constants.DELIVERY
 import com.altcraft.sdk.data.Constants.PID
-import com.altcraft.sdk.data.Constants.UID_KEY
-import com.altcraft.sdk.extension.DataExtension.toStringMap
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.profile.ProfileUpdate
-import com.altcraft.sdk.push.IncomingPushManager.sendToAllRecipients
-import com.altcraft.sdk.push.events.PushEvent.sendPushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.push.token.TokenUpdate
 import kotlinx.coroutines.delay
 import java.util.UUID
 
 /**
- * Contains WorkManager classes for executing requests to send push events, send mobile events,
- * subscribe, and update the push token.
+ * Contains WorkManager workers for executing and retrying SDK background operations.
+ *
+ * Includes workers for:
+ * - push event processing
+ * - mobile event processing
+ * - profile field updates
+ * - push subscriptions
+ * - push token updates
  */
 internal object Worker {
 
@@ -49,32 +50,6 @@ internal object Worker {
     private fun pidChanged(
         inputData: Data
     ) = isAppInForegrounded() && inputData.getInt(PID, -1) != Process.myPid()
-
-    /**
-     * Worker that handles an incoming push:
-     * sends a DELIVERY event and dispatches the message to recipients.
-     *
-     * Retries up to 3 attempts, then finishes with [Result.failure].
-     *
-     * @param context Application context.
-     * @param params Parameters used to initialize the worker.
-     */
-    class PushProcessingCoroutineWorker(
-        context: Context,
-        params: WorkerParameters
-    ) : CoroutineWorker(context, params) {
-
-        /**
-         * Executes push processing and returns [Result.success] or [Result.failure].
-         */
-        override suspend fun doWork(): Result {
-            if (runAttemptCount > 3) return Result.failure()
-            val message: Map<String, String> = inputData.toStringMap()
-            sendPushEvent(applicationContext, DELIVERY, message[UID_KEY])
-            sendToAllRecipients(applicationContext, message)
-            return Result.success()
-        }
-    }
 
     /**
      * Worker that handles processing of push event.

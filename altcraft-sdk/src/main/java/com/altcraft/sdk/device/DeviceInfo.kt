@@ -18,8 +18,6 @@ import com.altcraft.sdk.data.Constants.CLS_ADS_ID_INFO
 import com.altcraft.sdk.data.Constants.M_GET_ID
 import com.altcraft.sdk.data.Constants.M_GET_INFO
 import com.altcraft.sdk.data.Constants.M_IS_LIMIT
-import java.lang.reflect.InvocationTargetException
-import java.util.concurrent.atomic.AtomicBoolean
 
 /** Collects device information and system attributes. */
 internal object DeviceInfo {
@@ -46,7 +44,7 @@ internal object DeviceInfo {
      *  - `_os_ver` (OS Version, if available)
      *  - `_ad_id` (Advertising ID, if available)
      */
-     fun getDeviceFields(context: Context): Map<String, Any> {
+    fun getDeviceFields(context: Context): Map<String, Any> {
         return try {
             mutableMapOf<String, Any>().apply {
                 val deviceModel = Build.MODEL
@@ -76,19 +74,6 @@ internal object DeviceInfo {
         }
     }
 
-    private val advertisingIdErrorLogged = AtomicBoolean(false)
-
-    /**
-     * Logs an Advertising ID retrieval error only once per process.
-     *
-     * @param t The exception describing the Advertising ID retrieval failure.
-     */
-    private fun logAdvertisingIdErrorOnce(t: Throwable) {
-        if (advertisingIdErrorLogged.compareAndSet(false, true)) {
-            error("getGoogleAdvertisingIdInfo", t)
-        }
-    }
-
     /**
      * Returns the Advertising ID and tracking permission.
      *
@@ -110,14 +95,7 @@ internal object DeviceInfo {
             val limit = infoCls.getMethod(M_IS_LIMIT).invoke(infoObj) as Boolean
 
             id to !limit
-        } catch (e: ClassNotFoundException) {
-            logAdvertisingIdErrorOnce(e)
-            null to false
-        } catch (e: InvocationTargetException) {
-            logAdvertisingIdErrorOnce(e)
-            null to false
-        } catch (t: Throwable) {
-            logAdvertisingIdErrorOnce(t)
+        } catch (_: Throwable) {
             null to false
         }
     }

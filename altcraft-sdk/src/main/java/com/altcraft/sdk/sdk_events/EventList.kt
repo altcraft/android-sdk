@@ -18,8 +18,8 @@ internal object EventList {
     /** 200–206 — General SDK events */
     val configIsSet = 200 to "SDK configuration is installed"
     val pushProviderSet = 201 to "push provider set: "
-    val notAltcraftPush = 202 to "received a notification unrelated to the Altcraft Platform"
-    val altcraftPush = 203 to "received Altcraft push notification"
+    val notAcPush = 202 to "received a notification unrelated to the Altcraft Platform"
+    val acPush = 203 to "received Altcraft push notification"
     val pushIsPosted = 204 to "push is posted"
     val sdkCleared = 205 to "SDK data has been cleared"
     val initAwait = 206 to "waiting for SDK initialization to complete"

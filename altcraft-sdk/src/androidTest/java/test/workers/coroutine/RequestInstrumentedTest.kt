@@ -22,23 +22,19 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PID
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.PUSH_PROC_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PR_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.RETRY_TIME_C_WORK
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.mob_events.MobileEvent
 import com.altcraft.sdk.profile.ProfileUpdate
-import com.altcraft.sdk.push.IncomingPushManager
 import com.altcraft.sdk.push.events.PushEvent
 import com.altcraft.sdk.push.subscribe.PushSubscribe
 import com.altcraft.sdk.push.token.TokenUpdate
 import com.altcraft.sdk.workers.coroutine.Request
 import com.altcraft.sdk.workers.coroutine.Worker
-import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.just
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.mockk.unmockkObject
@@ -59,12 +55,11 @@ import java.util.concurrent.TimeUnit
  * test_1: pushEventRequest() builds request with correct shape (tag, constraints, backoff, worker, pid)
  *         and runs -> SUCCEEDED.
  * test_2: subscribeRequest() builds correctly and runs -> SUCCEEDED.
- * test_3: updateRequest() builds correctly and runs -> SUCCEEDED.
+ * test_3: tokUpdateRequest() builds correctly and runs -> SUCCEEDED.
  * test_4: mobileEventRequest() builds correctly and runs -> SUCCEEDED.
  * test_5: hasNewRequest() returns false when there is a single active work.
  * test_6: hasNewRequest() returns true for older work and false for the newest one.
  * test_7: prUpdateRequest() builds correctly and runs -> SUCCEEDED.
- * test_8: pushProcessingRequest() builds correctly and runs -> SUCCEEDED.
  */
 @RunWith(AndroidJUnit4::class)
 class RequestInstrumentedTest {
@@ -85,21 +80,18 @@ class RequestInstrumentedTest {
         workManager = WorkManager.getInstance(context)
         testDriver = WorkManagerTestInitHelper.getTestDriver(context)
 
-        mockkObject(PushEvent, PushSubscribe, TokenUpdate, MobileEvent, ProfileUpdate, IncomingPushManager)
+        mockkObject(PushEvent, PushSubscribe, TokenUpdate, MobileEvent, ProfileUpdate)
 
         coEvery { PushEvent.isRetry(any(), any()) } returns false
         coEvery { PushSubscribe.isRetry(any(), any()) } returns false
         coEvery { TokenUpdate.isRetry(any(), any()) } returns false
         coEvery { MobileEvent.isRetry(any(), any()) } returns false
         coEvery { ProfileUpdate.isRetry(any(), any()) } returns false
-
-        coEvery { PushEvent.sendPushEvent(any(), any(), any()) } just Runs
-        coEvery { IncomingPushManager.sendToAllRecipients(any(), any()) } just Runs
     }
 
     @After
     fun tearDown() {
-        unmockkObject(PushEvent, PushSubscribe, TokenUpdate, MobileEvent, ProfileUpdate, IncomingPushManager)
+        unmockkObject(PushEvent, PushSubscribe, TokenUpdate, MobileEvent, ProfileUpdate)
         unmockkAll()
     }
 
@@ -178,7 +170,7 @@ class RequestInstrumentedTest {
         coVerify(exactly = 1) { PushSubscribe.isRetry(any(), req.id) }
     }
 
-    /** test_3: updateRequest builds correctly and runs to SUCCEEDED. */
+    /** test_3: tokUpdateRequest builds correctly and runs to SUCCEEDED. */
     @Test
     fun test_3_tokenTokUpdateRequest_buildsAndRunsSucceeded() {
         val req = Request.tokUpdateRequest()
@@ -300,24 +292,5 @@ class RequestInstrumentedTest {
         assertEquals(WorkInfo.State.SUCCEEDED, state)
 
         coVerify(exactly = 1) { ProfileUpdate.isRetry(any(), req.id) }
-    }
-
-    /** test_8: pushProcessingRequest builds with expected tag and runs to SUCCEEDED. */
-    @Test
-    fun test_8_pushProcessingRequest_buildsAndRunsSucceeded() {
-        val pushData = mapOf("k1" to "v1", "k2" to "v2")
-        val req = Request.pushProcessingRequest(pushData)
-
-        assertTrue(req.tags.contains(PUSH_PROC_C_WORK_TAG))
-
-        val storedK1 = req.workSpec.input.getString("k1")
-        val storedK2 = req.workSpec.input.getString("k2")
-        assertEquals("v1", storedK1)
-        assertEquals("v2", storedK2)
-
-        workManager.enqueue(req).result.get()
-
-        val state = awaitWorkSucceeded(req.id)
-        assertEquals(WorkInfo.State.SUCCEEDED, state)
     }
 }

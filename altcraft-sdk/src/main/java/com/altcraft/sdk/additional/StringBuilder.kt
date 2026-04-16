@@ -140,16 +140,6 @@ internal object StringBuilder {
         "invalid mobile event payload: not all values are primitives. Event name: $eventName"
 
     /**
-     * Formats an exception message for a specific service.
-     *
-     * @param serviceName The name of the service where the exception occurred.
-     * @param exception The exception that was thrown.
-     * @return A formatted string describing the exception.
-     */
-    fun serviceExceptionMessage(serviceName: String, exception: Exception) =
-        "$serviceName exception: $exception"
-
-    /**
      * Builds a formatted log string for an event.
      *
      * @param function The name of the function where the event occurred.

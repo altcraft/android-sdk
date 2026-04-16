@@ -28,11 +28,8 @@ import com.altcraft.sdk.sdk_events.Events.error
 import kotlinx.coroutines.guava.await
 import java.util.UUID
 import android.os.Process
-import androidx.work.OutOfQuotaPolicy
 import com.altcraft.sdk.data.Constants.PR_UPDATE_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.PUSH_PROC_C_WORK_TAG
 import com.altcraft.sdk.workers.coroutine.Worker.ProfileUpdateCoroutineWorker
-import com.altcraft.sdk.workers.coroutine.Worker.PushProcessingCoroutineWorker
 
 /**
  * Utility object for creating preconfigured [OneTimeWorkRequest] instances for WorkManager.
@@ -159,27 +156,4 @@ internal object Request {
      * @return Configured [OneTimeWorkRequest] with the proper tag.
      */
     fun prUpdateRequest() = createWorkRequest<ProfileUpdateCoroutineWorker>(PR_UPDATE_C_WORK_TAG)
-
-    /**
-     * Creates push processing worker request (expedited when possible).
-     *
-     * @param pushData Push payload.
-     * @return Configured [OneTimeWorkRequest] with the proper tag.
-     */
-    fun pushProcessingRequest(pushData: Map<String, String>): OneTimeWorkRequest {
-        val data = Data.Builder()
-        pushData.forEach { (key, value) -> data.putString(key, value) }
-        return OneTimeWorkRequestBuilder<PushProcessingCoroutineWorker>()
-            .setExpedited(
-                OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
-            )
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                RETRY_TIME_C_WORK,
-                TimeUnit.SECONDS
-            )
-            .addTag(PUSH_PROC_C_WORK_TAG)
-            .setInputData(data.build())
-            .build()
-    }
 }

@@ -10,7 +10,6 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.workers.coroutine.Request.mobileEventRequest
 import com.altcraft.sdk.workers.coroutine.Request.prUpdateRequest
 import com.altcraft.sdk.workers.coroutine.Request.pushEventRequest
-import com.altcraft.sdk.workers.coroutine.Request.pushProcessingRequest
 import com.altcraft.sdk.workers.coroutine.Request.subscribeRequest
 import com.altcraft.sdk.workers.coroutine.Request.tokUpdateRequest
 
@@ -72,19 +71,5 @@ internal object LaunchFunctions {
         WorkManager.getInstance(context).enqueue(prUpdateRequest())
     } catch (e: Exception) {
         error("startProfileUpdateCoroutineWorker", e)
-    }
-
-    /**
-     * Enqueues push processing worker without awaiting its result.
-     *
-     * @param context Application context.
-     * @param message Push payload.
-     */
-    fun startPushProcessingCoroutineWorker(
-        context: Context, message: Map<String, String>
-    ) = try {
-        WorkManager.getInstance(context).enqueue(pushProcessingRequest(message))
-    } catch (e: Exception) {
-        error("startPushProcessingCoroutineWorker", e)
     }
 }

@@ -58,11 +58,11 @@ import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
 import com.altcraft.altcraftmobile.extensions.Extensions.UI.fadeToWhiteEdges
 
+
 object InfoComponents {
 
     @Composable
     fun InfoCard(viewModel: MainViewModel) {
-
         val context = LocalContext.current
 
         val provider by remember { viewModel.provider }

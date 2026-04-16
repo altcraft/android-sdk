@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         resources.configuration.fontScale = 1f
         AltcraftSDK.requestNotificationPermission(this, this)
 
+
         setContent {
             AltcraftMobileTheme {
                 Surface(

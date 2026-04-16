@@ -9,7 +9,6 @@ import androidx.work.WorkManager
 import com.altcraft.sdk.data.Constants.MOB_EVENT_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PR_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.PUSH_EVENT_C_WORK_TAG
-import com.altcraft.sdk.data.Constants.PUSH_PROC_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.SUBSCRIBE_C_WORK_TAG
 import com.altcraft.sdk.data.Constants.TN_UPDATE_C_WORK_TAG
 import com.altcraft.sdk.sdk_events.Events.error
@@ -106,7 +105,6 @@ internal object CancelWork {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val jobs = listOf(
-                    async { workManager.cancelAllWorkByTag(PUSH_PROC_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(TN_UPDATE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(PR_UPDATE_C_WORK_TAG).result.get() },
                     async { workManager.cancelAllWorkByTag(SUBSCRIBE_C_WORK_TAG).result.get() },

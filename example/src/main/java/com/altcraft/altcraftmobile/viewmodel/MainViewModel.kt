@@ -31,6 +31,7 @@ import com.altcraft.altcraftmobile.data.AppConstants.SUSPEND_EVENT
 import com.altcraft.altcraftmobile.data.AppConstants.TOKEN_UPDATE_EVENT
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBE_EVENT
+import com.altcraft.altcraftmobile.data.AppConstants.UNSUSPEND_EVENT
 import com.altcraft.altcraftmobile.data.AppDataClasses
 import com.altcraft.altcraftmobile.event.EventReceiver
 import com.altcraft.altcraftmobile.functions.app.Formatter.formatDate
@@ -153,7 +154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         when (event.eventCode) {
-            SUBSCRIBE_EVENT, SUSPEND_EVENT, UNSUBSCRIBE_EVENT, STATUS_EVENT
+            SUBSCRIBE_EVENT, SUSPEND_EVENT, UNSUBSCRIBE_EVENT, STATUS_EVENT, UNSUSPEND_EVENT
                 -> status.value = handleStatusUpdate(context, event)
 
             TOKEN_UPDATE_EVENT -> {

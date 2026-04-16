@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * `SubFunction` provides core SDK helpers for logging, notifications,
- * service checks, permissions, and asset handling.
+ *  permissions, and asset handling.
  */
 internal object SubFunction {
 
@@ -109,19 +109,6 @@ internal object SubFunction {
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .areNotificationsEnabled()
         } else NotificationManagerCompat.from(context).areNotificationsEnabled()
-    }
-
-    /**
-     * Checks if the specified service is running.
-     *
-     * @param context The context used to access the system services.
-     * @param serviceClass The class object of the service to check.
-     * @return `true` if the service is running; `false` otherwise.
-     */
-    @Suppress("DEPRECATION")
-    internal fun isServiceRunning(context: Context, serviceClass: Class<out Any>): Boolean {
-        return (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-            .getRunningServices(Int.MAX_VALUE).any { serviceClass.name == it.service.className }
     }
 
     /**

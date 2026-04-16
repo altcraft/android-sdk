@@ -28,6 +28,8 @@ object AppConstants {
     const val SUSPEND_EVENT = 231
     const val UNSUBSCRIBE_EVENT = 232
     const val STATUS_EVENT = 235
+    @Suppress("SpellCheckingInspection")
+    const val UNSUSPEND_EVENT = 234
     const val TOKEN_UPDATE_EVENT = 233
     val STATUS_EVENT_ERRORS = listOf(425, 435)
 
