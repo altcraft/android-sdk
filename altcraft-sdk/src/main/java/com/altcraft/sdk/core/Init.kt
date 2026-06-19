@@ -10,6 +10,7 @@ import com.altcraft.sdk.coordination.CommandQueue
 import com.altcraft.sdk.coordination.InitBarrier
 import com.altcraft.sdk.config.AltcraftConfiguration
 import com.altcraft.sdk.config.ConfigSetup.setConfig
+import com.altcraft.sdk.coordination.InitBarrier.initBarrierComplete
 import com.altcraft.sdk.sdk_events.EventList.configIsNotSet
 import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.extension.ExceptionExtension.exception
@@ -20,52 +21,71 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Entry point responsible for initializing the SDK.
- *
  */
 internal object Init {
+
+    /** Prevents concurrent SDK initialization. */
     private val initMutex = Mutex()
 
     /**
      * Initializes the SDK with the provided context and configuration.
      *
-     * Thread-safe initialization. After the configuration is applied, this method
-     * calls `performRetryOperations(appCtx)`, which starts verification and processing of all
-     * pending operations:
-     * - sending mobile events;
-     * - sending push events;
-     * - handling push subscriptions;
-     * - verifying and updating the device push token.
+     * Thread-safe initialization that:
+     * - applies SDK configuration;
+     * - configures global logging behavior;
+     * - performs database overflow control;
+     * - executes initialization operations;
+     * - releases the initialization barrier;
+     * - invokes the optional completion callback with [Result].
      *
-     * During initialization the global logging behavior is configured based on
-     * the `enableLogging` flag from [AltcraftConfiguration].
-     *
-     * @param context The application context used for configuration and internal setup.
-     * @param configuration The SDK configuration required for initialization.
-     * @param complete Optional callback that receives the result of the initialization.
+     * @param context Context used for SDK initialization.
+     * @param configuration SDK configuration.
+     * @param complete Optional callback with initialization result.
      */
     fun init(
         context: Context,
         configuration: AltcraftConfiguration,
         complete: ((Result<Unit>) -> Unit)? = null
     ) {
-        val appCtx = context.applicationContext
         val reservedGate = InitBarrier.reserve()
+        val appContext = context.applicationContext
         loggingStatus = configuration.getEnableLogging()
         CommandQueue.InitCommandQueue.submit {
             initMutex.withLock {
                 try {
-                    setConfig(appCtx, configuration) ?: exception(configIsNotSet)
-                    roomOverflowControl(Environment.create(appCtx).room)
+                    setConfig(appContext, configuration)
+                        ?: exception(
+                            configIsNotSet
+                        )
 
-                    performInitOperations(appCtx)
-                    InitBarrier.complete(reservedGate)
-                    complete?.invoke(Result.success(Unit))
+                    roomOverflowControl(
+                        Environment.create(
+                            appContext
+                        ).room
+                    )
+
+                    performInitOperations(appContext)
+                    initBarrierComplete(reservedGate)
+                    initFunctionComplete(complete)
                 } catch (e: Exception) {
-                    InitBarrier.fail(reservedGate, e)
                     error("init", e)
-                    complete?.invoke(Result.failure(e))
+                    initBarrierComplete(reservedGate)
+                    initFunctionComplete(complete, e)
                 }
             }
         }
+    }
+
+    /**
+     * Safely invokes the initialization callback.
+     *
+     * Any exception thrown by client callback code is caught and logged.
+     */
+    private fun initFunctionComplete(
+        complete: ((Result<Unit>) -> Unit)?, e: Throwable? = null
+    ) = try {
+        complete?.invoke(if (e == null) Result.success(Unit) else Result.failure(e))
+    } catch (e: Exception) {
+        error("init callback", e)
     }
 }

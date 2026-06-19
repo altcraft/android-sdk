@@ -49,9 +49,9 @@ import java.util.concurrent.TimeUnit
  *  - test_3: init_success_verifiesCallOrder.
  *
  * Negative scenarios:
- *  - test_4: init_failure_fromSetConfig_callsBarrierFail_andCallbackFailure.
- *  - test_5: init_nullConfig_triggersFail_andCallbackFailure.
- *  - test_6: init_performInitOperationsThrows_triggersFail_andCallbackFailure.
+ *  - test_4: init_failure_fromSetConfig_callsBarrierComplete_andCallbackFailure.
+ *  - test_5: init_nullConfig_callsBarrierComplete_andCallbackFailure.
+ *  - test_6: init_performInitOperationsThrows_callsBarrierComplete_andCallbackFailure.
  *
  * Concurrency:
  *  - test_7: init_twoCalls_bothCallbacksComplete.
@@ -101,6 +101,7 @@ class InitTest {
         }
 
         mockkObject(ConfigSetup)
+
         mockkObject(InitialOperations)
         every { InitialOperations.performInitOperations(any<Context>()) } just Runs
 
@@ -116,11 +117,8 @@ class InitTest {
         mockkObject(InitBarrier)
         gate = CompletableDeferred()
         every { InitBarrier.reserve() } returns gate
-        every { InitBarrier.complete(any()) } answers {
+        every { InitBarrier.initBarrierComplete(any()) } answers {
             firstArg<CompletableDeferred<Unit>>().complete(Unit)
-        }
-        every { InitBarrier.fail(any(), any()) } answers {
-            firstArg<CompletableDeferred<Unit>>().completeExceptionally(secondArg())
         }
 
         mockkObject(Events)
@@ -148,8 +146,7 @@ class InitTest {
         coVerify(exactly = 1) { ConfigSetup.setConfig(ctx, cfg) }
         coVerify(exactly = 1) { RoomRequest.roomOverflowControl(room) }
         io.mockk.verify(exactly = 1) { InitialOperations.performInitOperations(ctx) }
-        io.mockk.verify(exactly = 1) { InitBarrier.complete(gate) }
-        io.mockk.verify(exactly = 0) { InitBarrier.fail(any(), any()) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate) }
     }
 
     /** test_2: init_success_invokesPerformInitOperations. */
@@ -168,8 +165,7 @@ class InitTest {
         assertTrue(MSG_CB_SUCCESS, latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS) && ok)
 
         io.mockk.verify(exactly = 1) { InitialOperations.performInitOperations(ctx) }
-        io.mockk.verify(exactly = 1) { InitBarrier.complete(gate) }
-        io.mockk.verify(exactly = 0) { InitBarrier.fail(any(), any()) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate) }
     }
 
     /** test_3: init_success_verifiesCallOrder. */
@@ -180,7 +176,10 @@ class InitTest {
         val latch = CountDownLatch(1)
         var ok = false
 
-        Init.init(ctx, cfg) { ok = it.isSuccess; latch.countDown() }
+        Init.init(ctx, cfg) {
+            ok = it.isSuccess
+            latch.countDown()
+        }
 
         assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS) && ok)
 
@@ -188,46 +187,49 @@ class InitTest {
             ConfigSetup.setConfig(ctx, cfg)
             RoomRequest.roomOverflowControl(room)
         }
+
         io.mockk.verifyOrder {
             InitialOperations.performInitOperations(ctx)
-            InitBarrier.complete(gate)
+            InitBarrier.initBarrierComplete(gate)
         }
     }
 
-    /** test_4: init_failure_fromSetConfig_callsBarrierFail_andCallbackFailure. */
+    /** test_4: init_failure_fromSetConfig_callsBarrierComplete_andCallbackFailure. */
     @Test
-    fun init_failure_fromSetConfig_callsBarrierFail_andCallbackFailure() {
+    fun init_failure_fromSetConfig_callsBarrierComplete_andCallbackFailure() {
         coEvery { ConfigSetup.setConfig(any(), any()) } throws IllegalStateException("boom")
 
         val latch = CountDownLatch(1)
         var err: Throwable? = null
 
         Init.init(ctx, cfg) { result ->
-            if (result.isFailure) err = result.exceptionOrNull()
+            if (result.isFailure) {
+                err = result.exceptionOrNull()
+            }
             latch.countDown()
         }
 
         assertTrue(MSG_CB_FAILURE, latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS) && err != null)
 
         io.mockk.verify(exactly = 1) { InitBarrier.reserve() }
-        io.mockk.verify(exactly = 1) { InitBarrier.fail(gate, any()) }
-        io.mockk.verify(exactly = 0) { InitBarrier.complete(any()) }
-
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate) }
         io.mockk.verify(exactly = 1) { Events.error(eq(FUNC_INIT), any()) }
         io.mockk.verify(exactly = 0) { InitialOperations.performInitOperations(any<Context>()) }
         coVerify(exactly = 0) { RoomRequest.roomOverflowControl(any()) }
     }
 
-    /** test_5: init_nullConfig_triggersFail_andCallbackFailure. */
+    /** test_5: init_nullConfig_callsBarrierComplete_andCallbackFailure. */
     @Test
-    fun init_nullConfig_triggersFail_andCallbackFailure() {
+    fun init_nullConfig_callsBarrierComplete_andCallbackFailure() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns null
 
         val latch = CountDownLatch(1)
         var err: Throwable? = null
 
         Init.init(ctx, cfg) { result ->
-            if (result.isFailure) err = result.exceptionOrNull()
+            if (result.isFailure) {
+                err = result.exceptionOrNull()
+            }
             latch.countDown()
         }
 
@@ -235,25 +237,29 @@ class InitTest {
         assertNotNull(err)
 
         io.mockk.verify(exactly = 1) { InitBarrier.reserve() }
-        io.mockk.verify(exactly = 1) { InitBarrier.fail(gate, any()) }
-        io.mockk.verify(exactly = 0) { InitBarrier.complete(any()) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate) }
         io.mockk.verify(exactly = 1) { Events.error(eq(FUNC_INIT), any()) }
-
         io.mockk.verify(exactly = 0) { InitialOperations.performInitOperations(any<Context>()) }
         coVerify(exactly = 0) { RoomRequest.roomOverflowControl(any()) }
     }
 
-    /** test_6: init_performInitOperationsThrows_triggersFail_andCallbackFailure. */
+    /** test_6: init_performInitOperationsThrows_callsBarrierComplete_andCallbackFailure. */
     @Test
-    fun init_performInitOperationsThrows_triggersFail_andCallbackFailure() {
+    fun init_performInitOperationsThrows_callsBarrierComplete_andCallbackFailure() {
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
-        every { InitialOperations.performInitOperations(any<Context>()) } answers { throw IllegalArgumentException("check failed") }
+        every {
+            InitialOperations.performInitOperations(any<Context>())
+        } answers {
+            throw IllegalArgumentException("check failed")
+        }
 
         val latch = CountDownLatch(1)
         var err: Throwable? = null
 
         Init.init(ctx, cfg) { result ->
-            if (result.isFailure) err = result.exceptionOrNull()
+            if (result.isFailure) {
+                err = result.exceptionOrNull()
+            }
             latch.countDown()
         }
 
@@ -261,8 +267,7 @@ class InitTest {
         assertNotNull(err)
 
         io.mockk.verify(exactly = 1) { InitBarrier.reserve() }
-        io.mockk.verify(exactly = 1) { InitBarrier.fail(gate, any()) }
-        io.mockk.verify(exactly = 0) { InitBarrier.complete(any()) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate) }
         io.mockk.verify(exactly = 1) { Events.error(eq(FUNC_INIT), any()) }
     }
 
@@ -272,22 +277,30 @@ class InitTest {
         val gate1 = CompletableDeferred<Unit>()
         val gate2 = CompletableDeferred<Unit>()
         val gates = ArrayDeque(listOf(gate1, gate2))
-        every { InitBarrier.reserve() } answers { gates.removeFirst() }
 
+        every { InitBarrier.reserve() } answers { gates.removeFirst() }
         coEvery { ConfigSetup.setConfig(any(), any()) } returns entity
 
         val latch = CountDownLatch(2)
         var ok1 = false
         var ok2 = false
 
-        Init.init(ctx, cfg) { ok1 = it.isSuccess; latch.countDown() }
-        Init.init(ctx, cfg) { ok2 = it.isSuccess; latch.countDown() }
+        Init.init(ctx, cfg) {
+            ok1 = it.isSuccess
+            latch.countDown()
+        }
+
+        Init.init(ctx, cfg) {
+            ok2 = it.isSuccess
+            latch.countDown()
+        }
 
         assertTrue(MSG_BOTH_DONE, latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS))
         assertTrue(ok1 && ok2)
+
         coVerify(exactly = 2) { ConfigSetup.setConfig(ctx, cfg) }
-        io.mockk.verify(exactly = 1) { InitBarrier.complete(gate1) }
-        io.mockk.verify(exactly = 1) { InitBarrier.complete(gate2) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate1) }
+        io.mockk.verify(exactly = 1) { InitBarrier.initBarrierComplete(gate2) }
     }
 
     /** test_8: init_twoCalls_concurrent_serializedByMutex. */
@@ -334,15 +347,16 @@ class InitTest {
 
         coJustRun { RoomRequest.roomOverflowControl(any()) }
         every { InitialOperations.performInitOperations(any<Context>()) } just Runs
-        every { Events.error(any(), any()) } returns DataClasses.Error("init", 400, "boom", null)
+        every { Events.error(any(), any()) } returns DataClasses.Error(FUNC_INIT, 400, "boom", null)
 
         val gate1 = CompletableDeferred<Unit>()
         val gate2 = CompletableDeferred<Unit>()
         val gates = ArrayDeque(listOf(gate1, gate2))
 
         every { InitBarrier.reserve() } answers { gates.removeFirst() }
-        every { InitBarrier.complete(any()) } answers { firstArg<CompletableDeferred<Unit>>().complete(Unit) }
-        every { InitBarrier.fail(any(), any()) } answers { firstArg<CompletableDeferred<Unit>>().complete(Unit) }
+        every { InitBarrier.initBarrierComplete(any()) } answers {
+            firstArg<CompletableDeferred<Unit>>().complete(Unit)
+        }
 
         val blockLatch = CountDownLatch(1)
         val startedSecond = CountDownLatch(1)
@@ -362,12 +376,19 @@ class InitTest {
 
         val latch = CountDownLatch(2)
 
-        Init.init(ctx, cfg) { latch.countDown() }
+        Init.init(ctx, cfg) {
+            latch.countDown()
+        }
+
         startedSecond.await(1, TimeUnit.SECONDS)
-        Init.init(ctx, cfg) { latch.countDown() }
+
+        Init.init(ctx, cfg) {
+            latch.countDown()
+        }
 
         blockLatch.countDown()
-        assertTrue(latch.await(2, TimeUnit.SECONDS))
+
+        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS))
         assertEquals(listOf("first-start", "second-start"), order)
     }
 }

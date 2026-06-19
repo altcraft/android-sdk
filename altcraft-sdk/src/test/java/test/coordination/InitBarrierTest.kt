@@ -62,7 +62,7 @@ class InitBarrierTest {
     private fun freshGate(): CompletableDeferred<Unit> {
         val cur = InitBarrier.current()
         if (!cur.isCompleted) {
-            InitBarrier.complete(cur)
+            InitBarrier.initBarrierComplete(cur)
         }
         return InitBarrier.reserve()
     }
@@ -76,7 +76,7 @@ class InitBarrierTest {
         val r1 = InitBarrier.reserve()
         assertTrue(MSG_RESERVE_SAME, r1 === g1)
 
-        InitBarrier.complete(g1)
+        InitBarrier.initBarrierComplete(g1)
         assertTrue(g1.isCompleted)
 
         val g2 = InitBarrier.reserve()
@@ -89,7 +89,7 @@ class InitBarrierTest {
     @Test
     fun awaitInit_completed_gate_returns_immediately() = runTest {
         val g = freshGate()
-        InitBarrier.complete(g)
+        InitBarrier.initBarrierComplete(g)
         val job = async { awaitInit("test-func", gate = g, timeoutMs = 10) }
         job.await()
         assertTrue(MSG_AWAIT_COMPLETED_RET_IMMEDIATELY, job.isCompleted)
@@ -124,7 +124,7 @@ class InitBarrierTest {
 
         assertFalse(executed)
 
-        InitBarrier.complete(g)
+        InitBarrier.initBarrierComplete(g)
         this.testScheduler.runCurrent()
 
         val result = deferred.await()
@@ -138,7 +138,7 @@ class InitBarrierTest {
         val g = freshGate()
         val job = launch(UnconfinedTestDispatcher(testScheduler)) { awaitInit("default-current") }
         assertFalse(job.isCompleted)
-        InitBarrier.complete(g)
+        InitBarrier.initBarrierComplete(g)
         this.testScheduler.runCurrent()
         assertTrue(MSG_DEFAULT_CURRENT_COMPLETES, job.isCompleted)
     }

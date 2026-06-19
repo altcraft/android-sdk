@@ -51,11 +51,9 @@ android {
 }
 
 dependencies {
-
     // --- sdk modules ---
-    implementation(project(":altcraft-sdk"))
-
-    //implementation("com.altcraft:android-sdk:1.0.4")
+    //implementation(project(":altcraft-sdk"))
+    implementation("com.altcraft:android-sdk:1.0.5")
 
     // --- Kotlin / Serialization ---
     implementation(libs.kotlinx.serialization.json)

@@ -43,6 +43,8 @@ internal object EventList {
     val userTagIsNullE = 402 to "userTag is null. It is impossible to identify the user"
     val sdkInitWaitingExpired = 404 to "SDK initialization timeout has expired"
     val mobileEventPartsIsNull = 405 to "mobile event parts is null"
+    val roomMigrationError = 406 to "Room database migration failed. " +
+            "The local SDK database will be recreated."
 
     /**
      * 430–437 — SDK-to-server request errors without automatic retry

@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.app.Application
 import com.altcraft.altcraftmobile.event.EventReceiver

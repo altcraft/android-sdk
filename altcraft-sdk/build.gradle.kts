@@ -106,7 +106,7 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "1.0.4")
+    coordinates("com.altcraft", "android-sdk", "1.0.5")
 
     pom {
         name = "Altcraft Android SDK"
@@ -123,7 +123,7 @@ mavenPublishing {
             developer {
                 id = "Altcraft"
                 name = "Altcraft"
-                url = "contact@altcraft.com"
+                email = "contact@altcraft.com"
             }
         }
         scm {
@@ -133,4 +133,3 @@ mavenPublishing {
         }
     }
 }
-

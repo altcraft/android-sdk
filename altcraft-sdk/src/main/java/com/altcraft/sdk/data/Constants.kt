@@ -146,6 +146,7 @@ object Constants {
 
     //event map keys and intent extras keys
     internal const val TOKEN = "token"
+    internal const val ERROR = "error"
     internal const val MESSAGE = "message"
     internal const val RESPONSE_WITH_HTTP_CODE = "response_with_http_code"
     internal const val TYPE = "type"

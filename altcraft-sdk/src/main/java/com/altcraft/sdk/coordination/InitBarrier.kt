@@ -41,10 +41,7 @@ internal object InitBarrier {
     }
 
     /** Completes the given gate (g) successfully. */
-    fun complete(g: CompletableDeferred<Unit>) = g.complete(Unit)
-
-    /** Completes the given gate (g) exceptionally with error (e). */
-    fun fail(g: CompletableDeferred<Unit>, e: Throwable) = g.completeExceptionally(e)
+    fun initBarrierComplete(g: CompletableDeferred<Unit>) = g.complete(Unit)
 }
 
 /**
