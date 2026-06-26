@@ -106,7 +106,7 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "1.0.5")
+    coordinates("com.altcraft", "android-sdk", "1.0.6")
 
     pom {
         name = "Altcraft Android SDK"

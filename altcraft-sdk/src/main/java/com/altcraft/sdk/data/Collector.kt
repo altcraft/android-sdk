@@ -19,12 +19,12 @@ import com.altcraft.sdk.sdk_events.Events.error
 import com.altcraft.sdk.push.PushData
 import com.altcraft.sdk.push.PushImage.loadLargeImage
 import com.altcraft.sdk.push.PushImage.loadSmallImage
-import java.util.UUID
 import com.altcraft.altcraftsdk.R
 import com.altcraft.sdk.additional.StringBuilder.eventMobileUrl
 import com.altcraft.sdk.additional.StringBuilder.profileUpdateUrl
 import com.altcraft.sdk.push.PushChannel.getChannelInfo
 import com.altcraft.sdk.additional.SubFunction.getIconColor
+import com.altcraft.sdk.additional.SubFunction.uuid
 import com.altcraft.sdk.core.Environment
 import com.altcraft.sdk.data.room.MobileEventEntity
 import com.altcraft.sdk.data.room.ProfileUpdateEntity
@@ -36,6 +36,8 @@ import com.altcraft.sdk.data.room.ProfileUpdateEntity
  * request models for subscriptions, updates, push events, mobile events, and status checks.
  */
 internal object Collector {
+
+    // Retryable requests with entities
 
     /**
      * Builds a [DataClasses.SubscribeRequestData] object for a push notification
@@ -75,38 +77,6 @@ internal object Collector {
             )
         } catch (e: Exception) {
             error("getSubscribeData", e)
-            null
-        }
-    }
-
-    /**
-     * Builds an [DataClasses.TokenUpdateRequestData] object for updating the push token.
-     *
-     * Returns `null` if required data is missing or an error occurs.
-     *
-     * @param context The context for accessing configuration and tokens.
-     * @param requestId The unique request identifier used for this update operation.
-     * @return Request data or `null` on failure.
-     */
-    suspend fun getTokenUpdateRequestData(
-        context: Context,
-        requestId: String,
-    ): DataClasses.TokenUpdateRequestData? {
-        return try {
-            val env = Environment.create(context)
-
-            DataClasses.TokenUpdateRequestData(
-                url = tokenUpdateUrl(env.config().apiUrl),
-                requestId = requestId,
-                oldToken = env.savedToken?.token,
-                newToken = env.token().token,
-                oldProvider = env.savedToken?.provider,
-                newProvider = env.token().provider,
-                authHeader = env.auth().first,
-                sync = !env.config().rToken.isNullOrEmpty()
-            )
-        } catch (e: Exception) {
-            error("getTokenUpdateRequestData", e)
             null
         }
     }
@@ -179,6 +149,71 @@ internal object Collector {
     }
 
     /**
+     * Builds a [DataClasses.ProfileUpdateRequestData] object for updating profile fields.
+     *
+     * Returns `null` if required data is missing or an error occurs.
+     *
+     * @param context Used to access configuration.
+     * @param entity Profile fields and options for update.
+     * @return Request data or `null` on failure.
+     */
+    suspend fun getProfileUpdateRequestData(
+        context: Context,
+        entity: ProfileUpdateEntity
+    ): DataClasses.ProfileUpdateRequestData? {
+        return try {
+            val env = Environment.create(context)
+
+            DataClasses.ProfileUpdateRequestData(
+                url = profileUpdateUrl(env.config().apiUrl),
+                requestId = entity.requestID,
+                authHeader = env.auth().first,
+                profileFields = entity.profileFields,
+                skipTriggers = entity.skipTriggers
+            )
+        } catch (e: Exception) {
+            error("getProfileUpdateRequestData", e)
+            null
+        }
+    }
+
+    // Retryable requests without entities
+
+    /**
+     * Builds an [DataClasses.TokenUpdateRequestData] object for updating the push token.
+     *
+     * Returns `null` if required data is missing or an error occurs.
+     *
+     * @param context The context for accessing configuration and tokens.
+     * @param requestId The unique request identifier used for this update operation.
+     * @return Request data or `null` on failure.
+     */
+    suspend fun getTokenUpdateRequestData(
+        context: Context,
+        requestId: String?,
+    ): DataClasses.TokenUpdateRequestData? {
+        return try {
+            val env = Environment.create(context)
+
+            DataClasses.TokenUpdateRequestData(
+                url = tokenUpdateUrl(env.config().apiUrl),
+                requestId = requestId ?: uuid(),
+                oldToken = env.savedToken?.token,
+                newToken = env.token().token,
+                oldProvider = env.savedToken?.provider,
+                newProvider = env.token().provider,
+                authHeader = env.auth().first,
+                sync = !env.config().rToken.isNullOrEmpty()
+            )
+        } catch (e: Exception) {
+            error("getTokenUpdateRequestData", e)
+            null
+        }
+    }
+
+    // Non-retryable requests
+
+    /**
      * Builds request data for the unSuspend request.
      *
      * @param context The application context.
@@ -189,11 +224,10 @@ internal object Collector {
     ): DataClasses.UnSuspendRequestData? {
         return try {
             val env = Environment.create(context)
-            val uid = UUID.randomUUID().toString()
 
             DataClasses.UnSuspendRequestData(
                 url = unSuspendUrl(env.config().apiUrl),
-                requestId = uid,
+                requestId = uuid(),
                 provider = env.token().provider,
                 token = env.token().token,
                 authHeader = env.auth().first,
@@ -223,11 +257,10 @@ internal object Collector {
 
             val currentToken = getCurrentPushToken(context)
             val pushToken = env.savedToken ?: currentToken
-            val requestId = UUID.randomUUID().toString()
 
             DataClasses.StatusRequestData(
                 url = statusUrl(env.config().apiUrl),
-                requestId = requestId,
+                requestId =  uuid(),
                 provider = pushToken?.provider,
                 token = pushToken?.token,
                 authHeader = env.auth().first,
@@ -239,34 +272,7 @@ internal object Collector {
         }
     }
 
-    /**
-     * Builds a [DataClasses.ProfileUpdateRequestData] object for updating profile fields.
-     *
-     * Returns `null` if required data is missing or an error occurs.
-     *
-     * @param context Used to access configuration.
-     * @param entity Profile fields and options for update.
-     * @return Request data or `null` on failure.
-     */
-    suspend fun getProfileUpdateRequestData(
-        context: Context,
-        entity: ProfileUpdateEntity
-    ): DataClasses.ProfileUpdateRequestData? {
-        return try {
-            val env = Environment.create(context)
-
-            DataClasses.ProfileUpdateRequestData(
-                url = profileUpdateUrl(env.config().apiUrl),
-                requestId = entity.requestID,
-                authHeader = env.auth().first,
-                profileFields = entity.profileFields,
-                skipTriggers = entity.skipTriggers
-            )
-        } catch (e: Exception) {
-            error("getProfileUpdateRequestData", e)
-            null
-        }
-    }
+    // push notification Data
 
     /**
      * Retrieves data required for creating a notification based on the provided message map.

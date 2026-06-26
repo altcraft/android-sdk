@@ -2,7 +2,7 @@ package com.altcraft.sdk.push.token
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
 import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
@@ -90,7 +90,7 @@ internal object TokenUpdate {
     private suspend fun logic(context: Context, id: UUID?): Boolean {
         val tag = TN_UPDATE_C_WORK_TAG
         val env = Environment.create(context)
-        val response = tokenUpdateRequest(context, id.toString())
+        val response = tokenUpdateRequest(context, id?.toString())
 
         if (response !is retry) updateLock = false
         if (response !is error) setCurrentToken(context, env.token())

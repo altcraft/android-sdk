@@ -65,6 +65,8 @@ internal object Request {
         STATUS_REQUEST(Constants.STATUS_REQUEST)
     }
 
+    // Retryable requests with entities
+
     /**
      * Handles the process of subscribing a device.
      *
@@ -102,45 +104,6 @@ internal object Request {
             processResponse(data, response)
         } catch (e: Exception) {
             retry("subscribeRequest", e)
-        }
-    }
-
-    /**
-     * Handles the process of updating a device token.
-     *
-     * This function retrieves the update request data, validates required authentication parameters,
-     * and sends the token update request using the `tokenUpdate` API call. If the request fails,
-     * it triggers a retry mechanism.
-     *
-     * @param context The application context.
-     * @param requestId The unique identifier for the update request.
-     * @return A [DataClasses.Event] representing the outcome of the update process.
-     */
-    suspend fun tokenUpdateRequest(
-        context: Context,
-        requestId: String
-    ): DataClasses.Event {
-        return try {
-            val data =
-                getTokenUpdateRequestData(context, requestId) ?: exception(
-                    tokenUpdateRequestDataIsNull
-                )
-            val json = JsonFactory.createTokenUpdateJson(data)
-
-            val response = getRetrofit().tokenUpdate(
-                data.url,
-                data.authHeader,
-                data.requestId,
-                data.newProvider,
-                data.oldToken,
-                data.sync,
-                json
-            )
-
-            processResponse(data, response)
-
-        } catch (e: Exception) {
-            retry("tokenUpdateRequest", e)
         }
     }
 
@@ -189,7 +152,7 @@ internal object Request {
      * due to a server error or network issues, it retries the operation.
      *
      * @param context The application context.
-     * @param event   The mobile event entity containing event details.
+     * @param event The mobile event entity containing event details.
      * @return A [DataClasses.Event] representing the result of the request.
      */
     suspend fun mobileEventRequest(
@@ -220,85 +183,6 @@ internal object Request {
             processResponse(data, response)
         } catch (e: Exception) {
             retry("mobileEventRequest", e)
-        }
-    }
-
-    /**
-     * Executes an `unSuspend` request to switch push subscriptions between profiles.
-     *
-     * Suspends subscriptions with the same push token that belong to other profiles,
-     * restores suspended subscriptions for the profile referenced by the current JWT,
-     * and returns the current profile (if it exists).
-     *
-     * @param context Application context.
-     * @return A [DataClasses.Event] with the request result.
-     */
-    suspend fun unSuspendRequest(
-        context: Context,
-    ): DataClasses.Event {
-        return try {
-            val data = getUnSuspendRequestData(context) ?: exception(
-                unSuspendRequestDataIsNull
-            )
-            val json = JsonFactory.createUnSuspendJson(data)
-
-            val response = getRetrofit().unSuspend(
-                data.url,
-                data.authHeader,
-                data.requestId,
-                data.provider,
-                data.token,
-                json
-            )
-
-            processResponse(data, response)
-
-        } catch (e: Exception) {
-            error("unSuspendRequest", e)
-        }
-    }
-
-    /**
-     * Sends a subscription status request using the specified matching [mode].
-     *
-     * - [LATEST_SUBSCRIPTION]: latest subscription overall
-     * - [LATEST_FOR_PROVIDER]: latest subscription for a given provider
-     * - [MATCH_CURRENT_CONTEXT]: subscription matching current token and profile
-     *
-     * @param context Context for resolving config and tokens.
-     * @param mode Matching mode used to determine provider and token.
-     * @param targetProvider Optional provider override for [LATEST_FOR_PROVIDER] mode.
-     * @return Result of the request as [DataClasses.Event].
-     */
-    suspend fun statusRequest(
-        context: Context,
-        mode: String,
-        targetProvider: String? = null
-    ): DataClasses.Event {
-        return try {
-            val data = getStatusRequestData(context) ?: exception(
-                profileRequestDataIsNull
-            )
-
-            val (provider, token) = when (mode) {
-                LATEST_SUBSCRIPTION -> null to null
-                MATCH_CURRENT_CONTEXT -> data.provider to data.token
-                else -> (targetProvider ?: data.provider) to null
-            }
-
-            val response = getRetrofit().getProfile(
-                data.url,
-                data.authHeader,
-                data.requestId,
-                data.matchingMode,
-                provider,
-                token
-            )
-
-            processResponse(data, response)
-
-        } catch (e: Exception) {
-            error("statusRequest", e)
         }
     }
 
@@ -350,6 +234,128 @@ internal object Request {
             is MobileEventEntity -> mobileEventRequest(context, entity)
             is SubscribeEntity -> pushSubscribeRequest(context, entity)
             is PushEventEntity -> pushEventRequest(context, entity)
+        }
+    }
+
+    // Retryable requests without entities
+
+    /**
+     * Handles the process of updating a device token.
+     *
+     * This function retrieves the update request data, validates required authentication parameters,
+     * and sends the token update request using the `tokenUpdate` API call. If the request fails,
+     * it triggers a retry mechanism.
+     *
+     * @param context The application context.
+     * @param requestId The unique identifier for the update request.
+     * @return A [DataClasses.Event] representing the outcome of the update process.
+     */
+    suspend fun tokenUpdateRequest(
+        context: Context,
+        requestId: String?
+    ): DataClasses.Event {
+        return try {
+            val data =
+                getTokenUpdateRequestData(context, requestId) ?: exception(
+                    tokenUpdateRequestDataIsNull
+                )
+            val json = JsonFactory.createTokenUpdateJson(data)
+
+            val response = getRetrofit().tokenUpdate(
+                data.url,
+                data.authHeader,
+                data.requestId,
+                data.newProvider,
+                data.oldToken,
+                data.sync,
+                json
+            )
+
+            processResponse(data, response)
+
+        } catch (e: Exception) {
+            retry("tokenUpdateRequest", e)
+        }
+    }
+
+    // Non-retryable requests
+
+    /**
+     * Executes an `unSuspend` request to switch push subscriptions between profiles.
+     *
+     * Suspends subscriptions with the same push token that belong to other profiles,
+     * restores suspended subscriptions for the profile referenced by the current JWT,
+     * and returns the current profile (if it exists).
+     *
+     * @param context Application context.
+     * @return A [DataClasses.Event] with the request result.
+     */
+    suspend fun unSuspendRequest(
+        context: Context,
+    ): DataClasses.Event {
+        return try {
+            val data = getUnSuspendRequestData(context) ?: exception(
+                unSuspendRequestDataIsNull
+            )
+            val json = JsonFactory.createUnSuspendJson(data)
+
+            val response = getRetrofit().unSuspend(
+                data.url,
+                data.authHeader,
+                data.requestId,
+                data.provider,
+                data.token,
+                json
+            )
+
+            processResponse(data, response)
+
+        } catch (e: Exception) {
+            error("unSuspendRequest", e)
+        }
+    }
+
+    /**
+     * Sends a subscription status request using the specified matching [mode].
+     *
+     * - [LATEST_SUBSCRIPTION]: latest subscription overall
+     * - [LATEST_FOR_PROVIDER]: latest subscription for a given provider
+     * - [MATCH_CURRENT_CONTEXT]: subscription matching current token and profile
+     *
+     * @param context Context for resolving config and tokens.
+     * @param mode Matching mode used to determine provider and token.
+     * @param targetProvider Optional provider override for [LATEST_FOR_PROVIDER].
+     * @return Result of the request as [DataClasses.Event].
+     */
+    suspend fun statusRequest(
+        context: Context,
+        mode: String,
+        targetProvider: String? = null
+    ): DataClasses.Event {
+        return try {
+            val data = getStatusRequestData(context) ?: exception(
+                profileRequestDataIsNull
+            )
+
+            val (provider, token) = when (mode) {
+                LATEST_SUBSCRIPTION -> null to null
+                MATCH_CURRENT_CONTEXT -> data.provider to data.token
+                else -> (targetProvider ?: data.provider) to null
+            }
+
+            val response = getRetrofit().getProfile(
+                data.url,
+                data.authHeader,
+                data.requestId,
+                data.matchingMode,
+                provider,
+                token
+            )
+
+            processResponse(data, response)
+
+        } catch (e: Exception) {
+            error("statusRequest", e)
         }
     }
 }

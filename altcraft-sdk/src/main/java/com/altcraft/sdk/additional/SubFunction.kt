@@ -26,6 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.altcraft.sdk.data.Constants.AC_PUSH
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -33,6 +34,11 @@ import java.util.concurrent.atomic.AtomicInteger
  *  permissions, and asset handling.
  */
 internal object SubFunction {
+
+    /**
+     * Generates a random UUID string.
+     */
+    fun uuid() = UUID.randomUUID().toString()
 
     /**
      * Checks whether the map contains at least one non-primitive value.
