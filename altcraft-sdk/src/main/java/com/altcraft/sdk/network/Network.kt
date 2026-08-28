@@ -40,7 +40,7 @@ internal object Network {
     }
 
     /**
-     * Configured OkHttpClient with timeouts and logging.
+     * Configured OkHttpClient with timeouts.
      */
     private val client = OkHttpClient.Builder()
         .callTimeout(60, TimeUnit.SECONDS)
@@ -48,7 +48,7 @@ internal object Network {
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.NONE
         })
         .build()
 
