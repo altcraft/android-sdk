@@ -35,6 +35,7 @@ private const val EXPECT_DELETED_MOB_MSG   =
 
 private const val PREFIX_INVALID_CONFIG         = "invalid config:"
 private const val ERR_API_URL_EMPTY             = "apiUrl is empty"
+private const val ERR_API_URL_HTTPS_REQUIRED    = "apiUrl must use the https scheme"
 private const val ERR_INVALID_PROVIDERS_PREFIX  = "providerPriorityList contains invalid values:"
 private const val FRAG_ALLOWED                  = "Allowed:"
 private const val ERRORS_SEPARATOR              = "; "
@@ -44,6 +45,7 @@ private const val FRAG_EVENT_NAME_PREFIX        = "Event name: "
 private const val MSG_NO_TRAILING_SPACE            = "Must not end with space"
 private const val MSG_STARTS_WITH_INVALID_PREFIX   = "Should start with 'invalid config:'"
 private const val MSG_CONTAINS_API_URL_EMPTY       = "Should contain 'apiUrl is empty'"
+private const val MSG_CONTAINS_API_URL_HTTPS       = "Should contain the https scheme requirement"
 private const val MSG_CONTAINS_INVALID_BLOCK       = "Should contain invalid providers block"
 private const val MSG_CONTAINS_ALLOWED_LIST        = "Should contain 'Allowed:'"
 private const val MSG_ERRORS_ORDERED               = "Errors should be ordered"
@@ -68,6 +70,7 @@ private const val MSG_MOBILE_EVENT_INVALID_NAME    = "mobileEventInvalid must in
  * - test_4: invalidConfigMsg with empty apiUrl contains "apiUrl is empty".
  * - test_5: invalidConfigMsg with invalid Android providers contains invalid names and the "Allowed:" list.
  * - test_6: invalidConfigMsg with multiple errors concatenates them with "; " preserving order.
+ * - test_10: invalidConfigMsg with non-https apiUrl mentions the https requirement.
  */
 class StringBuilderTest {
 
@@ -141,6 +144,17 @@ class StringBuilderTest {
         every { config.providerPriorityList } returns listOf(FCM_PROVIDER, HMS_PROVIDER, RUS_PROVIDER)
         val msg = ACStringBuilder.invalidConfigMsg(config)
         assertEquals(MSG_NO_ERRORS_APPENDED, "$PREFIX_INVALID_CONFIG ", msg)
+    }
+
+    /** - test_10: invalidConfigMsg reports the https requirement when apiUrl is not https. */
+    @Test
+    fun `invalidConfigMsg reports https requirement for non-https apiUrl`() {
+        val config = mockk<ConfigurationEntity>()
+        every { config.apiUrl } returns "http://pxl.altcraft.com"
+        every { config.providerPriorityList } returns null
+        val msg = ACStringBuilder.invalidConfigMsg(config)
+        assertTrue(MSG_STARTS_WITH_INVALID_PREFIX, msg.startsWith(PREFIX_INVALID_CONFIG))
+        assertTrue(MSG_CONTAINS_API_URL_HTTPS, msg.contains(ERR_API_URL_HTTPS_REQUIRED))
     }
 
     /** - test_8: deletedMobileEventsMsg returns expected summary with total count. */

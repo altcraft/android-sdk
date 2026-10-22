@@ -92,6 +92,9 @@ object PublicPushTokenFunctions {
     /**
      * Deletes the device token for the specified provider.
      *
+     * [complete] is guaranteed to be invoked: also when the provider
+     * interface is not set or the provider is unknown (nothing to delete).
+     *
      * @param context The [Context] required for token deletion.
      * @param provider Provider identifier: [FCM_PROVIDER], [HMS_PROVIDER], or [RUS_PROVIDER].
      * @param complete Callback invoked after the delete call is dispatched.
@@ -102,9 +105,10 @@ object PublicPushTokenFunctions {
         complete: () -> Unit = {}
     ) {
         when (provider) {
-            FCM_PROVIDER -> fcmProvider?.deleteToken { complete() }
-            RUS_PROVIDER -> rustoreProvider?.deleteToken { complete() }
-            HMS_PROVIDER -> hmsProvider?.deleteToken(context) { complete() }
+            FCM_PROVIDER -> fcmProvider?.deleteToken { complete() } ?: complete()
+            RUS_PROVIDER -> rustoreProvider?.deleteToken { complete() } ?: complete()
+            HMS_PROVIDER -> hmsProvider?.deleteToken(context) { complete() } ?: complete()
+            else -> complete()
         }
     }
 
@@ -137,11 +141,13 @@ object PublicPushTokenFunctions {
                             complete()
                         } catch (e: Exception) {
                             error(func, e)
+                            complete()
                         }
                     }
                 }
             } catch (e: Exception) {
                 error(func, e)
+                complete()
             }
         }
     }

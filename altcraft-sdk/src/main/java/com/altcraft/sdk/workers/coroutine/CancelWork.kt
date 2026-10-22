@@ -76,20 +76,24 @@ internal object CancelWork {
     }
 
     /**
-     * Cancels worker tasks by tag and invokes the callback on the main thread if cancellation
-     * succeeds.
+     * Cancels worker tasks by tag.
+     *
+     * [onComplete] is invoked on the main thread in both cases:
+     * after successful cancellation and after a failure (error is logged),
+     * so callers never wait indefinitely.
      *
      * @param context The application context.
      * @param tag The worker tag.
-     * @param onComplete Callback invoked after successful cancellation.
+     * @param onComplete Callback invoked after cancellation attempt completes.
      */
     private fun cancelWorkerByTag(context: Context, tag: String, onComplete: () -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 WorkManager.getInstance(context).cancelAllWorkByTag(tag).result.get()
-                withContext(Dispatchers.Main) { onComplete() }
             } catch (e: Exception) {
                 error("cancelWorkerByTag", e)
+            } finally {
+                withContext(Dispatchers.Main) { onComplete() }
             }
         }
     }

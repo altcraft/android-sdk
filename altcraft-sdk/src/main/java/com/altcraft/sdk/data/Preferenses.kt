@@ -170,9 +170,13 @@ internal object Preferenses {
      * Reads the current value, increments it by 1, stores the new value,
      * and returns the incremented value.
      *
+     * Synchronized to prevent duplicate IDs when several pushes
+     * are processed concurrently.
+     *
      * @param context Application context.
      * @return The next notification message ID (starting from 1).
      */
+    @Synchronized
     fun getMessageId(context: Context): Int {
         return try {
             val next = getPreferences(context).getInt(MESSAGE_ID_KEY, 0) + 1

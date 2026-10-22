@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
@@ -25,7 +27,11 @@ internal class SuspendLazy<T>(
 
     /**
      * Gets value or fallback on error.
-     * Never throws - errors are logged internally.
+     *
+     * If the caller's coroutine is cancelled — rethrows [CancellationException]
+     * so cancellation propagates. If the initializer itself fails (including
+     * throwing a CancellationException while the caller is still active) —
+     * logs the error, resets state and yields `null`.
      */
     suspend fun get(): T? = mutex.withLock {
         try {
@@ -37,9 +43,14 @@ internal class SuspendLazy<T>(
                     .also { deferred = it }
                     .await()
             }
-        } catch (_: CancellationException) {
+        } catch (e: CancellationException) {
             deferred = null
-            null
+            if (currentCoroutineContext().isActive) {
+                Events.error("SuspendLazy", e)
+                null
+            } else {
+                throw e
+            }
         } catch (e: Exception) {
             Events.error("SuspendLazy", e)
             deferred = null

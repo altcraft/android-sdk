@@ -40,13 +40,16 @@ internal object ClearCache {
     /**
      * Performs full cleanup of SDK-related data.
      *
+     * [onComplete] is invoked on the main thread in both cases:
+     * after successful cleanup and after a failure (partial cleanup, error is logged).
+     *
      * @param context App context.
      * @param onComplete Callback on completion.
      */
     @SuppressLint("ApplySharedPref", "CommitPrefEdits")
     fun clear(context: Context, onComplete: () -> Unit) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
                 configuration = null
                 initControl = AtomicBoolean(false)
                 tokens.clear()
@@ -83,9 +86,10 @@ internal object ClearCache {
                     event("clear", sdkCleared)
                     onComplete()
                 }
+            } catch (e: Exception) {
+                error("clear", e)
+                withContext(Dispatchers.Main) { onComplete() }
             }
-        } catch (e: Exception) {
-            error("clear", e)
         }
     }
 }

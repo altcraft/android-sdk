@@ -5,7 +5,6 @@ package com.altcraft.sdk.config
 //  Copyright © 2025 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.sdk.additional.SubFunction.isAppInForegrounded
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.SDKdb
@@ -20,6 +19,8 @@ import kotlin.coroutines.cancellation.CancellationException
 /** Manages SDK configuration setup and access. */
 internal object ConfigSetup {
 
+    /** Active configuration; volatile for cross-thread visibility. */
+    @Volatile
     internal var configuration: ConfigurationEntity? = null
     private val configMutex = Mutex()
 
@@ -94,9 +95,9 @@ internal object ConfigSetup {
     /**
      * Retrieves configuration with retry logic (up to 3 attempts, 1 second delay).
      *
-     * Uses the in-memory cache if available. Otherwise fetches from the database.
-     * If the app is in the background, returns the database value immediately.
-     * If the app is in the foreground, waits and retries (to allow config to be set).
+     * Uses the in-memory cache if available. Otherwise fetches from the database
+     * (and refreshes the cache). If the database is empty (e.g., initialization
+     * is still in progress), waits and retries to allow the config to be set.
      *
      * @param context The application context for database access.
      * @return The configuration, or `null` if not found after retries.
@@ -108,7 +109,8 @@ internal object ConfigSetup {
                     if (configuration != null) return configuration
 
                     SDKdb.getDb(context).request().getConfig()?.let {
-                        if (!isAppInForegrounded()) return it
+                        configuration = it
+                        return it
                     }
 
                     delay(1000)

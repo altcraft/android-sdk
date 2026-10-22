@@ -12,7 +12,6 @@ package com.altcraft.sdk.sdk_events
  * - 4xx: non-retryable errors (operation cannot be repeated automatically)
  * - 5xx: retryable errors (SDK should retry automatically)
  */
-@Suppress("SpellCheckingInspection")
 internal object EventList {
 
     /** 200–206 — General SDK events */

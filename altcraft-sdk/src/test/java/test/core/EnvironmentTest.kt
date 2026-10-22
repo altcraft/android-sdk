@@ -27,7 +27,7 @@ import java.util.UUID
  * RoomEntitiesTest
  *
  * Positive scenarios:
- *  - test_1: ConfigurationEntity.isValid() returns true when apiUrl is not empty and providers are valid.
+ *  - test_1: ConfigurationEntity.isValid() returns true when apiUrl uses the https scheme and providers are valid.
  *  - test_2: ConfigurationEntity.isValid() calls allProvidersValid with providerPriorityList.
  *  - test_4: SubscribeEntity sets default retryCount and maxRetryCount correctly.
  *  - test_5: PushEventEntity sets default retryCount and maxRetryCount correctly.
@@ -35,7 +35,7 @@ import java.util.UUID
  *  - test_7: SubscribeEntity generates non-empty uid when not provided.
  *
  * Negative scenarios:
- *  - test_3: ConfigurationEntity.isValid() returns false when apiUrl is empty.
+ *  - test_3: ConfigurationEntity.isValid() returns false when apiUrl does not use the https scheme.
  */
 class RoomEntitiesTest {
 
@@ -49,7 +49,7 @@ class RoomEntitiesTest {
         unmockkAll()
     }
 
-    /** test_1: ConfigurationEntity.isValid() returns true when apiUrl is not empty and providers are valid. */
+    /** test_1: ConfigurationEntity.isValid() returns true when apiUrl uses the https scheme and providers are valid. */
     @Test
     fun test_1_configuration_isValid_true_whenApiUrlNotEmpty_andProvidersValid() {
         val providerPriority = listOf("android-firebase", "android-huawei")
@@ -92,7 +92,7 @@ class RoomEntitiesTest {
         verify(exactly = 1) { TokenManager.allProvidersValid(providerPriority) }
     }
 
-    /** test_3: ConfigurationEntity.isValid() returns false when apiUrl is empty. */
+    /** test_3: ConfigurationEntity.isValid() returns false when apiUrl does not use the https scheme. */
     @Test
     fun test_3_configuration_isValid_false_whenApiUrlEmpty() {
         val providerPriority = listOf("FCM")

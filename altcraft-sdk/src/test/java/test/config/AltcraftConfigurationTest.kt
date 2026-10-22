@@ -30,12 +30,15 @@ import org.junit.Assert.*
  *  - test_5: Mixed known + unknown providers → toEntity() returns null; error lists all invalid.
  *  - test_6: Case mismatch against constants → toEntity() returns null; error mentions the mismatched provider.
  *  - test_7: Empty apiUrl with valid providers → toEntity() returns null; error mentions "apiUrl".
+ *  - test_8: Non-https apiUrl (http://) with valid providers → toEntity() returns null;
+ *  error mentions the https requirement.
  */
 class AltcraftConfigurationTest {
 
     private companion object {
         private const val API_URL = "https://api.example.com"
         private const val EMPTY_API_URL = ""
+        private const val HTTP_API_URL = "http://api.example.com"
         private const val INVALID_FIREBASE = "firebase"
         private const val INVALID_UNKNOWN = "unknown"
 
@@ -47,6 +50,7 @@ class AltcraftConfigurationTest {
         private const val MSG_EXPECT_NULL_MIXED = "Expected null for mixed list with unknown providers"
         private const val MSG_EXPECT_NULL_CASE_MISMATCH = "Expected null when provider case does not match constants"
         private const val MSG_EXPECT_NULL_EMPTY_API_URL = "Expected null when apiUrl is empty even if providers are valid"
+        private const val MSG_EXPECT_NULL_HTTP_API_URL = "Expected null when apiUrl does not use the https scheme"
     }
 
     @Before
@@ -200,6 +204,28 @@ class AltcraftConfigurationTest {
                 "configToEntity",
                 match<Pair<Int, String>> { (code, msg) ->
                     code == 470 && msg.contains("apiUrl", ignoreCase = true)
+                }
+            )
+        }
+    }
+
+    /** - test_8: Non-https apiUrl (http://) with valid providers → null; error mentions https. */
+    @Test
+    fun toEntity_invalid_http_apiUrl_fails_even_with_valid_providers() {
+        val providers = listOf(FCM_PROVIDER, HMS_PROVIDER)
+        val cfg = AltcraftConfiguration.Builder(
+            apiUrl = HTTP_API_URL,
+            providerPriorityList = providers
+        ).build()
+
+        val entity = cfg.toEntity()
+        assertNull(MSG_EXPECT_NULL_HTTP_API_URL, entity)
+
+        verify(atLeast = 1) {
+            Events.error(
+                "configToEntity",
+                match<Pair<Int, String>> { (code, msg) ->
+                    code == 470 && msg.contains("https", ignoreCase = true)
                 }
             )
         }

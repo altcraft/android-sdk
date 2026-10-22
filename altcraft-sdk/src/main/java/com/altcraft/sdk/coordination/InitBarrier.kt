@@ -31,7 +31,11 @@ internal object InitBarrier {
      * If the current gate is completed → publish a new one;
      * otherwise return the current gate.
      * cur = old gate, next = new gate.
+     *
+     * Synchronized: the completed-check and gate swap are atomic,
+     * so concurrent callers always share one live gate.
      */
+    @Synchronized
     fun reserve(): CompletableDeferred<Unit> {
         val cur = gate
         if (!cur.isCompleted) return cur

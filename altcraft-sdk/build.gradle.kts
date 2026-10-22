@@ -11,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        minSdk = 23
+        minSdk = 25
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -106,7 +106,7 @@ mavenPublishing {
 
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk", "1.0.7")
+    coordinates("com.altcraft", "android-sdk", "1.0.8")
 
     pom {
         name = "Altcraft Android SDK"

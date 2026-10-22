@@ -41,9 +41,10 @@ internal data class ConfigurationEntity(
     /**
      * Validates the ConfigurationEntity object.
      *
-     * @return `true` if `apiUrl` is not empty and providers are valid.
+     * @return `true` if `apiUrl` uses the https scheme and providers are valid.
      */
-    fun isValid() = apiUrl.isNotEmpty() && allProvidersValid(providerPriorityList)
+    fun isValid() = apiUrl.startsWith("https://", ignoreCase = true) &&
+            allProvidersValid(providerPriorityList)
 }
 
 /** Sealed marker interface for Room entities representing persisted request payloads. */

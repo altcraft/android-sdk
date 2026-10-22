@@ -53,9 +53,11 @@ import kotlin.test.assertTrue
  *  then calls completion.
  *  - test_5: changePushProviderPriorityList() config exists & providers valid -> updates list,
  *  refreshes cache, triggers tokenUpdate.
+ *  - test_9: deleteDeviceToken() with an unknown provider -> completion invoked without provider calls.
  *
  * Negative scenarios:
- *  - test_6: forcedTokenUpdate() when Environment.create/token fails -> no completion.
+ *  - test_6: forcedTokenUpdate() when Environment.create/token fails -> error logged,
+ *  completion is still invoked.
  *  - test_7: changePushProviderPriorityList() invalid providers -> no update, no tokenUpdate.
  *  - test_8: changePushProviderPriorityList() no config in DB -> no update, no tokenUpdate.
  */
@@ -148,6 +150,15 @@ class PublicPushTokenFunctionsTest {
         coVerify(exactly = 1) { provider.deleteToken(any()) }
     }
 
+    /** - test_9: deleteDeviceToken() with an unknown provider -> completion invoked without provider calls. */
+    @Test
+    fun deleteDeviceToken_unknownProvider_completes() = runBlocking {
+        val latch = CountDownLatch(1)
+        PublicPushTokenFunctions.deleteDeviceToken(ctx, "unknown-provider") { latch.countDown() }
+
+        assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
+    }
+
     /** - test_4: forcedTokenUpdate() deletes current token, triggers TokenUpdate.pushTokenUpdate(), then calls completion. */
     @Test
     fun forcedTokenUpdate_deletes_then_updates_then_completes() = runBlocking {
@@ -179,15 +190,15 @@ class PublicPushTokenFunctionsTest {
     }
 
 
-    /** - test_6: forcedTokenUpdate() when Environment.create/token fails -> no completion. */
+    /** - test_6: forcedTokenUpdate() when Environment.create/token fails -> error logged, completion still invoked. */
     @Test
-    fun forcedTokenUpdate_envThrows_noops() = runBlocking {
+    fun forcedTokenUpdate_envThrows_completes() = runBlocking {
         every { Environment.create(ctx) } throws RuntimeException("boom")
 
         val latch = CountDownLatch(1)
         PublicPushTokenFunctions.forcedTokenUpdate(ctx) { latch.countDown() }
 
-        assertFalse(latch.await(500, TimeUnit.MILLISECONDS))
+        assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
         coVerify(exactly = 0) { TokenUpdate.pushTokenUpdate(any()) }
     }
 

@@ -163,6 +163,9 @@ internal object StringBuilder {
         val errors = mutableListOf<String>()
 
         if (config.apiUrl.isEmpty()) errors += "apiUrl is empty"
+        else if (!config.apiUrl.startsWith("https://", ignoreCase = true)) {
+            errors += "apiUrl must use the https scheme"
+        }
 
         val invalidList = config.providerPriorityList?.minus(validProviders)
 

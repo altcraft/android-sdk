@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.altcraft.altcraftmobile"
-        minSdk = 23
+        minSdk = 25
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -54,7 +54,7 @@ dependencies {
     // --- sdk modules ---
     implementation(project(":altcraft-sdk"))
 
-    //implementation("com.altcraft:android-sdk:1.0.6")
+    //implementation("com.altcraft:android-sdk:1.0.8")
 
     // --- Kotlin / Serialization ---
     implementation(libs.kotlinx.serialization.json)

@@ -21,6 +21,7 @@ internal val anonJWT: String? = null
 //set the JWT value for the registered user as regJWT or in the application interface (config)
 internal val regJWT: String? = null
 
+@Suppress("SpellCheckingInspection")
 class App : Application() {
     override fun onCreate() {
         super.onCreate()

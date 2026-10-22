@@ -70,7 +70,9 @@ internal object PushImage {
                         def.complete(bitmap)
                     }
 
-                    override fun onLoadCleared(placeholder: Drawable?) {}
+                    override fun onLoadCleared(placeholder: Drawable?) {
+                        def.complete(null)
+                    }
                     override fun onLoadFailed(errorDrawable: Drawable?) {
                         Events.error("loadImage", EventList.errorImgLoad)
                         def.complete(null)

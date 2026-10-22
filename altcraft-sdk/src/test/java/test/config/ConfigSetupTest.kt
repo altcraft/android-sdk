@@ -6,7 +6,6 @@ package test.config
 
 import android.content.Context
 import com.altcraft.sdk.config.ConfigSetup
-import com.altcraft.sdk.additional.SubFunction
 import com.altcraft.sdk.data.room.ConfigurationEntity
 import com.altcraft.sdk.data.room.DAO
 import com.altcraft.sdk.data.room.SDKdb
@@ -22,18 +21,20 @@ import org.junit.Test
 import org.junit.Assert.*
 
 /**
- * ConfigSetupForegroundRetryTest
+ * ConfigSetupGetConfigTest
  *
  * Positive scenarios:
- *  - test_2: If configuration becomes available during retries, getConfig() returns the in-memory
- *  cached value before exhausting all attempts.
+ *  - test_1: When the DB holds a config and the cache is empty, getConfig() returns the DB value
+ *  immediately (foreground does not block it) and refreshes the in-memory cache.
+ *  - test_2: When the DB is empty, getConfig() retries with 1-second delays and returns the
+ *  in-memory cached value as soon as it becomes available.
  *
  * Negative scenarios:
- *  - test_1: In foreground (isAppInForegrounded = true) and DB has a config but foreground
- *  precondition blocks returning it, getConfig() retries 3× with 1-second delays and returns null.
+ *  - test_3: When neither the cache nor the DB ever contains a config, getConfig() returns null
+ *  after 3 retries.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class ConfigSetupForegroundRetryTest {
+class ConfigSetupGetConfigTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val scope = TestScope(dispatcher)
@@ -53,9 +54,6 @@ class ConfigSetupForegroundRetryTest {
         mockkObject(SDKdb)
         every { SDKdb.getDb(context) } returns db
         every { db.request() } returns dao
-
-        mockkObject(SubFunction)
-        every { SubFunction.isAppInForegrounded() } returns true
 
         mockkObject(Events)
         justRun { Events.event(any(), any()) }
@@ -84,18 +82,19 @@ class ConfigSetupForegroundRetryTest {
         pushChannelDescription = "Altcraft notifications channel"
     )
 
-    /** - test_1: Foreground branch retries 3× × 1000ms and returns null. */
+    /** - test_1: DB value is returned immediately and the cache is refreshed. */
     @Test
-    fun `getConfig foreground retries then returns null`() = scope.runTest {
-        val job = async { ConfigSetup.getConfig(context) }
-        advanceTimeBy(3000)
-        val result = job.await()
-        assertNull(MSG_NULL_AFTER_RETRIES, result)
+    fun `getConfig returns db value immediately and refreshes cache`() = scope.runTest {
+        val expected = cfg()
+        val result = ConfigSetup.getConfig(context)
+        assertEquals(MSG_RETURNED_DB_VALUE, expected, result)
+        assertEquals(MSG_RETURNED_DB_VALUE, expected, ConfigSetup.configuration)
     }
 
-    /** - test_2: Foreground branch returns cached configuration when it becomes available mid-retry. */
+    /** - test_2: Empty DB → retries; cached value set mid-retry is returned. */
     @Test
-    fun `getConfig foreground returns cached when it becomes available mid-retry`() = scope.runTest {
+    fun `getConfig retries when db empty and returns cached once available`() = scope.runTest {
+        coEvery { dao.getConfig() } returns null
         val expected = cfg()
         val job = async { ConfigSetup.getConfig(context) }
         advanceTimeBy(1500)
@@ -106,13 +105,24 @@ class ConfigSetupForegroundRetryTest {
         assertEquals(MSG_RETURNED_CACHED, expected, ConfigSetup.configuration)
     }
 
+    /** - test_3: No config anywhere → null after 3 retries. */
+    @Test
+    fun `getConfig returns null after retries when no config anywhere`() = scope.runTest {
+        coEvery { dao.getConfig() } returns null
+        val job = async { ConfigSetup.getConfig(context) }
+        advanceTimeBy(3500)
+        val result = job.await()
+        assertNull(MSG_NULL_AFTER_RETRIES, result)
+    }
+
     private companion object {
         private const val FCM_PROVIDER = "android-firebase"
         private const val HMS_PROVIDER = "android-huawei"
         private const val RUS_PROVIDER = "android-rustore"
 
-        private const val MSG_NULL_AFTER_RETRIES = "Expected null after 3 retries in foreground branch"
+        private const val MSG_NULL_AFTER_RETRIES = "Expected null after 3 retries when no config anywhere"
         private const val MSG_RETURNED_CACHED = "Expected cached configuration to be returned"
+        private const val MSG_RETURNED_DB_VALUE = "Expected DB configuration to be returned immediately"
 
         private const val API_URL = "https://api.example.com"
         private const val RTOKEN = "rt-NEW"

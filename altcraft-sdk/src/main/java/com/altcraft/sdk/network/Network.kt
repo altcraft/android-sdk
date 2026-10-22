@@ -53,12 +53,12 @@ internal object Network {
         .build()
 
     /**
-     * Creates and returns a configured Retrofit API instance.
+     * Shared Retrofit API instance; created once per process, thread-safe.
      */
-    fun getRetrofit(): Api {
+    private val api: Api by lazy {
         val contentType = "application/json".toMediaType()
 
-        return Retrofit.Builder()
+        Retrofit.Builder()
             .baseUrl("https://altcraft.com/")
             .addConverterFactory(NullOnEmptyConverterFactory())
             .addConverterFactory(ScalarsConverterFactory.create())
@@ -67,4 +67,9 @@ internal object Network {
             .build()
             .create(Api::class.java)
     }
+
+    /**
+     * Returns the shared configured Retrofit API instance.
+     */
+    fun getRetrofit(): Api = api
 }
