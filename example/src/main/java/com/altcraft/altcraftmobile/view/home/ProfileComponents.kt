@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.home
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.altcraft.altcraftmobile.view.home.ActionsComponents.SectionInfo
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
-import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.models.CoreModels.ProfileModel.ProfileData
 
 object ProfileComponents {
     @Composable
@@ -68,6 +68,8 @@ object ProfileComponents {
 
             SectionInfo(
                 action = "profile",
+                startPadding = 12.dp,
+                endPadding = 12.dp,
                 onClick = {
                     viewModel.subscribeActions.value = false
                     viewModel.profileActions.value = false
@@ -113,7 +115,7 @@ object ProfileComponents {
 
     @Composable
     fun ProfileDataView(
-        profileData: DataClasses.ProfileData?,
+        profileData: ProfileData?,
         errorMessage: String?,
         isLoading: Boolean,
         modifier: Modifier = Modifier

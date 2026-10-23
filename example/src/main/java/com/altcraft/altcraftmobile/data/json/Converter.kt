@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.data.json
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import com.altcraft.altcraftmobile.functions.app.SubFunction
 import kotlinx.serialization.json.*

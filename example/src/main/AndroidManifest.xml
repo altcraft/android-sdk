@@ -7,9 +7,9 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/ic_altcraft_label"
+        android:icon="@drawable/ic_altcraft_app_logo"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_altcraft_label"
+        android:roundIcon="@drawable/ic_altcraft_app_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.AltcraftMobile"
         tools:targetApi="31">
@@ -27,12 +27,13 @@
             </intent-filter>
 
             <!-- for deep link -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="altcraft.main" />
-            </intent-filter>
+           <!-- for deep link -->
+           <intent-filter>
+               <action android:name="android.intent.action.VIEW" />
+               <category android:name="android.intent.category.DEFAULT" />
+               <category android:name="android.intent.category.BROWSABLE" />
+               <data android:scheme="altcraft.main" />
+           </intent-filter>
         </activity>
 
         <!--DeepLink-->

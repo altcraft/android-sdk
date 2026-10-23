@@ -2,11 +2,10 @@ package com.altcraft.altcraftmobile.deeplink
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Intent
 import android.net.Uri
-import com.altcraft.altcraftmobile.functions.app.SubFunction
 
 /**
  * altcraft.main://home

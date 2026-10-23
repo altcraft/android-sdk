@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.config
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,11 +54,17 @@ import com.altcraft.altcraftmobile.icon
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.altcraftmobile.functions.sdk.SDKFunctions.initAltcraft
 import com.altcraft.sdk.AltcraftSDK.unlockInitialOperationsInThisSession
-import com.altcraft.sdk.data.Constants.FCM_PROVIDER
-import com.altcraft.sdk.data.Constants.HMS_PROVIDER
-import com.altcraft.sdk.data.Constants.RUS_PROVIDER
+import com.altcraft.sdk.push.data.Constants.FCM_PROVIDER
+import com.altcraft.sdk.push.data.Constants.HMS_PROVIDER
+import com.altcraft.sdk.push.data.Constants.RUS_PROVIDER
 
 object ConfigSettingComponents {
+
+    private const val CONFIG_SAVE_BUTTON = "config_save_button"
+    private const val CONFIG_CLEAR_BUTTON = "config_clear_button"
+    private const val CONFIG_API_URL_INPUT = "config_api_url_input"
+    private const val CONFIG_RTOKEN_INPUT = "config_rtoken_input"
+
     @Composable
     fun ConfigSetting(viewModel: MainViewModel) {
         val context = LocalContext.current
@@ -116,7 +124,11 @@ object ConfigSettingComponents {
                     Row {
                         RemoveButton(
                             onClick = { resetAllConfig() },
-                            modifier = Modifier.align(Alignment.CenterVertically)
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .semantics {
+                                    contentDescription = CONFIG_CLEAR_BUTTON
+                                }
                         )
 
                         Spacer(modifier = Modifier.width(10.dp))
@@ -125,7 +137,9 @@ object ConfigSettingComponents {
                             iconBackgroundColor =  Color(0xFFADF7BD).copy(alpha = 0.4f),
                             onClick = {
                                 val apiUrl = apiUrlValue.value.ifBlank { apiUrlHint }
-                                val rToken = rTokenValue.value.ifBlank { rTokenHint }
+                                val rToken = rTokenValue.value
+                                    .ifBlank { rTokenHint }
+                                    .takeIf { it.isNotBlank() }
 
                                 if (apiUrl.isBlank()) {
                                     Toast.makeText(
@@ -159,7 +173,11 @@ object ConfigSettingComponents {
                                 providerValue.value = ""
                                 serviceMsgValue.value = ""
                             },
-                            modifier = Modifier.align(Alignment.CenterVertically)
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .semantics {
+                                    contentDescription = CONFIG_SAVE_BUTTON
+                                }
                         )
                     }
                 }
@@ -175,9 +193,9 @@ object ConfigSettingComponents {
             )
 
             SpacerHeightDp(10.dp)
-            EditTextRow("API url", apiUrlValue, apiUrlHint)
+            EditTextRow("API url", apiUrlValue, apiUrlHint, accessibilityId = CONFIG_API_URL_INPUT)
             SpacerHeightDp(7.dp)
-            EditTextRow("RToken", rTokenValue, rTokenHint)
+            EditTextRow("RToken", rTokenValue, rTokenHint, accessibilityId = CONFIG_RTOKEN_INPUT)
             SpacerHeightDp(7.dp)
             ProviderSelectionBox(viewModel = viewModel)
         }

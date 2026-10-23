@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.home
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.padding

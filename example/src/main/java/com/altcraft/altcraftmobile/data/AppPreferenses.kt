@@ -2,12 +2,13 @@ package com.altcraft.altcraftmobile.data
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
 import com.altcraft.altcraftmobile.data.json.Converter.fromStringJson
 import com.altcraft.altcraftmobile.data.json.Converter.toStringJson
 import java.text.SimpleDateFormat
@@ -18,22 +19,21 @@ object AppPreferenses {
 
     private const val TAG_APP = "APP"
 
-    //pref keys
     private const val STATUS_KEY = "${TAG_APP}_STATUS"
+    private const val IN_APP_STATUS_KEY = "${TAG_APP}_IN_APP_STATUS"
     private const val CONFIG_KEY = "${TAG_APP}_CONFIG"
     private const val REG_JWT_KEY = "${TAG_APP}_REG_JWT"
     private const val ANON_JWT_KEY = "${TAG_APP}_ANON_JWT"
-    private const val AUTH_STATUS_KEY = "${TAG_APP}_AUTH_STATUS"
+
+    private const val INTERNAL_AUTH_STATUS_KEY = "${TAG_APP}_INTERNAL_AUTH_STATUS"
+    private const val EXTERNAL_AUTH_STATUS_KEY = "${TAG_APP}_EXTERNAL_AUTH_STATUS"
+
     private const val SUB_SETTINGS_KEY = "${TAG_APP}_SUBSCRIBE_SETTING"
     private const val NOTIFICATION_DATA_KEY = "${TAG_APP}_NOTIFICATION_DATA"
-    private const val TOKEN_UPDATE_TIME_KEY: String = "${TAG_APP}_TOKEN_UPDATE_DATA"
+    private const val TOKEN_UPDATE_TIME_KEY = "${TAG_APP}_TOKEN_UPDATE_DATA"
 
     private fun getPreferences(context: Context): SharedPreferences =
         context.getSharedPreferences(TAG_APP, Context.MODE_PRIVATE)
-
-    /**
-     * Token Update time set / get
-     */
 
     fun setTokenUpdateTime(context: Context, date: Date) {
         getPreferences(context).edit(commit = true) {
@@ -47,22 +47,23 @@ object AppPreferenses {
     fun getTokenUpdateTime(context: Context): String? =
         getPreferences(context).getString(TOKEN_UPDATE_TIME_KEY, null)
 
-    /**
-     * Auth status set / get
-     */
-
-    fun setAuthStatus(context: Context, status: Boolean) {
+    fun setInternalAuthStatus(context: Context, status: Boolean) {
         getPreferences(context).edit {
-            putBoolean(AUTH_STATUS_KEY, status)
+            putBoolean(INTERNAL_AUTH_STATUS_KEY, status)
         }
     }
 
-    fun getAuthStatus(context: Context): Boolean =
-        getPreferences(context).getBoolean(AUTH_STATUS_KEY, false)
+    fun getInternalAuthStatus(context: Context): Boolean =
+        getPreferences(context).getBoolean(INTERNAL_AUTH_STATUS_KEY, false)
 
-    /**
-     * subscription status set / get / clear
-     */
+    fun setExternalAuthStatus(context: Context, status: Boolean) {
+        getPreferences(context).edit {
+            putBoolean(EXTERNAL_AUTH_STATUS_KEY, status)
+        }
+    }
+
+    fun getExternalAuthStatus(context: Context): Boolean =
+        getPreferences(context).getBoolean(EXTERNAL_AUTH_STATUS_KEY, false)
 
     fun setSubscriptionStatus(context: Context, status: String) {
         getPreferences(context).edit {
@@ -73,16 +74,29 @@ object AppPreferenses {
     fun getSubscriptionStatus(context: Context): String? =
         getPreferences(context).getString(STATUS_KEY, null)
 
-
     fun clearSubscriptionStatus(context: Context) {
         getPreferences(context).edit {
             remove(STATUS_KEY)
         }
     }
 
-    /**
-     * JWT set / get / remove
-     */
+    fun setInAppSubscriptionStatus(context: Context, status: String) {
+        getPreferences(context).edit {
+            putString(IN_APP_STATUS_KEY, status)
+        }
+    }
+
+    fun getInAppSubscriptionStatus(context: Context): String =
+        getPreferences(context).getString(IN_APP_STATUS_KEY, UNSUBSCRIBED) ?: UNSUBSCRIBED
+
+    fun clearSdkIndicatorStatuses(context: Context) {
+        getPreferences(context).edit {
+            putString(STATUS_KEY, UNSUBSCRIBED)
+            putString(IN_APP_STATUS_KEY, UNSUBSCRIBED)
+            putBoolean(INTERNAL_AUTH_STATUS_KEY, false)
+            putBoolean(EXTERNAL_AUTH_STATUS_KEY, false)
+        }
+    }
 
     fun setAnonJWT(context: Context, token: String?) {
         getPreferences(context).edit {
@@ -109,10 +123,6 @@ object AppPreferenses {
         }
     }
 
-    /**
-     * Config  set / get / remove
-     */
-
     @SuppressLint("ApplySharedPref")
     fun setConfig(context: Context, config: AppDataClasses.ConfigData) {
         getPreferences(context).edit(commit = true) {
@@ -137,10 +147,6 @@ object AppPreferenses {
         }
     }
 
-    /**
-     * Subscribe setting set / get / remove
-     */
-
     @SuppressLint("ApplySharedPref")
     fun setSubscribeSettings(
         context: Context,
@@ -154,7 +160,6 @@ object AppPreferenses {
     fun getSubscribeSettings(context: Context): AppDataClasses.SubscribeSettings? {
         return try {
             val setting = getPreferences(context).getString(SUB_SETTINGS_KEY, null)
-
             setting.fromStringJson<AppDataClasses.SubscribeSettings>("getSubscribeSettings")
         } catch (_: Exception) {
             null
@@ -168,9 +173,6 @@ object AppPreferenses {
         }
     }
 
-    /**
-     * Notification data set / get / remove
-     */
     @SuppressLint("ApplySharedPref")
     fun setNotificationData(context: Context, data: AppDataClasses.NotificationData) {
         getPreferences(context).edit(commit = true) {

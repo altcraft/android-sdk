@@ -5,34 +5,76 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-blue?style=flat-square)](https://kotlinlang.org/)
 [![Platforms](https://img.shields.io/badge/Platforms-Android-green?style=flat-square)](https://developer.android.com/)
 [![Push Providers](https://img.shields.io/badge/Push-Firebase_Huawei_RuStore-orange?style=flat-square)](#)
-[![Maven Central](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Fcom%2Faltcraft%2Fandroid-sdk%2Fmaven-metadata.xml&query=%2Fmetadata%2Fversioning%2Frelease&label=Maven%20Central)](https://central.sonatype.com/artifact/com.altcraft/android-sdk)
+[![Maven Central](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Fcom%2Faltcraft%2Fandroid-sdk-core%2Fmaven-metadata.xml&query=%2Fmetadata%2Fversioning%2Frelease&label=Maven%20Central)](https://central.sonatype.com/artifact/com.altcraft/android-sdk-core)
 
-
-Altcraft Android SDK is a library for managing push notifications, user profiles, and interacting with the **Altcraft Marketing platform**. The SDK automates push notification delivery, event submission, request retries, and supports flexible workflows with JWT or role-based tokens.
+Altcraft Android SDK is a library for interacting with the **Altcraft Marketing Platform**. It uses a modular architecture in which each component provides a specific set of capabilities.
 
 ---
 
-## Features
+## SDK Modules
 
-* [x] Compatible with Kotlin and Java.
+### Core
+
+The core is the foundation of the SDK: it connects your application to the Altcraft platform and makes the optional modules available.
+
+* [x] SDK initialization and configuration.
+* [x] Authentication with JWT or a role token (*rToken*).
 * [x] Works with anonymous and registered users; supports multiple profiles on one device (JWT).
-* [x] Push subscription management: push subscribe, push suspend, push unsubscribe.
-* [x] Automatic display of push notifications configured in the platform.
-* [x] Automatic push token update when it changes.
-* [x] Automatic transmission of notification delivery and open events.
-* [x] Mobile events registration.
-* [x] Update profile fields.
-* [x] Automatic retry of failed requests.
-* [x] Support for push providers: Firebase, Huawei, Rustore.
-* [x] Secure requests using JWT and flexible identifier matching.
-* [x] Support for rToken for simple subscription scenarios.
+* [x] Transmission of requests to the platform with automatic retry of failed requests.
+* [x] SDK event stream for monitoring SDK behavior in the app.
 * [x] SDK data cleanup and background tasks termination.
 
+### Push
+
+The push module is responsible for push notifications.
+
+* [x] Push subscription management: subscribe, suspend, unsubscribe.
+* [x] Automatic display of push notifications configured in the platform.
+* [x] Push token management: automatic update when the token changes, manual token operations.
+* [x] Automatic transmission of notification delivery and open events.
+* [x] Support for push providers: Firebase, Huawei, RuStore.
+* [x] Custom push notification handling and access to all message data fields.
+* [x] Notification permission request for Android 13+ devices.
+
+### Target
+
+The target module is responsible for targets (goals): it sends target events to the platform to record goal achievements.
+
+* [x] Sending target events (goal conversions) from the app.
+* [x] Attaching event payloads, matching parameters, profile fields, and channel subscriptions to a target event.
+* [x] Attaching UTM tags to target events for attribution.
+
+### Profile
+
+The profile module is responsible for user profile fields.
+
+* [x] Updating profile fields from the app.
+
+### In-App
+
+The in-app module is responsible for in-app campaigns.
+
+* [x] Automatic display of in-app campaigns configured in the platform.
+* [x] In-app subscription management: subscribe, unsubscribe, status retrieval.
+* [x] Placement requests, current screen matching, and custom triggers.
+* [x] JSON in-app campaign emission to an external subscriber.
+
 ---
 
-## Dependency
+## Dependencies
 
-`com.altcraft:android-sdk:1.0.8` 
+Altcraft Android SDK modules are available on Maven Central. Add the modules used by your application. The Core module is included automatically as a dependency of other SDK modules and does not need to be added separately.
+
+```kotlin
+dependencies {
+    implementation("com.altcraft:android-sdk-push:1.0.0")
+    implementation("com.altcraft:android-sdk-inapp:1.0.0")
+    implementation("com.altcraft:android-sdk-target:1.0.0")
+    implementation("com.altcraft:android-sdk-profile:1.0.0")
+}
+```
+
+If you only need Core, add `implementation("com.altcraft:android-sdk-core:1.0.0")` directly.
 
 ---
 
@@ -66,12 +108,12 @@ Profile lookup is limited to the push token identifier.
 ## Requirements
 
 * Android 7.1+ (API 25).
-* Push providers integrated SDK (Firebase, Huawei, RuStore).
+* A configured push provider (Firebase, Huawei, or RuStore) when using the Push module.
 * `Application` class in the project.
 
 ---
 
-## Documentations
+## Documentation
 
 Detailed information on SDK setup, functionality, and usage is available on the Altcraft documentation portal. You can navigate to the required section using the links below:
 
@@ -94,7 +136,7 @@ Detailed information on SDK setup, functionality, and usage is available on the 
 
 END USER LICENSE AGREEMENT
 
-Copyright © 2024 Altcraft LLC. All rights reserved.
+Copyright © 2026 Altcraft LLC. All rights reserved.
 
 1. LICENSE GRANT
    This agreement grants you certain rights to use the Altcraft Mobile SDK (hereinafter referred to as the “Software”).
@@ -128,7 +170,7 @@ Copyright © 2024 Altcraft LLC. All rights reserved.
 
 ### Third-party libraries and licenses
 
-  **Apache License 2.0**  
+**Apache License 2.0**  
 Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).  
 You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
@@ -137,9 +179,13 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [KotlinX Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
 * [Retrofit](https://github.com/square/retrofit)
 * [OkHttp](https://github.com/square/okhttp)
+* [AndroidX Annotation](https://developer.android.com/jetpack/androidx/releases/annotation)
+* [AndroidX Core](https://developer.android.com/jetpack/androidx/releases/core)
 * [AndroidX Room](https://developer.android.com/jetpack/androidx/releases/room)
 * [WorkManager](https://developer.android.com/jetpack/androidx/releases/work)
 * [AndroidX Lifecycle](https://developer.android.com/jetpack/androidx/releases/lifecycle)
+* [AndroidX Startup](https://developer.android.com/jetpack/androidx/releases/startup)
+* [AndroidX DataStore](https://developer.android.com/jetpack/androidx/releases/datastore)
 * [AndroidX Test](https://developer.android.com/testing)
 * [Material Components for Android](https://github.com/material-components/material-components-android)
 * [MockK](https://mockk.io/)
@@ -148,4 +194,3 @@ You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2
 * [Glide](https://github.com/bumptech/glide) — **BSD-2-Clause** 
 * [JUnit 4](https://junit.org/junit4/) — **EPL-1.0 (Eclipse Public License 1.0)**
 * [Google Play Services Ads Identifier](https://developers.google.com/android/reference/com/google/android/gms/ads/identifier/AdvertisingIdClient) — subject to [Google Play Services SDK License Agreement](https://developers.google.com/terms)
-

@@ -17,12 +17,21 @@ dependencyResolutionManagement {
         mavenLocal()
         google()
         mavenCentral()
-        maven("https://developer.huawei.com/repo/")
-        maven("https://artifactory-external.vkpartner.ru/artifactory/maven")
+        maven {
+            url = uri("https://developer.huawei.com/repo/")
+        }
+
+        maven {
+            url = uri("https://nexus-external.vkteam.ru/repository/maven/")
+        }
     }
 }
 
 rootProject.name = "AltcraftMobile"
 include(":example")
-include(":altcraft-sdk")
+include(":altcraft-core")
 
+include(":altcraft-target")
+include(":altcraft-push")
+include(":altcraft-profile")
+include(":altcraft-inapp")

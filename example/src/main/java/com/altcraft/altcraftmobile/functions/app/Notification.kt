@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.functions.app
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
 import com.altcraft.altcraftmobile.data.AppPreferenses.getNotificationData
@@ -34,6 +34,7 @@ object Notification {
             put("_title", title)
             put("_body", body)
             put("_buttons", buttons)
+            put("_uid", System.currentTimeMillis().toString())
 
             icon?.let { put("_icon", it) }
             image?.let { put("_image", it) }

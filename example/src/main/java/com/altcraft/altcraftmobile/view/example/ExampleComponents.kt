@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.example
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -233,7 +233,7 @@ object ExampleComponents {
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_altcraft_label),
+                painter = painterResource(id = R.drawable.ic_altcraft_push_icon),
                 contentDescription = "icon",
                 modifier = Modifier.size(19.dp)
             )

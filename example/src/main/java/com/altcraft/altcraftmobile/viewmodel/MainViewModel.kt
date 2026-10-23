@@ -2,42 +2,47 @@ package com.altcraft.altcraftmobile.viewmodel
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.altcraft.altcraftmobile.data.AppPreferenses
-import com.altcraft.altcraftmobile.data.AppPreferenses.getAnonJWT
-import com.altcraft.altcraftmobile.data.AppPreferenses.getNotificationData
-import com.altcraft.altcraftmobile.data.AppPreferenses.getRegJWT
-import com.altcraft.altcraftmobile.data.AppPreferenses.getConfig
-import com.altcraft.altcraftmobile.data.AppPreferenses.getSubscribeSettings
-import com.altcraft.altcraftmobile.data.AppPreferenses.getSubscriptionStatus
-import com.altcraft.altcraftmobile.data.AppPreferenses.getTokenUpdateTime
-import com.altcraft.altcraftmobile.data.AppPreferenses.setNotificationData
-import com.altcraft.altcraftmobile.data.AppPreferenses.setTokenUpdateTime
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_BODY
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_TITLE
 import com.altcraft.altcraftmobile.data.AppConstants.PROFILE_NOT_FOUND
 import com.altcraft.altcraftmobile.data.AppConstants.RESPONSE_WITH_HTTP
-import com.altcraft.altcraftmobile.data.AppConstants.STATUS_EVENT
-import com.altcraft.altcraftmobile.data.AppConstants.STATUS_EVENT_ERRORS
-import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBE_EVENT
-import com.altcraft.altcraftmobile.data.AppConstants.SUSPEND_EVENT
-import com.altcraft.altcraftmobile.data.AppConstants.TOKEN_UPDATE_EVENT
+import com.altcraft.altcraftmobile.data.AppConstants.SUBSCRIBED
 import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBED
-import com.altcraft.altcraftmobile.data.AppConstants.UNSUBSCRIBE_EVENT
-import com.altcraft.altcraftmobile.data.AppConstants.UNSUSPEND_EVENT
 import com.altcraft.altcraftmobile.data.AppDataClasses
+import com.altcraft.altcraftmobile.data.AppPreferenses
+import com.altcraft.altcraftmobile.data.AppPreferenses.getAnonJWT
+import com.altcraft.altcraftmobile.data.AppPreferenses.getConfig
+import com.altcraft.altcraftmobile.data.AppPreferenses.getInAppSubscriptionStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.getInternalAuthStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.getNotificationData
+import com.altcraft.altcraftmobile.data.AppPreferenses.getRegJWT
+import com.altcraft.altcraftmobile.data.AppPreferenses.getSubscribeSettings
+import com.altcraft.altcraftmobile.data.AppPreferenses.getSubscriptionStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.getTokenUpdateTime
+import com.altcraft.altcraftmobile.data.AppPreferenses.setInAppSubscriptionStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.setInternalAuthStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.setNotificationData
+import com.altcraft.altcraftmobile.data.AppPreferenses.setTokenUpdateTime
 import com.altcraft.altcraftmobile.event.EventReceiver
 import com.altcraft.altcraftmobile.functions.app.Formatter.formatDate
 import com.altcraft.altcraftmobile.functions.app.SubFunction.loadImage
 import com.altcraft.sdk.AltcraftSDK
-import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.models.CoreModels.ProfileModel.ProfileData
+import com.altcraft.sdk.push.push
+import com.altcraft.sdk.data.models.CoreModels.ResponseModel.BaseResponseData
+import com.altcraft.sdk.data.models.CoreModels.ResponseModel.ResponseWithHttpCode
+import com.altcraft.sdk.data.models.CoreModels.SDKEventModel.Event
+import com.altcraft.sdk.inapp.inApp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -45,7 +50,6 @@ import java.util.Date
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Authentication and token states
     val status = mutableStateOf(UNSUBSCRIBED)
     val token = mutableStateOf<String?>(null)
     val provider = mutableStateOf<String?>(null)
@@ -55,24 +59,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val anonJWT = mutableStateOf("")
     val regJWT = mutableStateOf("")
 
-    // User interface and profile states
+    val authStatus = mutableStateOf(false)
+    val inAppStatus = mutableStateOf(UNSUBSCRIBED)
+    val inAppPlacementCount = mutableIntStateOf(0)
+
     val profileActions = mutableStateOf(false)
-    val profileData = mutableStateOf<DataClasses.ProfileData?>(null)
+    val profileData = mutableStateOf<ProfileData?>(null)
     val profileDataIsLoading = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
 
-    // Application configuration and subscriptions
     val configSetting = mutableStateOf("")
     val subscribeActions = mutableStateOf(false)
+    val targetActions = mutableStateOf(false)
     val subscribeSettings = mutableStateOf(AppDataClasses.SubscribeSettings.getDefault())
 
-    // Events
-    val eventList = mutableStateOf<List<DataClasses.Event>>(emptyList())
+    val eventList = mutableStateOf<List<Event>>(emptyList())
+
+    /** Maximum number of log records kept in the event list. */
+    private val maxLogSize = 1000
 
     val newFieldKey = mutableStateOf("")
     val newFieldValue = mutableStateOf("")
 
-    // Notification states
     val notificationTitle = mutableStateOf(EXAMPLE_TITLE)
     val notificationBody = mutableStateOf(EXAMPLE_BODY)
     val notificationButtons = mutableStateOf<List<String>?>(null)
@@ -82,6 +90,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val smallImageBitmap = mutableStateOf<Bitmap?>(null)
     val largeImageBitmap = mutableStateOf<Bitmap?>(null)
+
+
 
     init {
         val context = getApplication<Application>().applicationContext
@@ -103,6 +113,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         updateStatusUI(context)
         updateTokenUpdateUI(context)
         loadNotificationSettings(context)
+
+        authStatus.value = getInternalAuthStatus(context)
+        inAppStatus.value = getInAppSubscriptionStatus(context)
     }
 
     private fun loadNotificationSettings(context: Context) {
@@ -145,46 +158,111 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadLargeImage(context, largeImageUrl.value ?: "")
     }
 
-    /**
-     * Processes incoming SDK events
-     */
-    private fun handleIncomingEvent(event: DataClasses.Event, context: Context) {
+    private fun handleIncomingEvent(event: Event, context: Context) {
         eventList.value = eventList.value.toMutableList().apply {
             add(event)
+            if (size > maxLogSize) subList(0, size - maxLogSize).clear()
         }
 
-        when (event.eventCode) {
-            SUBSCRIBE_EVENT, SUSPEND_EVENT, UNSUBSCRIBE_EVENT, STATUS_EVENT, UNSUSPEND_EVENT
-                -> status.value = handleStatusUpdate(context, event)
+        when (event.event) {
+            AltcraftSDK.push.moduleEvents.subscribeRequestSuccessful,
+            AltcraftSDK.push.moduleEvents.suspendRequestSuccessful,
+            AltcraftSDK.push.moduleEvents.unsubscribeRequestSuccessful,
+            AltcraftSDK.push.moduleEvents.statusRequestSuccess -> {
+                status.value = handleStatusUpdate(context, event)
+            }
 
-            TOKEN_UPDATE_EVENT -> {
+            AltcraftSDK.push.moduleEvents.tokenUpdateRequestSuccessful -> {
                 handleTokenUpdate(context, event.date)
                 updateConfigUI(context)
             }
 
-            STATUS_EVENT_ERRORS[0], STATUS_EVENT_ERRORS[1] -> {
+            AltcraftSDK.sdkEvents.moduleEvents.pushStatusRequestFailed -> {
                 val responseWithHttp = event.eventValue?.get(
                     RESPONSE_WITH_HTTP
-                ) as? DataClasses.ResponseWithHttpCode
+                ) as? ResponseWithHttpCode<*>
 
-                if (responseWithHttp?.response?.errorText?.contains(PROFILE_NOT_FOUND) == true) {
+                val baseResponse = responseWithHttp?.response as? BaseResponseData
+                val errorText = baseResponse?.errorText
+
+                if (errorText?.contains(PROFILE_NOT_FOUND) == true) {
                     status.value = UNSUBSCRIBED
                     AppPreferenses.setSubscriptionStatus(context, UNSUBSCRIBED)
                 }
+
                 errorMessage.value =
-                    "Profile information is not available. Error: ${event.eventMessage}"
+                    "Profile information is not available. Error: ${event.eventMessage.orEmpty()}"
             }
+
+            AltcraftSDK.sdkEvents.moduleEvents.authenticateSuccessful -> {
+                authStatus.value = true
+                setInternalAuthStatus(context, true)
+            }
+
+            AltcraftSDK.sdkEvents.moduleEvents.userLogOut -> {
+                authStatus.value = false
+                setInternalAuthStatus(context, false)
+            }
+
+            AltcraftSDK.inApp.moduleEvents.subscribeRequestSuccessful -> {
+                inAppStatus.value = SUBSCRIBED
+                setInAppSubscriptionStatus(context, SUBSCRIBED)
+            }
+
+            AltcraftSDK.inApp.moduleEvents.unsubscribeRequestSuccessful -> {
+                inAppStatus.value = UNSUBSCRIBED
+                setInAppSubscriptionStatus(context, UNSUBSCRIBED)
+            }
+
+            AltcraftSDK.inApp.moduleEvents.statusRequestSuccessful -> {
+                inAppStatus.value = handleInAppStatusUpdate(event).also {
+                    setInAppSubscriptionStatus(context, it)
+                }
+            }
+
+            AltcraftSDK.inApp.moduleEvents.placementsRequestSuccessful -> {
+                val smidS = event.eventValue
+                    ?.get("all_smid") as? List<*>
+
+                inAppPlacementCount.intValue = smidS
+                    ?.filterIsInstance<String>()
+                    ?.size
+                    ?: 0
+            }
+
+            AltcraftSDK.sdkEvents.moduleEvents.configIsSet -> {
+                updateUI(context)
+            }
+
+            AltcraftSDK.sdkEvents.moduleEvents.sdkCleared -> {
+                token.value = null
+                provider.value = null
+                status.value = UNSUBSCRIBED
+                inAppStatus.value = UNSUBSCRIBED
+                authStatus.value = false
+
+                AppPreferenses.clearSdkIndicatorStatuses(context)
+            }
+
+
+            else -> return
         }
     }
 
-    private fun handleStatusUpdate(context: Context, event: DataClasses.Event): String {
+    private fun handleInAppStatusUpdate(event: Event): String {
         return try {
-            val responseWithHttp = event.eventValue?.get(
-                RESPONSE_WITH_HTTP
-            ) as? DataClasses.ResponseWithHttpCode
+            val profile = event.eventValue?.get("profile") as? ProfileData
+            profile?.subscription?.status ?: UNSUBSCRIBED
+        } catch (_: Exception) {
+            UNSUBSCRIBED
+        }
+    }
 
-            (responseWithHttp?.response?.profile?.subscription?.status ?: UNSUBSCRIBED)
-                .also {
+    private fun handleStatusUpdate(context: Context, event: Event): String {
+        return try {
+            val profile = event.eventValue?.get("profile") as? ProfileData
+
+            (profile?.subscription?.status ?: UNSUBSCRIBED).also {
                 AppPreferenses.setSubscriptionStatus(context, it)
             }
         } catch (_: Exception) {
@@ -199,9 +277,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Check subscribe status in preferenses
-     */
     private fun updateStatusUI(context: Context) {
         status.value = getSubscriptionStatus(context) ?: UNSUBSCRIBED
     }
@@ -224,10 +299,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val saveSubSetting = getSubscribeSettings(context)
         val defaultSubSetting = AppDataClasses.SubscribeSettings.getDefault()
 
-
         val subscribeSetting = saveSubSetting ?: defaultSubSetting
-        providerList.value = config?.priorityProviders ?: emptyList()
 
+        providerList.value = config?.priorityProviders ?: emptyList()
         userName.value = config?.apiUrl
         configSetting.value = config.toString()
         subscribeSettings.value = subscribeSetting
@@ -236,21 +310,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         regJWT.value = getRegJWT(context) ?: ""
     }
 
-    /**
-     * Updates the current push token data from AltcraftSDK.
-     *
-     * Fetches the latest token and updates the [provider] and [token] values.
-     * Runs in the background using [Dispatchers.IO].
-     *
-     * @param context The application context required for token retrieval
-     */
     internal fun updateTokenUI(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val current = AltcraftSDK.push.token.getToken(
+                context
+            )
 
-            val currentToken = AltcraftSDK.pushTokenFunctions.getPushToken(context)
-
-            provider.value = currentToken?.provider
-            token.value = currentToken?.token
+            provider.value = current?.provider
+            token.value = current?.token
         }
     }
 
@@ -272,33 +339,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Loads profile status and updates UI state:
-     * - Sets loading state (profileDataIsLoading)
-     * - Clears any errors (errorMessage)
-     * - Updates profile data (profileData)
-     * - Resets loading when complete
-     *
-     * @param context The application context required for token retrieval
-     */
     fun loadProfileStatus(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             profileDataIsLoading.value = true
             errorMessage.value = null
 
-            profileData.value = AltcraftSDK
-                .pushSubscriptionFunctions
-                .getStatusForCurrentSubscription(context)
-                ?.response?.profile
+            profileData.value = null
 
-            profileDataIsLoading.value = false
+            CoroutineScope(Dispatchers.Main).launch {
+                val status = AltcraftSDK.push.subscription.status.current(
+                    context
+                )
+                profileData.value = status?.response?.profile
+                profileDataIsLoading.value = false
+            }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        AltcraftSDK.eventSDKFunctions.unsubscribe()
+        AltcraftSDK.sdkEvents.subscription.unsubscribe()
     }
 }
-
-

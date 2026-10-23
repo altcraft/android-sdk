@@ -2,8 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
-    //alias(libs.plugins.google.gms.google.services)
-    //id("com.huawei.agconnect")
+//    alias(libs.plugins.google.gms.google.services)
+//    id("com.huawei.agconnect")
 }
 
 android {
@@ -41,20 +41,16 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
-    sourceSets {
-        getByName("main") {
-            assets {
-                srcDirs("src/main/assets")
-            }
-        }
-    }
 }
 
 dependencies {
-    // --- sdk modules ---
-    implementation(project(":altcraft-sdk"))
 
-    //implementation("com.altcraft:android-sdk:1.0.8")
+    // --- sdk modules ---
+    implementation(project(":altcraft-core"))
+    implementation(project(":altcraft-push"))
+    implementation(project(":altcraft-inapp"))
+    implementation(project(":altcraft-target"))
+    implementation(project(":altcraft-profile"))
 
     // --- Kotlin / Serialization ---
     implementation(libs.kotlinx.serialization.json)
@@ -85,14 +81,16 @@ dependencies {
 
     // --- Push providers ---
     // FCM
-    implementation("com.google.firebase:firebase-messaging:25.0.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     // HMS
-    implementation("com.huawei.hms:push:6.11.0.300")
-    implementation("com.huawei.agconnect:agconnect-core:1.7.3.302")
+    implementation("com.huawei.hms:push:6.13.0.301")
+    implementation("com.huawei.agconnect:agconnect-core:1.9.6.300")
 
     // RuStore
-    implementation("ru.rustore.sdk:pushclient:6.10.0")
+    implementation("ru.rustore.sdk:universalpush:7.5.0")
+    implementation("ru.rustore.sdk:universalrustore:7.5.0")
 
     // --- Version alignment ---
     configurations.all {

@@ -2,7 +2,9 @@ package com.altcraft.altcraftmobile
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
+
+import com.altcraft.sdk.inapp.inApp
 
 import android.content.Intent
 import android.os.Bundle
@@ -36,7 +38,9 @@ import com.altcraft.altcraftmobile.view.menu.UIMenu
 import com.altcraft.altcraftmobile.ui.theme.AltcraftMobileTheme
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.altcraftmobile.view.example.ExampleScreen
+import com.altcraft.altcraftmobile.view.inapp.InAppScreen
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.push.push
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
@@ -47,8 +51,15 @@ class MainActivity : ComponentActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         resources.configuration.fontScale = 1f
-        AltcraftSDK.requestNotificationPermission(this, this)
 
+        AltcraftSDK.push.requestNotificationPermission(
+            this, this
+        )
+
+        AltcraftSDK.inApp.setScreen(
+            this,
+            "home"
+        )
 
         setContent {
             AltcraftMobileTheme {
@@ -70,24 +81,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-
         setIntent(intent)
 
         val newDestination = resolveStartDestination(intent)
 
         if (::navController.isInitialized) {
             navController.navigate(newDestination) {
-                launchSingleTop = true
-                restoreState = true
+                launchSingleTop = false
+                restoreState = false
 
                 popUpTo(navController.graph.startDestinationId) {
-                    saveState = true
+                    saveState = false
                     inclusive = false
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun MainScreen(
@@ -146,6 +157,7 @@ fun AppNavHost(
         composable("home") { HomeScreen(viewModel) }
         composable("example") { ExampleScreen(viewModel) }
         composable("logs") { LogScreen(viewModel) }
+        composable("in-app") { InAppScreen(viewModel) }
         composable("config") { ConfigScreen(viewModel) }
     }
 }

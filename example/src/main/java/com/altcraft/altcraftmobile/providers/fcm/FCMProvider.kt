@@ -2,9 +2,10 @@ package com.altcraft.altcraftmobile.providers.fcm
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
-import com.altcraft.sdk.interfaces.FCMInterface
+import android.util.Log
+import com.altcraft.sdk.push.platform.token.provider.FCMInterface
 import com.google.firebase.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.messaging
@@ -27,7 +28,8 @@ class FCMProvider : FCMInterface {
     override suspend fun getToken(): String? {
         return try {
             Firebase.messaging.token.await()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("altcraft_lib", "FCMProvider.getToken failed", e)
             null
         }
     }
@@ -49,4 +51,3 @@ class FCMProvider : FCMInterface {
         }
     }
 }
-

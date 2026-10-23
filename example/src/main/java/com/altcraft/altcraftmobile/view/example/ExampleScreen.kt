@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.example
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.altcraft.altcraftmobile.extensions.Extensions.UI.fadeToWhiteEdges
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.push.push
 
 @Composable
 fun ExampleScreen(viewModel: MainViewModel) {
@@ -60,7 +61,7 @@ fun ExampleScreen(viewModel: MainViewModel) {
                 item {
                     SectionInfo(boxHeight = 30.dp, onClick = {
                         CoroutineScope(Dispatchers.IO).launch {
-                            AltcraftSDK.PushReceiver.takePush(
+                            AltcraftSDK.push.receiver.takePush(
                                 context,
                                 getExamplePushData(context)
                             )

@@ -2,11 +2,11 @@ package com.altcraft.altcraftmobile.data
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_BODY
 import com.altcraft.altcraftmobile.data.AppConstants.EXAMPLE_TITLE
-import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.models.CoreModels.ProfileModel.CategoryData
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -29,7 +29,7 @@ class AppDataClasses {
         val skipTriggers: Boolean = false,
         val customFields: Map<String, @Contextual Any> = emptyMap(),
         val profileFields: Map<String, @Contextual Any> = emptyMap(),
-        val cats: List<DataClasses.CategoryData> = listOf()
+        val cats: List<CategoryData> = listOf()
     ) {
         companion object {
             fun getDefault() = SubscribeSettings(

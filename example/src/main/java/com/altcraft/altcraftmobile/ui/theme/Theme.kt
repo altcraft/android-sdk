@@ -1,5 +1,9 @@
 package com.altcraft.altcraftmobile.ui.theme
 
+//  Created by Andrey Pogodin.
+//
+//  Copyright © 2026 Altcraft. All rights reserved.
+
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

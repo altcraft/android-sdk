@@ -1,5 +1,9 @@
 package com.altcraft.altcraftmobile.ui.theme
 
+//  Created by Andrey Pogodin.
+//
+//  Copyright © 2026 Altcraft. All rights reserved.
+
 import androidx.compose.ui.graphics.Color
 
 val Purple80 = Color(0xFFD0BCFF)

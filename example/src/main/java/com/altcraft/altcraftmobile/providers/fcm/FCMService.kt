@@ -2,9 +2,12 @@ package com.altcraft.altcraftmobile.providers.fcm
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
+
+import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.push.push
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -29,6 +32,6 @@ class FCMService : FirebaseMessagingService() {
      * @param message The received [RemoteMessage].
      */
     override fun onMessageReceived(message: RemoteMessage) {
-        AltcraftSDK.PushReceiver.takePush(this, message.data)
+        AltcraftSDK.push.receiver.takePush(this, message.data)
     }
 }

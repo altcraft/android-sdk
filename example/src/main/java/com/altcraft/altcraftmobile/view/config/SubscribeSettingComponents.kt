@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.config
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,7 +57,7 @@ import com.altcraft.altcraftmobile.functions.app.Converter.Parser.parseJsonToMap
 import com.altcraft.altcraftmobile.functions.app.Converter.mapToJsonString
 import com.altcraft.altcraftmobile.functions.app.UI.SpacerHeightDp
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
-import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.models.CoreModels.ProfileModel.CategoryData
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -135,7 +135,7 @@ object SubscribeSettingComponents {
                 cats = try {
                     gson.fromJson(
                         catsJson,
-                        object : TypeToken<List<DataClasses.CategoryData>>() {}.type
+                        object : TypeToken<List<CategoryData>>() {}.type
                     )
                 } catch (_: Exception) {
                     emptyList()
@@ -438,7 +438,7 @@ object SubscribeSettingComponents {
                                     val updatedCats =
                                         viewModel.subscribeSettings.value.cats.toMutableList()
                                     updatedCats.add(
-                                        DataClasses.CategoryData(
+                                        CategoryData(
                                             name = key,
                                             active = value.toBoolean()
                                         )
@@ -761,8 +761,3 @@ object SubscribeSettingComponents {
         }
     }
 }
-
-
-
-
-

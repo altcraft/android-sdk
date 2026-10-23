@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.data
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 object AppConstants {
     const val EMPTY_VALUE_UI = "........"
@@ -23,16 +23,6 @@ object AppConstants {
     const val TOKEN_CARD_TEXT_RUSTORE = "rustore token:"
     const val TOKEN_CARD_TEXT_EMPTY = "no providers:"
 
-    //status code
-    const val SUBSCRIBE_EVENT = 230
-    const val SUSPEND_EVENT = 231
-    const val UNSUBSCRIBE_EVENT = 232
-    const val STATUS_EVENT = 235
-    @Suppress("SpellCheckingInspection")
-    const val UNSUSPEND_EVENT = 234
-    const val TOKEN_UPDATE_EVENT = 233
-    val STATUS_EVENT_ERRORS = listOf(425, 435)
-
     //status msg
     const val PROFILE_NOT_FOUND = "profile not found"
     const val RESPONSE_WITH_HTTP = "response_with_http_code"
@@ -41,10 +31,6 @@ object AppConstants {
     const val APP_ID = "AltcraftMobile"
     const val APP_IID = "1.0.0"
     const val APP_VER = "1.0.0"
-
-    //config setting default  - chanel / descr
-    const val PUSH_CHANNEL_NAME = "Altcraft"
-    const val PUSH_CHANNEL_DESCRIPTION = "Welcome to the Altcraft Notification Builder!"
 
     //notification setting default  -
     const val EXAMPLE_TITLE = "Altcraft"

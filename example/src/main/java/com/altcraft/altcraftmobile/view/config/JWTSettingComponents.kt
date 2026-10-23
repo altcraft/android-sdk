@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.config
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -20,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.altcraft.altcraftmobile.view.config.Buttons.AddButton
@@ -29,12 +31,18 @@ import com.altcraft.altcraftmobile.view.home.GradientShadowLine
 import com.altcraft.altcraftmobile.view.home.TextComponents
 import com.altcraft.altcraftmobile.data.AppPreferenses.removeJWT
 import com.altcraft.altcraftmobile.data.AppPreferenses.setAnonJWT
-import com.altcraft.altcraftmobile.data.AppPreferenses.setAuthStatus
+import com.altcraft.altcraftmobile.data.AppPreferenses.setExternalAuthStatus
 import com.altcraft.altcraftmobile.data.AppPreferenses.setRegJWT
 import com.altcraft.altcraftmobile.functions.app.UI.SpacerHeightDp
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 
 object JWTSettingComponents {
+
+    private const val JWT_SAVE_BUTTON = "jwt_save_button"
+    private const val JWT_CLEAR_BUTTON = "jwt_clear_button"
+    private const val JWT_ANON_INPUT = "jwt_anon_input"
+    private const val JWT_REG_INPUT = "jwt_reg_input"
+
     @Composable
     fun JWTSetting(viewModel: MainViewModel) {
         val context = LocalContext.current
@@ -69,14 +77,18 @@ object JWTSettingComponents {
                         RemoveButton(
                             onClick = {
                                 removeJWT(context)
-                                setAuthStatus(context, false)
+                                setExternalAuthStatus(context, false)
                                 viewModel.anonJWT.value = ""
                                 viewModel.regJWT.value = ""
                                 anonJWTValue.value = ""
                                 regJWTValue.value = ""
                                 Toast.makeText(context, "JWT cleared", Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.align(Alignment.CenterVertically)
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .semantics {
+                                    contentDescription = JWT_CLEAR_BUTTON
+                                }
                         )
 
                         Spacer(modifier = Modifier.width(10.dp))
@@ -103,7 +115,11 @@ object JWTSettingComponents {
                                 anonJWTValue.value = ""
                                 regJWTValue.value = ""
                             },
-                            modifier = Modifier.align(Alignment.CenterVertically)
+                            modifier = Modifier
+                                .align(Alignment.CenterVertically)
+                                .semantics {
+                                    contentDescription = JWT_SAVE_BUTTON
+                                }
                         )
                     }
                 }
@@ -122,13 +138,15 @@ object JWTSettingComponents {
             EditTextRow(
                 "Anon.JWT",
                 anonJWTValue,
-                anonJWTHint.takeIf { it.isNotBlank() }?.truncatedJWT()
+                anonJWTHint.takeIf { it.isNotBlank() }?.truncatedJWT(),
+                accessibilityId = JWT_ANON_INPUT
             )
             SpacerHeightDp(7.dp)
             EditTextRow(
                 "Reg.JWT",
                 regJWTValue,
-                regJWTHint.takeIf { it.isNotBlank() }?.truncatedJWT()
+                regJWTHint.takeIf { it.isNotBlank() }?.truncatedJWT(),
+                accessibilityId = JWT_REG_INPUT
             )
         }
     }

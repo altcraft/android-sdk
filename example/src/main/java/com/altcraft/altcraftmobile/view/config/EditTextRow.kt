@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.config
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +45,7 @@ object EditTextRow {
         name: String,
         state: MutableState<String>,
         hint: String?,
+        accessibilityId: String? = null,
         startPadding: Dp = 15.dp,
         endPadding: Dp = 15.dp,
         ovalBoxHeight: Dp = 25.dp,
@@ -111,6 +114,7 @@ object EditTextRow {
                     state = state,
                     hint = hint,
                     textStyle = textStyle,
+                    accessibilityId = accessibilityId,
                     modifier = Modifier
                         .align(Alignment.Bottom)
                         .offset(y = 3.dp)
@@ -133,6 +137,7 @@ object EditTextRow {
         modifier: Modifier = Modifier,
         state: MutableState<String>,
         hint: String? = null,
+        accessibilityId: String? = null,
         startPadding: Dp = 0.dp,
         endPadding: Dp = 0.dp,
         textStyle: TextStyle = TextStyle(
@@ -155,7 +160,16 @@ object EditTextRow {
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .then(
+                        if (accessibilityId != null) {
+                            Modifier.semantics {
+                                contentDescription = accessibilityId
+                            }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 decorationBox = { innerTextField ->
                     Box(
                         modifier = Modifier.fillMaxWidth(),

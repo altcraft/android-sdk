@@ -2,7 +2,9 @@ package com.altcraft.altcraftmobile.view.menu
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
+
+import com.altcraft.sdk.inapp.inApp
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -27,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.altcraft.altcraftmobile.R
+import com.altcraft.sdk.AltcraftSDK
 
 object UIMenu {
 
     @Composable
     fun BottomNavigationBar(navController: NavHostController) {
+        val context = LocalContext.current
         Box {
             Row(
                 modifier = Modifier
@@ -52,14 +57,19 @@ object UIMenu {
                 NavigationButton(
                     iconRes = R.drawable.ic_menu_home,
                     label = "Home",
-                    onClick = { navController.navigate("home") },
+                    onClick = {
+                        navController.navigate("home")
+                        AltcraftSDK.inApp.setScreen(context, "home")
+                    },
                     textSize = 10.sp,
                     textColor = Color.Black
                 )
                 NavigationButton(
                     iconRes = R.drawable.ic_menu_example,
                     label = "Example",
-                    onClick = { navController.navigate("example") },
+                    onClick = {
+                        navController.navigate("example")
+                    },
                     textSize = 10.sp,
                     textColor = Color.Black
                 )
@@ -71,9 +81,21 @@ object UIMenu {
                     textColor = Color.Black
                 )
                 NavigationButton(
+                    iconRes = R.drawable.ic_in_app,
+                    label = "InApp",
+                    onClick = {
+                        navController.navigate("in-app")
+                        AltcraftSDK.inApp.setScreen(context, "inapp")
+                              },
+                    textSize = 10.sp,
+                    textColor = Color.Black
+                )
+                NavigationButton(
                     iconRes = R.drawable.ic_menu_config,
                     label = "Config",
-                    onClick = { navController.navigate("config") },
+                    onClick = {
+                        navController.navigate("config")
+                    },
                     textSize = 10.sp,
                     textColor = Color.Black
                 )

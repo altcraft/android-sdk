@@ -2,7 +2,7 @@ package com.altcraft.altcraftmobile.view.config
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

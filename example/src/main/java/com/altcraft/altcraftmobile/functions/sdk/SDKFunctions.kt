@@ -2,14 +2,13 @@ package com.altcraft.altcraftmobile.functions.sdk
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.altcraftmobile.R
 import com.altcraft.altcraftmobile.data.AppConstants.APP_ID
 import com.altcraft.altcraftmobile.data.AppConstants.APP_IID
 import com.altcraft.altcraftmobile.data.AppConstants.APP_VER
-import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_DESCRIPTION
-import com.altcraft.altcraftmobile.data.AppConstants.PUSH_CHANNEL_NAME
 import com.altcraft.altcraftmobile.data.AppDataClasses
 import com.altcraft.altcraftmobile.data.AppPreferenses
 import com.altcraft.altcraftmobile.data.AppPreferenses.getConfig
@@ -19,8 +18,9 @@ import com.altcraft.altcraftmobile.data.AppPreferenses.setConfig
 import com.altcraft.altcraftmobile.viewmodel.MainViewModel
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.config.AltcraftConfiguration
-import com.altcraft.sdk.data.DataClasses
-import com.altcraft.sdk.push.subscribe.PublicPushSubscriptionFunctions.unSuspendPushSubscription
+import com.altcraft.sdk.push.push
+import com.altcraft.sdk.data.models.CoreModels.PropertyModel
+import com.altcraft.sdk.push.config.pushConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,27 +36,31 @@ object SDKFunctions {
      */
     fun initAltcraft(context: Context) {
         getConfig(context)?.let {
-
             val config = AltcraftConfiguration.Builder(
                 apiUrl = it.apiUrl,
-                icon = it.icon,
-                rToken = it.rToken,
-                providerPriorityList = it.priorityProviders,
-                pushChannelName = PUSH_CHANNEL_NAME,
-                pushChannelDescription = PUSH_CHANNEL_DESCRIPTION,
-                appInfo = DataClasses.AppInfo(
+                rToken = it.rToken?.takeIf { rToken -> rToken.isNotBlank() },
+                appInfo = PropertyModel.AppInfo(
                     appID = APP_ID,
                     appIID = APP_IID,
                     appVer = APP_VER
                 )
-            ).build()
+            )
+                .pushConfig(
+                    icon = R.drawable.ic_altcraft_push_icon
+                )
+                .build()
+
 
             AltcraftSDK.initialization(context, config)
             if (getSubscriptionStatus(context) == null) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    AltcraftSDK.pushSubscriptionFunctions.getStatusForCurrentSubscription(
-                        context
-                    )
+                    AltcraftSDK
+                        .push
+                        .subscription
+                        .status
+                        .current(
+                            context
+                        )
                 }
             }
         }
@@ -80,7 +84,7 @@ object SDKFunctions {
         internal fun subscribe(context: Context) {
             val subscribeSetting = getSubscribeSettings(context)
 
-            AltcraftSDK.pushSubscriptionFunctions.pushSubscribe(
+            AltcraftSDK.push.subscription.subscribe(
                 context,
                 sync = subscribeSetting?.sync != false,
                 replace = subscribeSetting?.replace == true,
@@ -103,7 +107,7 @@ object SDKFunctions {
         internal fun unSubscribe(context: Context) {
             val subscribeSetting = getSubscribeSettings(context)
 
-            AltcraftSDK.pushSubscriptionFunctions.pushUnSubscribe(
+            AltcraftSDK.push.subscription.unsubscribe(
                 context,
                 sync = subscribeSetting?.sync != false,
                 replace = subscribeSetting?.replace == true,
@@ -133,14 +137,18 @@ object SDKFunctions {
          *   true  → login, transfers the subscription to the registered user profile,
          *   false → logout, transfers the subscription back to the anonymous user profile
          */
-        private suspend fun unSuspend(context: Context, logIn: Boolean) {
+        private fun unSuspend(context: Context, logIn: Boolean) {
             val subscribeSetting = getSubscribeSettings(context)
 
-            AppPreferenses.setAuthStatus(context, logIn)
+            AppPreferenses.setExternalAuthStatus(context, logIn)
 
-            unSuspendPushSubscription(context).let {
-                if (it?.httpCode == 200 && it.response?.profile?.subscription == null) {
-                    AltcraftSDK.pushSubscriptionFunctions.pushSubscribe(
+            CoroutineScope(Dispatchers.IO).launch {
+                val response = AltcraftSDK.push.subscription.unSuspend(
+                    context
+                )
+
+                if (response?.httpCode == 200 && response.response?.profile?.subscription == null) {
+                    AltcraftSDK.push.subscription.subscribe(
                         context,
                         sync = true,
                         replace = subscribeSetting?.replace == false,
@@ -161,7 +169,7 @@ object SDKFunctions {
          *
          * @param context application context required by the SDK
          */
-        internal fun logIn(context: Context) = CoroutineScope(Dispatchers.IO).launch {
+        internal fun logIn(context: Context) {
             unSuspend(context, true)
         }
 
@@ -174,7 +182,7 @@ object SDKFunctions {
          *
          * @param context application context required by the SDK
          */
-        internal fun logOut(context: Context) = CoroutineScope(Dispatchers.IO).launch {
+        internal fun logOut(context: Context) {
             unSuspend(context, false)
         }
 
@@ -193,7 +201,9 @@ object SDKFunctions {
         providerList: List<String>
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            AltcraftSDK.pushTokenFunctions.changePushProviderPriorityList(context, providerList)
+            AltcraftSDK.push.token.changeProviderPriority(
+                context, providerList
+            )
 
             val currentConfig = getConfig(context)
 

@@ -12,8 +12,12 @@ import com.altcraft.altcraftmobile.providers.hms.HMSProvider
 import com.altcraft.altcraftmobile.providers.jwt.JWTProvider
 import com.altcraft.altcraftmobile.providers.rustore.RuStoreProvider
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.push.push
+import ru.rustore.sdk.pushclient.common.logger.DefaultLogger
+import ru.rustore.sdk.universalpush.RuStoreUniversalPushClient
+import ru.rustore.sdk.universalpush.rustore.providers.RuStorePushProvider
 
-val icon = R.drawable.ic_altcraft_label
+val icon = R.drawable.ic_altcraft_push_icon
 
 //set the JWT value for the anonymous user as anonJWT or in the application interface (config)
 internal val anonJWT: String? = null
@@ -21,7 +25,6 @@ internal val anonJWT: String? = null
 //set the JWT value for the registered user as regJWT or in the application interface (config)
 internal val regJWT: String? = null
 
-@Suppress("SpellCheckingInspection")
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -55,55 +58,64 @@ class App : Application() {
          * 3. Sync Gradle to apply changes.
          */
 
-        //Initialize the Rustore client by specifying your ProjectID
-        //RuStorePushClient.init(this, "your_rustore_project_id")
+        RuStoreUniversalPushClient.init(
+            context = this,
+            rustore = RuStorePushProvider(
+                application = this,
+                projectId = "your-rustore-project-id",
+                logger = DefaultLogger(tag = "rustore")
+            )
+        )
 
         EventReceiver.init(this)
-        AltcraftSDK.setJWTProvider(JWTProvider(this))
-        AltcraftSDK.pushTokenFunctions.setFCMTokenProvider(FCMProvider())
-        AltcraftSDK.pushTokenFunctions.setHMSTokenProvider(HMSProvider())
-        AltcraftSDK.pushTokenFunctions.setRuStoreTokenProvider(RuStoreProvider())
+        AltcraftSDK.auth.setJWTProvider(JWTProvider(this))
+        AltcraftSDK.push.token.setFCMTokenProvider(FCMProvider())
+        AltcraftSDK.push.token.setHMSTokenProvider(HMSProvider())
+        AltcraftSDK.push.token.setRuStoreTokenProvider(RuStoreProvider())
 
         //Initialization of the SDK that accepts parameters from the application interface
         initAltcraft(this)
 
         /**
+         * Configures the Altcraft SDK programmatically.
          *
-         * You can configure Altcraft SDK in the app UI (Config) or initialize it programmatically.
+         * The SDK can also be configured through the application UI (Config).
          *
-         * Example (programmatic init):
-         *
+         * Usage:
+         * ```kotlin
          * val config = AltcraftConfiguration.Builder(
          *     apiUrl = "https://pxl-example.altcraft.com",
-         *     icon   = R.drawable.ic_notification,
          *     rToken = null,
-         *     usingService   = true,
-         *     serviceMessage = "Processing Altcraft operations…",
-         *     appInfo = DataClasses.AppInfo(
-         *         appID  = "com.example.app",
+         *     appInfo = AppInfo(
+         *         appID = "com.example.app",
          *         appIID = "8b91f3a0-1111-2222-3333-c1a2c1a2c1a2",
          *         appVer = "1.0.0"
-         *     ),
-         *     providerPriorityList = listOf(
-         *         FCM_PROVIDER, // "android-firebase"
-         *         HMS_PROVIDER, // "android-huawei"
-         *         RUS_PROVIDER  // "android-rustore"
-         *     ),
-         *     pushReceiverModules = listOf(
-         *         context.packageName,
-         *         "com.example.push_receiver",
-         *         "com.example.feature.test"
-         *     ),
-         *     pushChannelName        = "Altcraft",
-         *     pushChannelDescription = "Altcraft notifications channel"
-         *  ).build()
+         *     )
+         * )
+         *     .pushConfig(
+         *         icon = R.drawable.ic_notification,
+         *         providerPriority = listOf(
+         *             FCM_PROVIDER,
+         *             HMS_PROVIDER,
+         *             RUS_PROVIDER
+         *         ),
+         *         pushReceiverModules = listOf(
+         *             context.packageName,
+         *             "com.example.push_receiver",
+         *             "com.example.feature.test"
+         *         ),
+         *         pushChannelName = "Altcraft",
+         *         pushChannelDescription = "Altcraft notifications channel"
+         *     )
+         *     .inAppConfig(
+         *         inAppAutoRequest = true,
+         *         placementsRequestInterval = 10.minutes,
+         *         maxPlacements = 10
+         *     )
+         *     .build()
          *
-         *  AltcraftSDK.initialization(context, config)
-         *
-         *
-         *
-         * Example of implementing sdk functions in an app:
-         * package com.altcraft.altcraftmobile.functions.sdk
+         * AltcraftSDK.initialization(context, config)
+         * ```
          */
     }
 }

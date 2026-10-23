@@ -1,60 +1,162 @@
 package com.altcraft.altcraftmobile.providers.rustore
-
-//  Created by Andrey Pogodin.
-//
-//  Copyright © 2025 Altcraft. All rights reserved.
-
-import com.altcraft.altcraftmobile.functions.app.SubFunction
-import com.altcraft.sdk.interfaces.RustoreInterface
-import kotlinx.coroutines.CompletableDeferred
-import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
-import ru.rustore.sdk.pushclient.RuStorePushClient
+import android.util.Log
+import com.altcraft.sdk.push.platform.token.provider.RustoreInterface
+import kotlinx.coroutines.suspendCancellableCoroutine
+import ru.rustore.sdk.universalpush.RuStoreUniversalPushClient
+import ru.rustore.sdk.universalpush.UNIVERSAL_RUSTORE_PROVIDER
+import kotlin.coroutines.resume
 
 /**
- * RuStore implementation for managing push tokens.
+ * RuStore push provider implementation.
  *
- * Provides methods to retrieve and delete tokens via the RuStore Push SDK.
+ * Retrieves and deletes RuStore push tokens.
  */
 class RuStoreProvider : RustoreInterface {
 
-    /**
-     * Retrieves the current RuStore token.
-     *
-     * @return The token, or `null` on error.
-     */
-    override suspend fun getToken(): String? {
-        val deferred = CompletableDeferred<String?>()
-
-        try {
-            val token = RuStorePushClient.getToken().await()
-            SubFunction.logger(token)
-            RuStorePushClient.checkPushAvailability().addOnSuccessListener { result ->
-                when (result) {
-                    FeatureAvailabilityResult.Available -> deferred.complete(token)
-                    is FeatureAvailabilityResult.Unavailable -> deferred.complete(null)
-                }
-            }.addOnFailureListener {
-                SubFunction.logger(it.message)
-                deferred.complete(null)
-            }
-        } catch (_: Exception) {
-            return null
-        }
-
-        return deferred.await()
+    private companion object {
+        const val TAG = "rustore"
     }
 
     /**
-     * Deletes the current RuStore token.
+     * Retrieves the current RuStore push token.
      *
-     * @param complete Callback with `true` on success, `false` on failure.
+     * @return Token or null if unavailable.
      */
-    override fun deleteToken(complete: (Boolean) -> Unit) {
+    override suspend fun getToken(): String? {
+        Log.d(TAG, "RuStoreProvider.getToken: START")
+
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                RuStoreUniversalPushClient.getTokens()
+                    .addOnSuccessListener { tokens ->
+                        Log.d(
+                            TAG,
+                            "RuStoreProvider.getToken: SUCCESS, " +
+                                    "availableProviders=${tokens.keys}"
+                        )
+
+                        val token = tokens[UNIVERSAL_RUSTORE_PROVIDER]
+
+                        Log.d(
+                            TAG,
+                            "RuStoreProvider.getToken: " +
+                                    "provider=$UNIVERSAL_RUSTORE_PROVIDER, " +
+                                    "tokenNull=${token == null}, " +
+                                    "tokenEmpty=${token?.isEmpty()}, " +
+                                    "tokenLength=${token?.length ?: 0}"
+                        )
+
+                        if (continuation.isActive) {
+                            continuation.resume(token)
+                        } else {
+                            Log.d(
+                                TAG,
+                                "RuStoreProvider.getToken: " +
+                                        "continuation inactive"
+                            )
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e(
+                            TAG,
+                            "RuStoreProvider.getToken: FAILED",
+                            exception
+                        )
+
+                        if (continuation.isActive) {
+                            continuation.resume(null)
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e(
+                    TAG,
+                    "RuStoreProvider.getToken: EXCEPTION",
+                    e
+                )
+
+                if (continuation.isActive) {
+                    continuation.resume(null)
+                }
+            }
+        }
+    }
+
+    /**
+     * Deletes the current RuStore push token.
+     *
+     * @param complete Callback with deletion result.
+     */
+    override fun deleteToken(
+        complete: (Boolean) -> Unit
+    ) {
+        Log.d(TAG, "RuStoreProvider.deleteToken: START")
+
         try {
-            RuStorePushClient.deleteToken()
-                .addOnSuccessListener { complete(true) }
-                .addOnFailureListener { complete(false) }
-        } catch (_: Exception) {
+            RuStoreUniversalPushClient.getTokens()
+                .addOnSuccessListener { tokens ->
+                    Log.d(
+                        TAG,
+                        "RuStoreProvider.deleteToken: " +
+                                "availableProviders=${tokens.keys}"
+                    )
+
+                    val token = tokens[UNIVERSAL_RUSTORE_PROVIDER]
+
+                    if (token == null) {
+                        Log.d(
+                            TAG,
+                            "RuStoreProvider.deleteToken: " +
+                                    "token not found, RESULT=false"
+                        )
+
+                        complete(false)
+                        return@addOnSuccessListener
+                    }
+
+                    Log.d(
+                        TAG,
+                        "RuStoreProvider.deleteToken: " +
+                                "token found, length=${token.length}"
+                    )
+
+                    RuStoreUniversalPushClient.deleteTokens(
+                        mapOf(UNIVERSAL_RUSTORE_PROVIDER to token)
+                    )
+                        .addOnSuccessListener {
+                            Log.d(
+                                TAG,
+                                "RuStoreProvider.deleteToken: SUCCESS"
+                            )
+
+                            complete(true)
+                        }
+                        .addOnFailureListener { exception ->
+                            Log.e(
+                                TAG,
+                                "RuStoreProvider.deleteToken: FAILED",
+                                exception
+                            )
+
+                            complete(false)
+                        }
+                }
+                .addOnFailureListener { exception ->
+                    Log.e(
+                        TAG,
+                        "RuStoreProvider.deleteToken: " +
+                                "getTokens FAILED",
+                        exception
+                    )
+
+                    complete(false)
+                }
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "RuStoreProvider.deleteToken: EXCEPTION",
+                e
+            )
+
             complete(false)
         }
     }

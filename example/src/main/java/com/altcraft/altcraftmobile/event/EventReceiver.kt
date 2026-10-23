@@ -2,11 +2,15 @@ package com.altcraft.altcraftmobile.event
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.altcraft.sdk.AltcraftSDK
-import com.altcraft.sdk.data.DataClasses
+import com.altcraft.sdk.data.models.CoreModels.SDKEventModel.Event
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,38 +19,28 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
-import java.util.Date
+import kotlinx.coroutines.launch
 
 class EventReceiver private constructor(appContext: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val welcomeEvent: DataClasses.Event = DataClasses.Event(
-        function = "app",
-        eventCode = 1,
-        eventMessage = "Welcome to the Altcraft Android SDK test app!",
-        eventValue = null,
-        date = Date()
-    )
-
-    val events: SharedFlow<DataClasses.Event> =
+    val events: SharedFlow<Event> =
         callbackFlow {
-            AltcraftSDK.eventSDKFunctions.subscribe { event ->
+            AltcraftSDK.sdkEvents.subscription.subscribe { event ->
                 trySend(event).isSuccess
             }
             awaitClose {
-                AltcraftSDK.eventSDKFunctions.unsubscribe()
+                AltcraftSDK.sdkEvents.subscription.unsubscribe()
             }
-        }
-            .buffer(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-            .onStart { emit(welcomeEvent) }
+        }.buffer(capacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
             .shareIn(
                 scope = scope,
                 started = kotlinx.coroutines.flow.SharingStarted.Eagerly,
                 replay = 64
             )
+    //.onStart { emit(welcomeEvent) }
 
     companion object {
         @Volatile

@@ -2,9 +2,11 @@ package com.altcraft.altcraftmobile.providers.hms
 
 //  Created by Andrey Pogodin.
 //
-//  Copyright © 2025 Altcraft. All rights reserved.
+//  Copyright © 2026 Altcraft. All rights reserved.
 
+import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.sdk.AltcraftSDK
+import com.altcraft.sdk.push.push
 import com.huawei.hms.push.HmsMessageService
 import com.huawei.hms.push.RemoteMessage
 
@@ -31,7 +33,6 @@ class HMSService : HmsMessageService() {
      * @param message The received [RemoteMessage].
      */
     override fun onMessageReceived(message: RemoteMessage) {
-        AltcraftSDK.PushReceiver.takePush(this, message.dataOfMap)
+        AltcraftSDK.push.receiver.takePush(this, message.dataOfMap)
     }
 }
-
