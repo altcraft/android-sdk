@@ -34,6 +34,7 @@ internal class Environment private constructor(
     /** Authentication data provider. */
     val auth: AuthManager by lazy {
         AuthManager.create(
+            appContext,
             configReader = {
                 config()
             },

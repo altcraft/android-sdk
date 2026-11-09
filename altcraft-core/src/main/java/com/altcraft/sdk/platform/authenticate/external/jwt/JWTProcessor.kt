@@ -6,6 +6,7 @@ package com.altcraft.sdk.platform.authenticate.external.jwt
 
 import android.util.Base64
 import com.altcraft.sdk.data.Constants.MATCHING
+import com.altcraft.sdk.data.Constants.RTOKEN
 import com.altcraft.sdk.data.Constants.SHA256
 import com.altcraft.sdk.util.log.Log.error
 import com.altcraft.sdk.events.SDKException.exception
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
@@ -77,20 +79,35 @@ internal object JWTProcessor {
         )
 
     /**
+     * Extracts the role token from a JWT payload.
+     *
+     * @param jwt The JWT token string, may be `null`.
+     * @return The role token, or `null` if extraction fails.
+     */
+    internal fun extractRToken(jwt: String?): String? = try {
+        val payload = decodeJWTPayload(jwt ?: exception(CoreEvents.jwtTokenIsNull))
+        json.parseToJsonElement(payload ?: exception(CoreEvents.jwtDecodeFailed))
+            .jsonObject[RTOKEN]?.jsonPrimitive?.content
+    } catch (e: Exception) {
+        error("extractRToken", e)
+        null
+    }
+
+    /**
      * Extracts and parses the "matching" claim from a JWT token.
      *
      * @param jwt The JWT token string, may be `null`.
      * @return A deserialized [JWTMatching] object, or `null` if the token
      * cannot be processed or the "matching" claim is absent.
      */
-    internal fun getJWTPayload(jwt: String?): JWTMatching? = try {
+    internal fun getMatching(jwt: String?): JWTMatching? = try {
         val decodeJWT = decodeJWTPayload(jwt ?: exception(CoreEvents.jwtTokenIsNull))
         json.parseToJsonElement(decodeJWT ?: exception(CoreEvents.jwtDecodeFailed))
             .jsonObject[MATCHING]?.let {
             decodeJWTMatching(it)
         }
     } catch (e: Exception) {
-        error("getJWTPayload", e)
+        error("getMatching", e)
         null
     }
 
@@ -102,7 +119,7 @@ internal object JWTProcessor {
      * or `null` if the token cannot be processed.
      */
     internal fun createJWTHash(jwt: String?) = try {
-        val payload = getJWTPayload(jwt)?.asString() ?: exception(CoreEvents.matchingIdIsNull)
+        val payload = getMatching(jwt)?.asString() ?: exception(CoreEvents.matchingIdIsNull)
         MessageDigest.getInstance(SHA256).digest(payload.toByteArray()).joinToString("") {
             "%02x".format(it)
         }

@@ -11,12 +11,17 @@ import com.altcraft.sdk.coordination.ForegroundBarrier.foreground
 import com.altcraft.sdk.coordination.SDKScope
 import com.altcraft.sdk.core.Init
 import com.altcraft.sdk.data.Constants.RETRY_START_TIMEOUT
+import com.altcraft.sdk.events.CoreEvents.rTokenChange
+import com.altcraft.sdk.platform.authenticate.external.RTokenChange
 import com.altcraft.sdk.util.log.Log.error
+import com.altcraft.sdk.util.log.Log.event
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.jvm.Volatile
@@ -166,16 +171,38 @@ object ModuleRegistry {
     /**
      * Executes core and module initialization without the foreground gate.
      *
-     * Notifies core lifecycle and all modules whose configuration was
-     * successfully applied that Altcraft SDK core has been initialized.
-     * An error in one module does not prevent initialization
-     * of the remaining ready modules.
+     * Re-checks the role token first (a change missed at configuration time
+     * because the JWT was not yet available settles here, before any module
+     * initialization), notifies core lifecycle and all modules whose
+     * configuration was successfully applied that Altcraft SDK core has been
+     * initialized, and re-runs the module initialization phase once when a
+     * role-token change was delivered while the phase was running (the JWT
+     * became available mid-dispatch), so its data processing happens after
+     * the last completed change notification. An error in one module does
+     * not prevent initialization of the remaining ready modules.
      *
      * @param context Application context.
      */
     internal suspend fun notifyInitializedInternal(context: Context) {
+        RTokenChange.checkRTokenChangedFromInit(context)
+
         ModuleLifecycle.onSdkInitialized(context)
 
+        val notificationsBefore = RTokenChange.notificationCount()
+
+        runModulesInit(context)
+
+        if (RTokenChange.hasChangedSince(notificationsBefore)) {
+            runModulesInit(context)
+        }
+    }
+
+    /**
+     * Runs the initialization phase of every ready module.
+     *
+     * @param context Application context.
+     */
+    private suspend fun runModulesInit(context: Context) {
         for (moduleId in readyModules) {
             try {
                 modules[moduleId]?.onSdkInitialized(
@@ -289,25 +316,37 @@ object ModuleRegistry {
      * Notifies the core and all registered modules that the SDK RToken
      * has changed.
      *
-     * An error in one module does not prevent notification
-     * of the remaining registered modules.
+     * Runs to completion even if the caller is cancelled. This matters when
+     * the change is detected from inside a running worker: the notification
+     * chain cancels the triggering worker itself, and without this guarantee
+     * the resulting cancellation would abort the remaining modules and leave
+     * the new RToken unsaved.
+     *
+     * A failure in one module, including its internal cancellation,
+     * does not prevent notification of the remaining registered modules.
      *
      * @param context Application context.
      */
-    internal suspend fun notifyRTokenChanged(context: Context) {
-        ModuleLifecycle.onSdkRTokenChanged(context)
+    internal suspend fun notifyRTokenChanged(context: Context) = withContext(
+        NonCancellable
+    ) {
+        val func = "notifyRTokenChanged"
+        event(func, rTokenChange)
 
-        for (module in modules.values) {
-            try {
-                module.onSdkRTokenChanged(context)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                error(
-                    "onSdkRTokenChanged: ${module.moduleId}",
-                    e
-                )
-            }
+        try {
+            ModuleLifecycle.onSdkRTokenChanged(context)
+        } catch (e: CancellationException) {
+            error(func, e)
+        } catch (e: Exception) {
+            error(func, e)
+        }
+
+        for (module in modules.values) try {
+            module.onSdkRTokenChanged(context)
+        } catch (e: CancellationException) {
+            error(func, e)
+        } catch (e: Exception) {
+            error(func, e)
         }
     }
 }

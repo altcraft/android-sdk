@@ -144,11 +144,13 @@ internal object InAppVariables {
     }
 
     /**
-     * Clears all session-scoped In-App state and counters.
+     * Clears session-scoped display counters.
+     *
+     * The current screen is preserved: screen state is owned by
+     * the application and survives SDK data clears and RToken changes.
      */
     @Synchronized
     fun reset() {
-        currentScreen = null
         openBySession = 0
         triggerBySessionDefault.clear()
         triggerBySessionCustom.clear()

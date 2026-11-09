@@ -12,7 +12,6 @@ import com.altcraft.sdk.inapp.data.Constants.MESSAGE
 import com.altcraft.sdk.inapp.data.Constants.NAME
 import com.altcraft.sdk.inapp.data.Constants.SMID
 import com.altcraft.sdk.inapp.data.Constants.TIME
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 

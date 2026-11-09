@@ -10,7 +10,6 @@ import androidx.work.WorkerParameters
 import com.altcraft.sdk.inapp.util.Log.error
 import com.altcraft.sdk.inapp.data.Constants.ONE_TIME_WORKER_TAGS
 import com.altcraft.sdk.inapp.platform.event.EventProcess
-import com.altcraft.sdk.inapp.platform.placements.PlacementsProcess.requestPlacements
 import com.altcraft.sdk.inapp.platform.static.StaticProcess
 import com.altcraft.sdk.inapp.platform.subscription.subscribe.SubscriptionProcess
 import com.altcraft.sdk.util.SubFunction.isAppInForegrounded
@@ -36,7 +35,6 @@ internal class PeriodicWorker(
         return try {
             if (!isAppInForegrounded()) {
                 cancelWorkerTask(context, ONE_TIME_WORKER_TAGS)
-                requestPlacements(context, workerReq = true)
                 SubscriptionProcess.isRetry(context)
                 StaticProcess.loadStatic(context)
                 EventProcess.isRetry(context)

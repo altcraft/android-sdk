@@ -109,7 +109,7 @@ internal object TokenManager {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("getCurrentToken", e)
+            error("getCurrentPushToken", e)
             null
         }.also { token ->
             tokenEvent(token)
@@ -321,7 +321,7 @@ internal object TokenManager {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("providerChange", e)
+            error("changePriority", e)
         }
     }
 }

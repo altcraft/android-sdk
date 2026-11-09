@@ -7,6 +7,7 @@ package com.altcraft.sdk.inapp.config
 import com.altcraft.sdk.core.modules.ModuleConfiguration
 import com.altcraft.sdk.events.SDKException.exception
 import com.altcraft.sdk.inapp.data.Constants.MODULE_NAME
+import com.altcraft.sdk.inapp.data.Constants.PLACEMENTS_REQ_MIN_INTERVAL_MS
 import com.altcraft.sdk.inapp.data.room.entity.InAppConfigEntity
 import com.altcraft.sdk.inapp.events.ModuleEvents
 import kotlin.time.Duration
@@ -33,6 +34,9 @@ internal class InAppConfiguration(
      *
      * A new automatic request is not sent while this interval has
      * not yet elapsed since the last successful request.
+     *
+     * The same interval drives the periodic placements refresh worker.
+     * The minimum allowed value is 15 minutes.
      */
     val placementsRequestInterval: Duration,
 
@@ -58,9 +62,9 @@ internal class InAppConfiguration(
     val maxPlacementsSizeInvalid = maxPlacements < 1
 
     /**
-     * `true` when [placementsRequestInterval] is non-positive.
+     * `true` when [placementsRequestInterval] is below the 15-minute minimum.
      */
-    val requestIntervalInvalid = placementsRequestIntervalMs <= 0L
+    val requestIntervalInvalid = placementsRequestIntervalMs < PLACEMENTS_REQ_MIN_INTERVAL_MS
 
     /**
      * Indicates whether the in-app configuration is valid.

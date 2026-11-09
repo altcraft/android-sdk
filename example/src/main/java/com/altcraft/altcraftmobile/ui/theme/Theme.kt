@@ -4,7 +4,6 @@ package com.altcraft.altcraftmobile.ui.theme
 //
 //  Copyright © 2026 Altcraft. All rights reserved.
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

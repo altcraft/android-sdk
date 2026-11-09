@@ -5,6 +5,7 @@ package com.altcraft.sdk.profile.infra.module
 //  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.sdk.profile.data.Constants.ONE_TIME_WORKER_TAGS
 import com.altcraft.sdk.profile.util.Log.error
 import com.altcraft.sdk.profile.data.Constants.PROFILE_P_WORK_TAG
 import com.altcraft.sdk.profile.data.Constants.WORKER_TAGS
@@ -50,9 +51,7 @@ internal object ModuleLifecycle {
      */
     suspend fun onSdkClear(context: Context) {
         try {
-            cancelWorkerTask(
-                context, WORKER_TAGS
-            )
+            cancelWorkerTask(context, WORKER_TAGS)
             Environment.create(context).room.clear()
         } catch (e: CancellationException) {
             throw e
@@ -65,11 +64,14 @@ internal object ModuleLifecycle {
     }
 
     /**
-     * Handles an SDK RToken change.
+     * Handles an SDK RToken change in the Profile module.
+     *
+     * Cancels one-time workers and removes all persisted profile data.
      *
      * @param context Application context.
      */
-    fun onSdkRTokenChanged(context: Context) = try {
+    suspend fun onSdkRTokenChanged(context: Context) = try {
+        cancelWorkerTask(context, ONE_TIME_WORKER_TAGS)
         Environment.create(context).room.clear()
     } catch (e: Exception) {
         error(

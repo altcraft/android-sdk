@@ -34,10 +34,12 @@ import kotlin.time.ExperimentalTime
  *
  * Negative scenarios:
  *  - test_4: maxPlacements of 0 sets maxPlacementsIsBelowOne to true.
- *  - test_7: a negative placementsRequestInterval sets the flag.
- *  - test_10: zero placementsRequestInterval sets the flag.
+ *  - test_7: a negative placementsRequestInterval sets the flag (below the 15-minute minimum).
+ *  - test_10: zero placementsRequestInterval sets the flag (below the 15-minute minimum).
  *  - test_11: error() with maxPlacements < 1 throws the correct event.
- *  - test_12: error() with interval <= 0 throws the correct event.
+ *  - test_12: error() with an interval below the minimum throws the correct event.
+ *  - test_13: an interval below the 15-minute minimum sets the flag.
+ *  - test_14: an interval of exactly 15 minutes is valid.
  */
 @OptIn(ExperimentalTime::class)
 class InAppConfigurationDefaultsTest {
@@ -118,7 +120,7 @@ class InAppConfigurationDefaultsTest {
     fun test_6_validForCustomValidConfig() {
         val config = InAppConfiguration(
             inAppAutoRequest = false,
-            placementsRequestInterval = 10.minutes,
+            placementsRequestInterval = 20.minutes,
             maxPlacements = 300
         )
 
@@ -170,9 +172,9 @@ class InAppConfigurationDefaultsTest {
         }
     }
 
-    /** test_12: error() with interval <= 0 throws the interval event. */
+    /** test_12: error() with an interval below the minimum throws the interval event. */
     @Test
-    fun test_12_error_intervalNonPositive_correctEvent() {
+    fun test_12_error_intervalBelowMinimum_correctEvent() {
         val config = InAppConfiguration(
             inAppAutoRequest = true,
             placementsRequestInterval = (-5).minutes,
@@ -185,5 +187,32 @@ class InAppConfigurationDefaultsTest {
         } catch (e: SDKException.SDKException) {
             assertEquals(ModuleEvents.requestIntervalInvalid.message, e.message)
         }
+    }
+
+    /** test_13: an interval below the 15-minute minimum sets the flag. */
+    @Test
+    fun test_13_intervalBelowMinimum_setsInvalidFlag() {
+        val config = InAppConfiguration(
+            inAppAutoRequest = true,
+            placementsRequestInterval = 14.minutes,
+            maxPlacements = DEFAULT_MAX_PLACEMENTS
+        )
+
+        assertFalse(config.valid)
+        assertTrue(config.requestIntervalInvalid)
+        assertFalse(config.maxPlacementsSizeInvalid)
+    }
+
+    /** test_14: an interval of exactly 15 minutes is valid. */
+    @Test
+    fun test_14_minInterval_isValid() {
+        val config = InAppConfiguration(
+            inAppAutoRequest = true,
+            placementsRequestInterval = 15.minutes,
+            maxPlacements = DEFAULT_MAX_PLACEMENTS
+        )
+
+        assertTrue(config.valid)
+        assertFalse(config.requestIntervalInvalid)
     }
 }

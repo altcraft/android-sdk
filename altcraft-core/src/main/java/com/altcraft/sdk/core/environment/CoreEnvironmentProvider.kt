@@ -75,6 +75,19 @@ object CoreEnvironmentProvider {
         .isNullOrEmpty()
 
     /**
+     * Returns whether a role token exists in the system.
+     *
+     * Unlike [usesRToken], the check also covers a role token
+     * obtained from the JWT payload.
+     *
+     * @return `true` if a role token exists; `false` otherwise.
+     */
+    suspend fun existRToken() = createEnvironment()
+        .auth
+        .external
+        .existRToken()
+
+    /**
      * Returns the current application version from the SDK configuration.
      *
      * @return Current application version, or `null` if it is not set.

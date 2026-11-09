@@ -1,14 +1,17 @@
+
 package com.altcraft.sdk.platform.authenticate
 
 //  Created by Andrey Pogodin.
 //
 //  Copyright © 2026 Altcraft. All rights reserved.
 
+import android.content.Context
 import com.altcraft.sdk.data.room.entities.AuthenticationEntity
 import com.altcraft.sdk.data.room.entities.ConfigurationEntity
 import com.altcraft.sdk.events.CoreEvents
 import com.altcraft.sdk.events.SDKException.exception
 import com.altcraft.sdk.platform.authenticate.external.ExternalAuth
+import com.altcraft.sdk.platform.authenticate.external.RTokenChange
 import com.altcraft.sdk.platform.authenticate.external.jwt.JWTProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -21,10 +24,12 @@ import kotlinx.coroutines.withContext
  * External and internal authentication data are loaded independently
  * only when requested. Neither access blocks the calling thread.
  *
+ * @param context Application context.
  * @param configReader Loads the current SDK configuration.
  * @param internalReader Loads the current internal authentication state.
  */
 internal class AuthManager private constructor(
+    private val context: Context,
     private val configReader: suspend () -> ConfigurationEntity,
     private val internalReader: suspend () -> AuthenticationEntity?,
 ) {
@@ -34,7 +39,13 @@ internal class AuthManager private constructor(
         configReader = configReader,
         jwtReader = {
             withContext(Dispatchers.IO) {
-                JWTProvider.getJWT()
+                JWTProvider.getJWT().also { jwt ->
+                    if (jwt != null) RTokenChange
+                        .checkRTokenChangedFromJWT(
+                        context = context,
+                        jwt = jwt
+                    )
+                }
             }
         }
     )
@@ -54,9 +65,9 @@ internal class AuthManager private constructor(
      */
     suspend fun internal(): AuthenticationEntity = internalMutex.withLock {
         cachedInternal ?: internalReader()?.also { cachedInternal = it }
-            ?: exception(
-                CoreEvents.internalAuthIsNull
-            )
+        ?: exception(
+            CoreEvents.internalAuthIsNull
+        )
     }
 
     companion object {
@@ -64,14 +75,17 @@ internal class AuthManager private constructor(
         /**
          * Creates a new [AuthManager] instance.
          *
+         * @param context Application context.
          * @param configReader Loads the current SDK configuration.
          * @param internalReader Loads the current internal authentication state.
          * @return A new [AuthManager] instance.
          */
         fun create(
+            context: Context,
             configReader: suspend () -> ConfigurationEntity,
             internalReader: suspend () -> AuthenticationEntity?,
         ) = AuthManager(
+            context = context.applicationContext,
             configReader = configReader,
             internalReader = internalReader
         )

@@ -14,7 +14,6 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
-import org.json.JSONObject
 
 object Converter {
 

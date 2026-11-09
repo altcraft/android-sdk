@@ -5,6 +5,7 @@ package com.altcraft.sdk.target.infra.module
 //  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
+import com.altcraft.sdk.target.data.Constants.ONE_TIME_WORKER_TAGS
 import com.altcraft.sdk.target.infra.Environment
 import com.altcraft.sdk.target.platform.target.TargetProcess
 import com.altcraft.sdk.target.data.Constants.TARGET_P_WORK_TAG
@@ -63,11 +64,14 @@ internal object ModuleLifecycle {
     }
 
     /**
-     * Handles an SDK rToken change.
+     * Handles an SDK RToken change in the Target module.
+     *
+     * Cancels one-time workers and removes all persisted target data.
      *
      * @param context Application context.
      */
-    fun onSdkRTokenChanged(context: Context) = try {
+    suspend fun onSdkRTokenChanged(context: Context) = try {
+        cancelWorkerTask(context, ONE_TIME_WORKER_TAGS)
         Environment.create(context).room.clear()
     } catch (e: Exception) {
         error(

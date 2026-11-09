@@ -18,7 +18,7 @@ Altcraft Android SDK is a library for interacting with the **Altcraft Marketing 
 The core is the foundation of the SDK: it connects your application to the Altcraft platform and makes the optional modules available.
 
 * [x] SDK initialization and configuration.
-* [x] Authentication with JWT or a role token (*rToken*).
+* [x] Authentication with JWT or a role token (*RToken*).
 * [x] Works with anonymous and registered users; supports multiple profiles on one device (JWT).
 * [x] Transmission of requests to the platform with automatic retry of failed requests.
 * [x] SDK event stream for monitoring SDK behavior in the app.
@@ -67,14 +67,14 @@ Altcraft Android SDK modules are available on Maven Central. Add the modules use
 
 ```kotlin
 dependencies {
-    implementation("com.altcraft:android-sdk-push:1.0.0")
-    implementation("com.altcraft:android-sdk-inapp:1.0.0")
-    implementation("com.altcraft:android-sdk-target:1.0.0")
-    implementation("com.altcraft:android-sdk-profile:1.0.0")
+    implementation("com.altcraft:android-sdk-push:1.0.1")
+    implementation("com.altcraft:android-sdk-inapp:1.0.1")
+    implementation("com.altcraft:android-sdk-target:1.0.1")
+    implementation("com.altcraft:android-sdk-profile:1.0.1")
 }
 ```
 
-If you only need Core, add `implementation("com.altcraft:android-sdk-core:1.0.0")` directly.
+If you only need Core, add `implementation("com.altcraft:android-sdk-core:1.0.1")` directly.
 
 ---
 

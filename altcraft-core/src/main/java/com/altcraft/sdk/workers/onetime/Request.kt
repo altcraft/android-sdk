@@ -148,7 +148,7 @@ object Request {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("requestReplaced", e)
+            error("hasNewRequest", e)
             false
         }
     }

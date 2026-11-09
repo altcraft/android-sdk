@@ -12,14 +12,26 @@ import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.InApp
 import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.InAppTrigger
 import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.TimePeriod
 import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.TimePoint
+import com.altcraft.sdk.inapp.events.ModuleEvents
 import com.altcraft.sdk.inapp.platform.subscription.subscribe.SubscriptionProcess.getInAppSubscriptionStatus
 import com.altcraft.sdk.inapp.infra.Environment
 import com.altcraft.sdk.inapp.system.presentation.InAppVariables.getCurrentScreen
 import com.altcraft.sdk.inapp.system.presentation.InAppVariables.getOpenBySession
 import com.altcraft.sdk.inapp.system.presentation.InAppVariables.getTriggerCount
+import com.altcraft.sdk.inapp.util.Log.event
 import java.util.Calendar
 import java.util.TimeZone
 import kotlin.collections.contains
+import com.altcraft.sdk.inapp.data.Constants.CAN_SHOW
+import com.altcraft.sdk.inapp.data.Constants.CHECK_KEY
+import com.altcraft.sdk.inapp.data.Constants.RTOKEN_CHECK
+import com.altcraft.sdk.inapp.data.Constants.AVAILABILITY_CHECK
+import com.altcraft.sdk.inapp.data.Constants.DEADLINE_CHECK
+import com.altcraft.sdk.inapp.data.Constants.ORIENTATION_CHECK
+import com.altcraft.sdk.inapp.data.Constants.COMMON_POLICY_CHECK
+import com.altcraft.sdk.inapp.data.Constants.SUB_STATUS_CHECK
+import com.altcraft.sdk.inapp.data.Constants.PERSONAL_POLICY_CHECK
+import com.altcraft.sdk.inapp.data.Constants.TRIGGER_KEY
 
 /**
  * Collection of checks that determine whether an In-App campaign
@@ -30,30 +42,78 @@ internal object Check {
     /**
      * Checks common runtime conditions required to display an In-App campaign.
      *
+     * Emits an SDK event identifying the first failed check if the campaign
+     * cannot be displayed. Subsequent checks are skipped after a failure.
+     *
      * @param context Application context.
      * @param inApp In-App campaign to check.
      * @param trigger Trigger associated with the campaign.
      *
-     * @return `true` if all runtime display conditions are satisfied.
+     * @return `true` if all runtime display conditions are satisfied,
+     * or `false` if any check fails.
      */
     suspend fun canShow(
         context: Context,
         inApp: InApp,
         trigger: InAppTrigger
     ): Boolean {
-        return Availability.canShow(
-            inApp
-        ) && Deadline.canShow(
-            context, inApp
-        ) && Orientation.canShow(
-            context
-        ) && CommonPolicy.canShow(
-            context, inApp, trigger
-        ) && SubStatusCheck.canShow(
-            context, inApp
-        ) && PersonalPolicy.canShow(
-            context, inApp
-        )
+        suspend fun check(
+            name: String,
+            condition: suspend () -> Boolean
+        ): Boolean {
+            if (!condition()) {
+                event(
+                    CAN_SHOW,
+                    ModuleEvents.inAppCanShowFailed,
+                    logValue = mapOf(
+                        CHECK_KEY to name, TRIGGER_KEY to trigger.name
+                    ),
+                    eventValue = mapOf(
+                        CHECK_KEY to name, TRIGGER_KEY to trigger.name
+                    )
+                )
+                return false
+            }
+            return true
+        }
+
+        return check(RTOKEN_CHECK) {
+            RToken.canShow(context)
+        } && check(AVAILABILITY_CHECK) {
+            Availability.canShow(inApp)
+        } && check(DEADLINE_CHECK) {
+            Deadline.canShow(context, inApp)
+        } && check(ORIENTATION_CHECK) {
+            Orientation.canShow(context)
+        } && check(COMMON_POLICY_CHECK) {
+            CommonPolicy.canShow(context, inApp, trigger)
+        } && check(SUB_STATUS_CHECK) {
+            SubStatusCheck.canShow(context, inApp)
+        } && check(PERSONAL_POLICY_CHECK) {
+            PersonalPolicy.canShow(context, inApp)
+        }
+    }
+
+    /**
+     * Role-token presence checks.
+     */
+    object RToken {
+
+        /**
+         * Checks whether a role token exists in the system.
+         *
+         * In-App campaigns are not allowed to be displayed
+         * when the SDK has no role token available.
+         *
+         * @param context Application context used to access the SDK environment.
+         *
+         * @return `true` if a role token exists; `false` otherwise.
+         */
+        suspend fun canShow(
+            context: Context
+        ): Boolean {
+            return Environment.create(context).existRToken()
+        }
     }
 
     /**

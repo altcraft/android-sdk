@@ -6,6 +6,7 @@ package com.altcraft.sdk.inapp.util
 
 import com.altcraft.sdk.util.SubFunction.isAppInForegrounded
 import kotlinx.coroutines.delay
+import kotlin.math.ceil
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -22,4 +23,11 @@ internal object Utils {
     suspend fun awaitInBackground() {
         if (!isAppInForegrounded()) delay(1.5.seconds)
     }
+
+    /**
+     * Converts milliseconds to whole minutes, rounding up.
+     *
+     * @return Duration in minutes.
+     */
+    internal fun Long.toMinutesCeil(): Long = ceil(this / 60000.0).toLong()
 }

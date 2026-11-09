@@ -16,9 +16,11 @@ import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.PlacementOption
 import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.Policy
 import com.altcraft.sdk.inapp.data.models.InAppModels.InAppModel.TriggerType
 import com.altcraft.sdk.inapp.data.room.dao.InAppDao
+import com.altcraft.sdk.inapp.system.policy.Check
 import com.altcraft.sdk.inapp.system.policy.Check.CommonPolicy
 import com.altcraft.sdk.inapp.system.policy.Check.Deadline
 import com.altcraft.sdk.inapp.system.policy.Check.PersonalPolicy
+import com.altcraft.sdk.inapp.system.policy.Check.RToken
 import com.altcraft.sdk.inapp.system.policy.Check.SubStatusCheck
 import com.altcraft.sdk.inapp.system.policy.Check.Version
 import com.altcraft.sdk.inapp.platform.subscription.subscribe.SubscriptionProcess
@@ -50,6 +52,8 @@ import org.junit.Test
  *  - test_15: Version.canShow() returns true when app version matches condition.
  *  - test_17: SubStatusCheck.canShow() returns true for anonymous in-app.
  *  - test_18: SubStatusCheck.canShow() returns true when user is subscribed.
+ *  - test_20: RToken.canShow() returns true when a role token exists.
+ *  - test_22: Check.canShow() returns true when a role token exists.
  *
  * Negative scenarios:
  *  - test_3: CommonPolicy.canShow() returns false when trigger limit is exceeded.
@@ -59,6 +63,8 @@ import org.junit.Test
  *  - test_13: Deadline.canShow() returns false when deadline is in the past.
  *  - test_16: Version.canShow() returns false when app version does not match condition.
  *  - test_19: SubStatusCheck.canShow() returns false when user is not subscribed.
+ *  - test_21: RToken.canShow() returns false when a role token is missing.
+ *  - test_23: Check.canShow() returns false when a role token is missing.
  */
 class CheckPolicyTest {
 
@@ -427,5 +433,73 @@ class CheckPolicyTest {
         )
 
         assertFalse(SubStatusCheck.canShow(context, inApp))
+    }
+
+    /** test_20: RToken.canShow() returns true when a role token exists. */
+    @Test
+    fun test_20_rToken_exists_returnsTrue() = runTest {
+        mockkObject(Environment.Companion)
+        val env = mockk<Environment>(relaxed = true)
+        every { Environment.create(any()) } returns env
+        coEvery { env.existRToken() } returns true
+
+        assertTrue(RToken.canShow(context))
+    }
+
+    /** test_21: RToken.canShow() returns false when a role token is missing. */
+    @Test
+    fun test_21_rToken_missing_returnsFalse() = runTest {
+        mockkObject(Environment.Companion)
+        val env = mockk<Environment>(relaxed = true)
+        every { Environment.create(any()) } returns env
+        coEvery { env.existRToken() } returns false
+
+        assertFalse(RToken.canShow(context))
+    }
+
+    /** test_22: Check.canShow() returns true when a role token exists. */
+    @Test
+    fun test_22_canShow_rTokenPresent_returnsTrue() = runTest {
+        mockkObject(Environment.Companion)
+        val env = mockk<Environment>(relaxed = true)
+        val db = mockk<com.altcraft.sdk.inapp.data.room.DB>(relaxed = true)
+        val dao = mockk<InAppDao>(relaxed = true)
+        every { Environment.create(any()) } returns env
+        every { env.room } returns db
+        every { db.dao.inApp } returns dao
+        coEvery { dao.getOpenCount(any()) } coAnswers { 0 }
+        coEvery { env.existRToken() } returns true
+
+        val inApp = InApp(
+            companyId = 1, smid = "s1", type = InAppContentType.CUSTOM,
+            contentUrl = "", checksum = "",
+            options = PlacementOptions(endTime = 0, isAnonim = true),
+            deadline = 0, lastCompanyUpdate = 0
+        )
+
+        assertTrue(Check.canShow(context, inApp, trigger()))
+    }
+
+    /** test_23: Check.canShow() returns false when a role token is missing. */
+    @Test
+    fun test_23_canShow_rTokenMissing_returnsFalse() = runTest {
+        mockkObject(Environment.Companion)
+        val env = mockk<Environment>(relaxed = true)
+        val db = mockk<com.altcraft.sdk.inapp.data.room.DB>(relaxed = true)
+        val dao = mockk<InAppDao>(relaxed = true)
+        every { Environment.create(any()) } returns env
+        every { env.room } returns db
+        every { db.dao.inApp } returns dao
+        coEvery { dao.getOpenCount(any()) } coAnswers { 0 }
+        coEvery { env.existRToken() } returns false
+
+        val inApp = InApp(
+            companyId = 1, smid = "s1", type = InAppContentType.CUSTOM,
+            contentUrl = "", checksum = "",
+            options = PlacementOptions(endTime = 0, isAnonim = true),
+            deadline = 0, lastCompanyUpdate = 0
+        )
+
+        assertFalse(Check.canShow(context, inApp, trigger()))
     }
 }

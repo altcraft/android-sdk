@@ -146,7 +146,7 @@ object SubscriptionAPI {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("unSuspendPushSubscription", e)
+            error("unSuspend", e)
             null
         }
     }

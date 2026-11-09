@@ -105,7 +105,7 @@ internal abstract class DB : RoomDatabase() {
             cause: Exception
         ): DB {
             error(
-                "buildDb",
+                "recreateDb",
                 CoreEvents.roomMigrationError,
                 mapOf(ERROR_KEY to cause.message)
             )

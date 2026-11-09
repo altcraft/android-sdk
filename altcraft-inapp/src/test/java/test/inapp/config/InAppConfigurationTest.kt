@@ -144,7 +144,7 @@ class InAppConfigurationTest {
 
         val config = InAppConfiguration(
             inAppAutoRequest = false,
-            placementsRequestInterval = 10.minutes,
+            placementsRequestInterval = 15.minutes,
             maxPlacements = 300
         )
         ConfigManager.setConfig(context, config)
@@ -153,7 +153,7 @@ class InAppConfigurationTest {
             InAppConfigEntity(
                 id = 0,
                 inAppAutoRequest = false,
-                placementsRequestInterval = 10.minutes.toLong(DurationUnit.MILLISECONDS),
+                placementsRequestInterval = 15.minutes.toLong(DurationUnit.MILLISECONDS),
                 maxPlacements = 300
             )
         ) }
@@ -161,7 +161,7 @@ class InAppConfigurationTest {
         val loaded = ConfigManager.getConfig(context)
 
         assertFalse(loaded.inAppAutoRequest)
-        assertEquals(10.minutes.toLong(DurationUnit.MILLISECONDS), loaded.placementsRequestInterval)
+        assertEquals(15.minutes.toLong(DurationUnit.MILLISECONDS), loaded.placementsRequestInterval)
         assertEquals(300, loaded.maxPlacements)
     }
 

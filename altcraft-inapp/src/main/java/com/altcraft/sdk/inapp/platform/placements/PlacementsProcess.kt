@@ -6,12 +6,12 @@ package com.altcraft.sdk.inapp.platform.placements
 
 import android.content.Context
 import com.altcraft.sdk.coordination.CommandQueue.SerialCommandQueue
+import com.altcraft.sdk.coordination.InitBarrier
 import com.altcraft.sdk.coordination.submitSdkCommand
 import com.altcraft.sdk.data.models.retry
 import com.altcraft.sdk.inapp.data.Constants.IN_APP_PLACEMENTS_O_WORK_TAG
 import com.altcraft.sdk.inapp.data.Constants.IN_APP_PLACEMENTS_QUEUE
 import com.altcraft.sdk.inapp.data.models.InAppModels.ResponseModel.ResponseWithInApps
-import com.altcraft.sdk.inapp.data.room.entity.InAppDbModel
 import com.altcraft.sdk.inapp.data.room.entity.InAppsEntity
 import com.altcraft.sdk.inapp.platform.event.EventProcess.sendInAppEvent
 import com.altcraft.sdk.inapp.platform.placements.request.PlacementsRequest.inAppPlacementsRequest
@@ -54,6 +54,8 @@ internal object PlacementsProcess {
      *
      * Re-armed by [reset] when the SDK clears in-app data, so triggers
      * scheduled after the clear wait for the next placements request.
+     * Waiters released by [reset] re-park on the newly installed gate
+     * and proceed only when fresh placement data is saved.
      */
     @Volatile
     var placementsReady = CompletableDeferred<Unit>()
@@ -62,9 +64,9 @@ internal object PlacementsProcess {
     /**
      * Rearms the placements readiness gate.
      *
-     * Trigger workers parked on the previous gate are released, and a new
-     * gate is installed so subsequent triggers wait for the next
-     * placements request.
+     * The previous gate is completed to release parked workers, and a new
+     * gate is installed so released workers and subsequent triggers wait
+     * for the next placements request before acting on wiped data.
      */
     fun reset() {
         val previous = placementsReady
@@ -73,59 +75,102 @@ internal object PlacementsProcess {
     }
 
     /**
-     * Stores in-app placements request data and starts background processing.
+     * Checks whether an in-app placements request should be performed.
      *
-     * Automatic requests are skipped when the in-app module configuration
-     * disables `inAppAutoRequest`. A manual user request (`userReq = true`)
-     * always proceeds regardless of the flag value.
+     * Automatic requests are skipped when `inAppAutoRequest` is disabled.
+     * Manual requests (`now = true`) bypass this restriction.
      *
-     * When the automatic request is skipped, placements are immediately
-     * marked ready so queued in-app triggers are not left waiting for a
-     * request that will never happen.
+     * Clears stored in-app data when the current authentication changes.
+     * Otherwise, checks the configured request interval unless the request
+     * is manual, test mode is active, or the maximum placements has changed.
+     *
+     * @param env SDK environment.
+     * @param now Whether the request should bypass automatic restrictions.
+     * @return `true` if placements should be requested; `false` otherwise.
+     */
+    private suspend fun shouldRequestPlacements(
+        env: Environment,
+        now: Boolean
+    ): Boolean {
+        if (!env.config().inAppAutoRequest
+            && !now
+        ) {
+            placementsReady()
+            return false
+        }
+
+        val inAppsDao = env.room.dao.inApps
+        val inAppDao = env.room.dao.inApp
+        val auth = env.internalAuth()
+        val state = inAppsDao.get()
+
+        if (state?.acid != auth.acid ||
+            state.deviceId != auth.deviceId
+        ) {
+            inAppDao.clearInAppData()
+            inAppsDao.clearInAppsData()
+        } else if (
+            !now && !auth.isTest
+            && !maxPlacementsChanged.get()
+            && isRequestTooEarly(
+                state,
+                env.config()
+                    .placementsRequestInterval
+            )
+        ) return false
+
+        maxPlacementsChanged.set(false)
+        return true
+    }
+
+    /**
+     * Checks in-app placements request conditions and starts background processing.
+     *
+     * Used by the public API and module lifecycle. Manual requests
+     * (`now = true`) bypass automatic request restrictions.
      *
      * @param context Application context.
      */
     fun requestPlacements(
         context: Context,
-        userReq: Boolean = false,
-        workerReq: Boolean = false,
+        now: Boolean = false
     ) {
         submitSdkCommand(
             context, FUNCTION, mutex, queue, null
         ) {
             val env = Environment.create(context)
 
-            if (!env.config().inAppAutoRequest
-                && !userReq
-            ) {
-                placementsReady()
+            if (!shouldRequestPlacements(env, now))
                 return@submitSdkCommand
-            }
-            val inAppsDao = env.room.dao.inApps
-            val inAppDao = env.room.dao.inApp
-            val auth = env.internalAuth()
-            val state = inAppsDao.get()
 
-            if (state?.acid != auth.acid ||
-                state.deviceId != auth.deviceId
-            ) {
-                inAppDao.clearInAppData()
-                inAppsDao.clearInAppsData()
-            } else if (
-                !userReq && !auth.isTest
-                && !maxPlacementsChanged.get()
-                && isRequestTooEarly(
-                    state,
-                    env.config()
-                        .placementsRequestInterval
-                )
-            ) return@submitSdkCommand
-
-            maxPlacementsChanged.set(false)
-            if (workerReq) logic(context, null)
-            else startWorker<PlacementsWorker>(
+            startWorker<PlacementsWorker>(
                 context, IN_APP_PLACEMENTS_O_WORK_TAG
             )
+        }
+    }
+
+    /**
+     * Requests in-app placements directly from WorkManager.
+     *
+     * Waits for SDK initialization and checks request conditions
+     * before executing processing without starting another worker.
+     *
+     * @param context Application context.
+     */
+    suspend fun requestPlacementsSuspend(
+        context: Context
+    ) {
+        val initGate = InitBarrier.current()
+        initGate.await()
+
+        mutex.withLock {
+            val env = Environment.create(context)
+            if (!shouldRequestPlacements(
+                    env, false
+                )
+            ) return@withLock
+
+            logic(context, null)
         }
     }
 
@@ -156,9 +201,11 @@ internal object PlacementsProcess {
      * 1. Loads the current in-app synchronization state or creates a default one.
      * 2. Requests actual in-app placements from backend.
      * 3. Stops processing early if retry is required and no newer request exists.
-     * 4. Saves and processes received in-app placements response.
-     * 5. Updates request timestamp when response body is empty.
-     * 6. Marks placements as ready for trigger processing.
+     * 4. Discards the response when the current user identity does not
+     *    match the identity the request was made with.
+     * 5. Saves and processes received in-app placements response.
+     * 6. Updates request timestamp when response body is empty.
+     * 7. Marks placements as ready for trigger processing.
      *
      * @param context Application context.
      * @param id Optional worker identifier.
@@ -195,6 +242,14 @@ internal object PlacementsProcess {
                 context, tag, id
             )
         }
+
+        // Discarding the response when the user identity
+        // changed while the request was in flight: saving
+        // it would resurrect data of the previous user.
+        val currentAuth = env.internalAuth()
+        if (state.acid != currentAuth.acid ||
+            state.deviceId != currentAuth.deviceId
+        ) return false
 
         // Processing successful backend response
         // and synchronizing local in-app data.

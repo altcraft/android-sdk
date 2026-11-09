@@ -86,15 +86,15 @@ internal object Init {
                     context = appContext
                 )
 
-                RTokenChange.notifyIfRTokenChanged(
-                    context = appContext,
-                    config = configuration
-                )
-
                 ConfigManager.setConfig(
                     context = appContext,
                     config = configuration
                 )
+
+                RTokenChange
+                    .checkRTokenChangedFromInit(
+                        context = appContext
+                    )
 
                 ModuleRegistry.configureModules(
                     context = appContext,

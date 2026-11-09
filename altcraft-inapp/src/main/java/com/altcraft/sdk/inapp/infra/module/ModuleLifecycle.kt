@@ -11,14 +11,20 @@ import com.altcraft.sdk.inapp.util.Log.error
 import com.altcraft.sdk.inapp.config.ConfigManager
 import com.altcraft.sdk.inapp.data.Constants.IN_APP_P_WORK_TAG
 import com.altcraft.sdk.inapp.data.Constants.MODULE_NAME
+import com.altcraft.sdk.inapp.data.Constants.ONE_TIME_WORKER_TAGS
+import com.altcraft.sdk.inapp.data.Constants.PLACEMENTS_P_WORK_TAG
 import com.altcraft.sdk.inapp.data.Constants.WORKER_TAGS
 import com.altcraft.sdk.inapp.data.Preferenses
+import com.altcraft.sdk.inapp.data.room.clearDataExceptConfig
 import com.altcraft.sdk.inapp.platform.event.EventProcess
 import com.altcraft.sdk.inapp.platform.placements.PlacementsProcess
+import com.altcraft.sdk.inapp.platform.placements.PlacementsProcess.requestPlacements
 import com.altcraft.sdk.inapp.platform.subscription.subscribe.SubscriptionProcess
 import com.altcraft.sdk.inapp.system.presentation.InAppVariables
 import com.altcraft.sdk.inapp.system.presentation.PresentationGate
+import com.altcraft.sdk.inapp.util.Utils.toMinutesCeil
 import com.altcraft.sdk.inapp.worker.PeriodicWorker
+import com.altcraft.sdk.inapp.worker.PlacementsPeriodicWorker
 import com.altcraft.sdk.workers.CancelWork.cancelWorkerTask
 import com.altcraft.sdk.workers.periodical.CommonFunctions.ensureWorker
 import kotlinx.coroutines.CancellationException
@@ -37,7 +43,8 @@ internal object ModuleLifecycle {
      * Initializes in-app module operations.
      *
      * Independent initialization tasks are executed concurrently:
-     * - ensures that required periodic workers are scheduled;
+     * - ensures that required periodic workers are scheduled (retry worker
+     *   and periodic placements refresh worker);
      * - processes pending subscription retries;
      * - processes pending in-app event retries;
      * - requests actual in-app placements.
@@ -61,6 +68,22 @@ internal object ModuleLifecycle {
                     operation = {
                         ensureWorker<PeriodicWorker>(
                             it, IN_APP_P_WORK_TAG
+                        )
+                    }
+                )
+
+                launchInit(
+                    context = context,
+                    moduleName = MODULE_NAME,
+                    operation = {
+                        val intervalMin = env.config()
+                            .placementsRequestInterval
+                            .toMinutesCeil()
+                        ensureWorker<PlacementsPeriodicWorker>(
+                            it,
+                            PLACEMENTS_P_WORK_TAG,
+                            repeatInterval = intervalMin,
+                            initialDelay = intervalMin
                         )
                     }
                 )
@@ -128,17 +151,27 @@ internal object ModuleLifecycle {
     }
 
     /**
-     * Clears pending subscriptions after an r-token change.
+     * Handles an SDK RToken change in the In-App module.
+     *
+     * Invalidates all pending presentations, resets session state,
+     * stops one-time workers, clears data bound to the previous RToken,
+     * re-arms the placements readiness gate, and requests fresh placements.
      *
      * @param context Application context.
      */
     suspend fun onSdkRTokenChanged(context: Context) {
         try {
+            PresentationGate.invalidate()
+            InAppVariables.reset()
+            cancelWorkerTask(
+                context,
+                ONE_TIME_WORKER_TAGS
+            )
             Environment.create(context)
                 .room
-                .dao
-                .subscribe
-                .deleteAll()
+                .clearDataExceptConfig()
+            PlacementsProcess.reset()
+            requestPlacements(context)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

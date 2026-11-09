@@ -53,7 +53,7 @@ internal object StaticRequest {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("loadStaticResources", e)
+            error("inAppStaticRequest", e)
             null
         }
     }

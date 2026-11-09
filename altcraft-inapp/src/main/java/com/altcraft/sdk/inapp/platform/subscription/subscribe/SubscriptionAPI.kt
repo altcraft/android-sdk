@@ -121,7 +121,7 @@ object SubscriptionAPI {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("getStatusForCurrentSubscription", e)
+            error("getSubscriptionStatus", e)
             null
         }
     }

@@ -51,6 +51,13 @@ internal class Environment private constructor(
      */
     suspend fun userTag() = CoreEnvironmentProvider.user()
 
+    /**
+     * Returns whether a role token exists in the system.
+     *
+     * @return `true` if a role token exists; `false` otherwise.
+     */
+    suspend fun existRToken() = CoreEnvironmentProvider.existRToken()
+
 
     companion object {
 

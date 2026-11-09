@@ -41,7 +41,7 @@ internal object UpdateFieldsRequest {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            retry("request", e)
+            retry("updateFieldsRequest", e)
         }
     }
 }

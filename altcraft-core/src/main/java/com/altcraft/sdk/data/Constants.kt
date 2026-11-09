@@ -23,7 +23,7 @@ internal object Constants {
 
     // SDK logs tag
     const val LOG_TAG = "altcraft_lib"
-    const val LOG_NULL = "this log return null"
+    const val LOG_NULL = "log message is null"
     const val PROVIDER_NOT_INITIALIZED =
         "Core Environment Provider is not initialized"
     const val LOG_HINT = "Altcraft SDK is integrated into the project. " +
@@ -37,6 +37,7 @@ internal object Constants {
     const val ANDROID_OS = "Android"
 
     //auth
+    const val RTOKEN = "rtoken"
     const val MATCHING = "matching"
 
     const val SHA256 = "SHA-256"

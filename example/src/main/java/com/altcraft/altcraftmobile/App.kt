@@ -13,9 +13,17 @@ import com.altcraft.altcraftmobile.providers.jwt.JWTProvider
 import com.altcraft.altcraftmobile.providers.rustore.RuStoreProvider
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.push.push
+import com.altcraft.sdk.config.AltcraftConfiguration
+import com.altcraft.sdk.data.models.CoreModels.PropertyModel.AppInfo
+import com.altcraft.sdk.inapp.config.inAppConfig
+import com.altcraft.sdk.profile.profile
+import com.altcraft.sdk.push.config.pushConfig
+import com.altcraft.sdk.target.data.models.TargetModels
+import com.altcraft.sdk.target.target
 import ru.rustore.sdk.pushclient.common.logger.DefaultLogger
 import ru.rustore.sdk.universalpush.RuStoreUniversalPushClient
 import ru.rustore.sdk.universalpush.rustore.providers.RuStorePushProvider
+import kotlin.time.Duration.Companion.minutes
 
 val icon = R.drawable.ic_altcraft_push_icon
 
@@ -62,7 +70,7 @@ class App : Application() {
             context = this,
             rustore = RuStorePushProvider(
                 application = this,
-                projectId = "your-rustore-project-id",
+                projectId = "your project id",
                 logger = DefaultLogger(tag = "rustore")
             )
         )
@@ -119,3 +127,4 @@ class App : Application() {
          */
     }
 }
+

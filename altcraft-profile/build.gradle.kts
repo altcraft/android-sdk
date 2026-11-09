@@ -42,9 +42,7 @@ ksp {
 
 dependencies {
 
-    //api(libs.altcraft.sdk.core)
     implementation(project(":altcraft-core"))
-
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.room.runtime)
@@ -87,7 +85,7 @@ mavenPublishing {
     publishToMavenCentral()
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk-profile", "1.0.0")
+    coordinates("com.altcraft", "android-sdk-profile", "1.0.1")
 
     pom {
         name = "Altcraft Android SDK Profile"

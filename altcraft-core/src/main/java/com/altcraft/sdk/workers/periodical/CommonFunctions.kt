@@ -61,7 +61,7 @@ object CommonFunctions {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error("getWorkState", e)
+            error("ensureWorker", e)
             null
         }
 

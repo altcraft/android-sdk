@@ -15,6 +15,7 @@ import com.altcraft.sdk.data.room.DB
 import com.altcraft.sdk.data.room.dao.ConfigurationDao
 import com.altcraft.sdk.data.room.entities.ConfigurationEntity
 import com.altcraft.sdk.core.modules.ModuleRegistry
+import com.altcraft.sdk.data.Preferences.setCurrentRToken
 import com.altcraft.sdk.platform.authenticate.external.RTokenChange
 import io.mockk.coVerify
 import io.mockk.every
@@ -164,11 +165,13 @@ class ConfigSetupInstrumentedEventsTest {
 
         val old = cfg(rToken = "rt-OLD")
         realConfigDao.insert(old)
+        setCurrentRToken(appContext, "rt-OLD")
 
-        val newConfig = mockk<AltcraftConfiguration>()
-        every { newConfig.rToken } returns "rt-NEW"
+        val updated = cfg(rToken = "rt-NEW")
+        realConfigDao.insert(updated)
+        ConfigManager.conf = updated
 
-        RTokenChange.notifyIfRTokenChanged(appContext, newConfig)
+        RTokenChange.checkRTokenChangedFromInit(appContext)
 
         coVerify(exactly = 1) { ModuleRegistry.notifyRTokenChanged(appContext) }
     }
@@ -181,11 +184,9 @@ class ConfigSetupInstrumentedEventsTest {
         val initial = cfg(rToken = "rt-SAME")
         realConfigDao.insert(initial)
         ConfigManager.conf = initial
+        setCurrentRToken(appContext, "rt-SAME")
 
-        val newConfig = mockk<AltcraftConfiguration>()
-        every { newConfig.rToken } returns "rt-SAME"
-
-        RTokenChange.notifyIfRTokenChanged(appContext, newConfig)
+        RTokenChange.checkRTokenChangedFromInit(appContext)
 
         coVerify(exactly = 0) { ModuleRegistry.notifyRTokenChanged(any()) }
     }

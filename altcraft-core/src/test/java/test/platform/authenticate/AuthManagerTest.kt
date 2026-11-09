@@ -54,6 +54,8 @@ private const val MSG_SHA256_MATCH = "Expected SHA-256 hash of JWTMatching.asStr
  * - test_3: JWT with matching string yields JWT header and its matching mode.
  * - test_8: user tag returns the provided rToken directly.
  * - test_9: user tag is SHA-256 of JWTMatching.asString() when rToken is null.
+ * - test_11: existRToken is true when rToken is provided.
+ * - test_12: existRToken is true when the JWT carries the rtoken claim.
  *
  * Negative scenarios:
  * - test_4: JWT is accepted even when the matching mode is empty.
@@ -61,6 +63,7 @@ private const val MSG_SHA256_MATCH = "Expected SHA-256 hash of JWTMatching.asStr
  * - test_6: missing payload → matching and user throw SDKException.
  * - test_7: over-sized payload → matching and user throw SDKException.
  * - test_10: user tag throws SDKException when JWTMatching.asString() is null.
+ * - test_13: existRToken is false when neither rToken nor JWT is available.
  */
 class AuthManagerTest {
 
@@ -261,5 +264,37 @@ class AuthManagerTest {
         val jwt = jwtWithMatchingObject(matchingJson)
         val auth = authWith(cfgWithRToken(null), jwt)
         assertThrowsSdkException(CoreEvents.userIsNull) { auth.user() }
+    }
+
+    /** - test_11: existRToken is true when rToken is provided. */
+    @Test
+    fun `ExternalAuth - existRToken returns true when rToken is provided`() = runBlocking {
+        val auth = authWith(cfgWithRToken(RTOKEN_PRIORITY), null)
+        Assert.assertTrue(
+            "Expected existRToken to be true when rToken is provided",
+            auth.existRToken()
+        )
+    }
+
+    /** - test_12: existRToken is true when the JWT carries the rtoken claim. */
+    @Test
+    fun `ExternalAuth - existRToken returns true when JWT carries rtoken claim`() = runBlocking {
+        val payload = """{"${Constants.RTOKEN}":"$RTOKEN_FOR_TAG"}"""
+        val jwt = jwtWithPayloadJson(payload)
+        val auth = authWith(cfgWithRToken(null), jwt)
+        Assert.assertTrue(
+            "Expected existRToken to be true when JWT carries the rtoken claim",
+            auth.existRToken()
+        )
+    }
+
+    /** - test_13: existRToken is false when neither rToken nor JWT is available. */
+    @Test
+    fun `ExternalAuth - existRToken returns false without tokens`() = runBlocking {
+        val auth = authWith(cfgWithRToken(null), null)
+        Assert.assertFalse(
+            "Expected existRToken to be false when neither rToken nor JWT is available",
+            auth.existRToken()
+        )
     }
 }

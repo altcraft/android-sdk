@@ -22,6 +22,7 @@ import com.altcraft.sdk.inapp.platform.static.StaticProcess
 import com.altcraft.sdk.inapp.platform.subscription.subscribe.SubscriptionProcess
 import com.altcraft.sdk.inapp.platform.event.EventProcess
 import com.altcraft.sdk.inapp.worker.PeriodicWorker
+import com.altcraft.sdk.inapp.worker.PlacementsPeriodicWorker
 import com.altcraft.sdk.inapp.platform.event.EventWorker
 import com.altcraft.sdk.inapp.platform.placements.PlacementsWorker
 import com.altcraft.sdk.inapp.platform.static.StaticWorker
@@ -62,6 +63,8 @@ import org.junit.runner.RunWith
  *  - test_9: Subscribe → pidChanged ⇒ Result.success, isRetry not called.
  *  - test_10: PeriodicWorker (background) calls isRetry → success.
  *  - test_11: PeriodicWorker (foreground) skips body → success.
+ *  - test_12: PlacementsPeriodicWorker (background) requests placements → success.
+ *  - test_13: PlacementsPeriodicWorker (foreground) also requests placements → success.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -233,7 +236,6 @@ class InAppWorkersInstrumentedTest {
         every { SubFunction.isAppInForegrounded() } returns false
         coEvery { SubscriptionProcess.isRetry(any()) } returns true
         coEvery { EventProcess.isRetry(any()) } returns false
-        every { PlacementsProcess.requestPlacements(any(), any(), any()) } just Runs
 
         val worker = TestListenableWorkerBuilder<PeriodicWorker>(context).build()
         val result = worker.doWork()
@@ -241,7 +243,6 @@ class InAppWorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 1) { SubscriptionProcess.isRetry(any()) }
         coVerify(exactly = 1) { EventProcess.isRetry(any()) }
-        verify(exactly = 1) { PlacementsProcess.requestPlacements(any(), any(), any()) }
     }
 
     /** - test_11: PeriodicWorker (foreground) skips body → success. */
@@ -256,6 +257,31 @@ class InAppWorkersInstrumentedTest {
         assertEquals(ListenableWorker.Result.success(), result)
         coVerify(exactly = 0) { SubscriptionProcess.isRetry(any()) }
         coVerify(exactly = 0) { EventProcess.isRetry(any()) }
-        verify(exactly = 0) { PlacementsProcess.requestPlacements(any(), any(), any()) }
+    }
+
+    /** - test_12: PlacementsPeriodicWorker (background) requests placements → success. */
+    @Test
+    fun placementWorker_background_requestsPlacements_success() = runTest {
+        every { SubFunction.isAppInForegrounded() } returns false
+        coEvery { PlacementsProcess.requestPlacementsSuspend(any()) } just Runs
+
+        val worker = TestListenableWorkerBuilder<PlacementsPeriodicWorker>(context).build()
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        coVerify(exactly = 1) { PlacementsProcess.requestPlacementsSuspend(any()) }
+    }
+
+    /** - test_13: PlacementsPeriodicWorker (foreground) also requests placements → success. */
+    @Test
+    fun placementWorker_foreground_requestsPlacements_success() = runTest {
+        every { SubFunction.isAppInForegrounded() } returns true
+        coEvery { PlacementsProcess.requestPlacementsSuspend(any()) } just Runs
+
+        val worker = TestListenableWorkerBuilder<PlacementsPeriodicWorker>(context).build()
+        val result = worker.doWork()
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        coVerify(exactly = 1) { PlacementsProcess.requestPlacementsSuspend(any()) }
     }
 }

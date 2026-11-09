@@ -4,7 +4,6 @@ package com.altcraft.altcraftmobile.providers.hms
 //
 //  Copyright © 2026 Altcraft. All rights reserved.
 
-import com.altcraft.altcraftmobile.functions.app.SubFunction
 import com.altcraft.sdk.AltcraftSDK
 import com.altcraft.sdk.push.push
 import com.huawei.hms.push.HmsMessageService

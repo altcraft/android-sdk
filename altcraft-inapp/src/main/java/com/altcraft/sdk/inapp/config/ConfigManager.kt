@@ -5,7 +5,6 @@ package com.altcraft.sdk.inapp.config
 //  Copyright © 2026 Altcraft. All rights reserved.
 
 import android.content.Context
-import com.altcraft.sdk.events.SDKException
 import com.altcraft.sdk.inapp.data.Constants.DEFAULT_MAX_PLACEMENTS
 import com.altcraft.sdk.inapp.data.Constants.DEFAULT_PLACEMENTS_REQ_INTERVAL_MS
 import com.altcraft.sdk.inapp.data.room.entity.InAppConfigEntity

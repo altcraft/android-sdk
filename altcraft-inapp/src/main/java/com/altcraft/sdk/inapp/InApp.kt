@@ -101,6 +101,6 @@ object InApp {
      * @param context Application context.
      */
     fun getPlacements(context: Context) = requestPlacements(
-        context, userReq = true
+        context, now = true
     )
 }

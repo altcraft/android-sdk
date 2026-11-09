@@ -24,7 +24,7 @@ object ModuleEvents {
         Event("Invalid in-app configuration: maxPlacements must be >= 1")
 
     val requestIntervalInvalid: SDKEvent =
-        Event("Invalid in-app configuration: placementsRequestInterval must be > Duration.ZERO")
+        Event("Invalid in-app configuration: placementsRequestInterval must be >= 15 minutes")
 
     // In-app subscription
 
@@ -90,6 +90,11 @@ object ModuleEvents {
 
     val placementsLimitExceeded: SDKEvent =
         Event("in-app placements limit exceeded")
+
+    // In-app presentation
+    val inAppCanShowFailed: SDKEvent = Event(
+        "in-app was not shown because a display policy check failed:"
+    )
 
     // In-app static and content
 

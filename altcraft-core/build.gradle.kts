@@ -60,6 +60,7 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.work.runtime.ktx)
     implementation(libs.lifecycle.process)
+    implementation(libs.androidx.core.ktx)
 
     // Unit tests
     testImplementation(libs.junit)
@@ -96,7 +97,7 @@ mavenPublishing {
     publishToMavenCentral()
     signAllPublications()
 
-    coordinates("com.altcraft", "android-sdk-core", "1.0.0")
+    coordinates("com.altcraft", "android-sdk-core", "1.0.1")
 
     pom {
         name = "Altcraft Android SDK"

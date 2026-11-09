@@ -81,6 +81,9 @@ internal object Constants {
     /** Default interval between automatic in-app placements requests, in milliseconds. */
     const val DEFAULT_PLACEMENTS_REQ_INTERVAL_MS = 30 * 60 * 1000L
 
+    /** Minimum allowed interval between automatic in-app placements requests, in milliseconds. */
+    const val PLACEMENTS_REQ_MIN_INTERVAL_MS = 15 * 60 * 1000L
+
     /** Default maximum number of in-app placements kept in local storage. */
     const val DEFAULT_MAX_PLACEMENTS = 500
 
@@ -99,9 +102,11 @@ internal object Constants {
 
     //periodical worker tags
     const val IN_APP_P_WORK_TAG: String = "IN_APP_PW"
+    const val PLACEMENTS_P_WORK_TAG: String = "IN_APP_PLACEMENTS_PW"
 
     val WORKER_TAGS = ONE_TIME_WORKER_TAGS + listOf(
-        IN_APP_P_WORK_TAG
+        IN_APP_P_WORK_TAG,
+        PLACEMENTS_P_WORK_TAG
     )
 
     //command queue names
@@ -123,4 +128,17 @@ internal object Constants {
     const val TYPE_KEY = "type"
     const val MESSAGE = "message"
     const val DATA = "data"
+    const val CHECK_KEY = "check"
+    const val TRIGGER_KEY = "trigger"
+
+
+    //in-app policy checks
+    const val CAN_SHOW = "canShow"
+    const val RTOKEN_CHECK = "RToken"
+    const val AVAILABILITY_CHECK = "Availability"
+    const val DEADLINE_CHECK = "Deadline"
+    const val ORIENTATION_CHECK = "Orientation"
+    const val COMMON_POLICY_CHECK = "CommonPolicy"
+    const val SUB_STATUS_CHECK = "SubStatus"
+    const val PERSONAL_POLICY_CHECK = "PersonalPolicy"
 }

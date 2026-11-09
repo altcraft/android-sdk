@@ -27,6 +27,18 @@ internal class ExternalAuth(
     private val jwtReader: suspend () -> String?,
 ) {
 
+    /** Role token loaded on first access. */
+    internal val rTokenLazy = SuspendLazy {
+        configReader().rToken ?: JWTProcessor.extractRToken(
+            jwtReader()
+        )
+    }
+
+    /** Role-token availability determined on first access. */
+    internal val existRTokenLazy = SuspendLazy {
+        rTokenLazy.get() != null
+    }
+
     /** User value loaded on first access. */
     private val userLazy = SuspendLazy {
         val config = configReader()
@@ -54,18 +66,33 @@ internal class ExternalAuth(
         if (config.rToken != null) {
             PUSH_SUB_MATCHING
         } else {
-            JWTProcessor.getJWTPayload(
+            JWTProcessor.getMatching(
                 jwtReader()
             )?.matching
         }
     }
 
     /**
-     * Returns the current user.
+     * Returns the role token, if available.
+     *
+     * @return Role token or `null` if unavailable.
+     */
+    suspend fun rToken(): String? = rTokenLazy.get()
+
+    /**
+     * Returns whether a role token is available.
+     *
+     * @return `true` if a role token exists; `false` otherwise.
+     */
+    suspend fun existRToken(): Boolean = existRTokenLazy.get()
+        ?: false
+
+    /**
+     * Returns the current user identifier.
      *
      * @throws com.altcraft.sdk.events.SDKException.SDKException if unavailable.
      *
-     * @return Current user.
+     * @return Current user identifier.
      */
     suspend fun user(): String = userLazy.get() ?: exception(
         CoreEvents.userIsNull

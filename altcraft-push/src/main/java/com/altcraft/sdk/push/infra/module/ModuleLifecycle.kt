@@ -9,9 +9,11 @@ import com.altcraft.sdk.coordination.InitLauncher.launchInit
 import com.altcraft.sdk.push.util.Log.error
 import com.altcraft.sdk.push.config.ConfigManager
 import com.altcraft.sdk.push.data.Constants.MODULE_NAME
+import com.altcraft.sdk.push.data.Constants.ONE_TIME_WORKER_TAGS
 import com.altcraft.sdk.push.data.Constants.PUSH_P_WORK_TAG
 import com.altcraft.sdk.push.data.Constants.WORKER_TAGS
 import com.altcraft.sdk.push.data.Preferenses
+import com.altcraft.sdk.push.data.room.clearExceptConfig
 import com.altcraft.sdk.push.infra.Environment
 import com.altcraft.sdk.push.platform.event.EventProcess
 import com.altcraft.sdk.push.platform.subscription.subscribe.SubscriptionProcess
@@ -111,17 +113,21 @@ internal object ModuleLifecycle {
     }
 
     /**
-     * Clears pending subscriptions after an r-token change.
+     * Handles an SDK RToken change in the Push module.
+     *
+     * Cancels one-time workers and clears all push data
+     * (subscriptions, events, messages) except the module configuration.
      *
      * @param context Application context.
      */
     suspend fun onSdkRTokenChanged(context: Context) {
         try {
+            cancelWorkerTask(
+                context, ONE_TIME_WORKER_TAGS
+            )
             Environment.create(context)
                 .room
-                .dao
-                .subscription
-                .deleteAll()
+                .clearExceptConfig()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

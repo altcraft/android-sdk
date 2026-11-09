@@ -175,7 +175,7 @@ class InAppPlacementsInstrumentedTest {
     }
 
     @Test
-    fun requestPlacements_autoRequestDisabled_marksReady() = runBlocking {
+    fun requestPlacementsSuspend_autoRequestDisabled_marksReady() = runBlocking {
         val config = InAppConfigEntity(
             inAppAutoRequest = false,
             placementsRequestInterval = 60_000L,
@@ -188,12 +188,12 @@ class InAppPlacementsInstrumentedTest {
         every { Environment.create(any()) } returns env
 
         mockkObject(PlacementsProcess)
-        every {
-            PlacementsProcess.requestPlacements(any(), any(), any())
+        coEvery {
+            PlacementsProcess.requestPlacementsSuspend(any())
         } answers { callOriginal() }
         every { PlacementsProcess.placementsReady() } answers { callOriginal() }
 
-        PlacementsProcess.requestPlacements(context)
+        PlacementsProcess.requestPlacementsSuspend(context)
 
         verify(timeout = 5_000, exactly = 1) {
             PlacementsProcess.placementsReady()

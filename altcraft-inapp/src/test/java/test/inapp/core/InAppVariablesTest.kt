@@ -32,7 +32,7 @@ import org.junit.Test
  *  - test_4: getOpenBySession starts at 0 and increments with openBySessionInc.
  *  - test_5: getTriggerCount returns 0 for unknown triggers.
  *  - test_6: triggerBySessionInc increments counters for DEFAULT and CUSTOM triggers.
- *  - test_7: reset clears all state.
+ *  - test_7: reset clears counters and keeps the current screen.
  */
 class InAppVariablesTest {
 
@@ -42,13 +42,15 @@ class InAppVariablesTest {
     fun setUp() {
         mockkObject(InAppProcTrigger)
         coEvery { InAppProcTrigger.trigger(any(), any()) } returns mockk(relaxed = true)
+        InAppVariables.setCurrentScreen(context, null)
         InAppVariables.reset()
     }
 
     @After
     fun tearDown() {
-        unmockkAll()
+        InAppVariables.setCurrentScreen(context, null)
         InAppVariables.reset()
+        unmockkAll()
     }
 
     /** test_1: getCurrentPlacement returns null initially. */
@@ -107,16 +109,16 @@ class InAppVariablesTest {
         assertEquals(0, InAppVariables.getTriggerCount(TriggerType.DEFAULT, "button_click"))
     }
 
-    /** test_7: reset clears placement, open count, and trigger counters. */
+    /** test_7: reset clears counters and keeps the current screen. */
     @Test
-    fun test_7_reset_clearsAllState() {
+    fun test_7_reset_clearsCounters_keepsScreen() {
         InAppVariables.setCurrentScreen(context, "screen")
         InAppVariables.openBySessionInc()
         InAppVariables.triggerBySessionInc(trigger(TriggerType.DEFAULT, "evt"))
 
         InAppVariables.reset()
 
-        assertNull(InAppVariables.getCurrentScreen())
+        assertEquals("screen", InAppVariables.getCurrentScreen())
         assertEquals(0, InAppVariables.getOpenBySession())
         assertEquals(0, InAppVariables.getTriggerCount(TriggerType.DEFAULT, "evt"))
     }

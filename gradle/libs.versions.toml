@@ -1,7 +1,7 @@
 [versions]
 accompanistSystemuicontroller = "0.24.9-beta"
 agp = "8.10.1"
-altcraftCore = "1.0.0"
+altcraftCore = "1.0.1"
 compiler = "1.5.15"
 gson = "2.10.1"
 kotlin = "1.9.22"

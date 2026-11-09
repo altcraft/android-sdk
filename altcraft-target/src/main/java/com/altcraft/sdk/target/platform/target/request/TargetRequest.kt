@@ -40,7 +40,7 @@ internal object TargetRequest {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            retry("request", e)
+            retry("targetRequest", e)
         }
     }
 }

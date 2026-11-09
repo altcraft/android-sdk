@@ -41,7 +41,7 @@ internal object TargetParts {
      */
     fun createRequestParts(entity: Entity) = try {
         val utm = entity.utmTags.fromStringJson<UTM>(
-            "createMobileEventParts"
+            "createRequestParts"
         )
 
         buildList<MultipartBody.Part>(15) {

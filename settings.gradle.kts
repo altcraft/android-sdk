@@ -14,7 +14,6 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenLocal()
         google()
         mavenCentral()
         maven {
@@ -30,7 +29,6 @@ dependencyResolutionManagement {
 rootProject.name = "AltcraftMobile"
 include(":example")
 include(":altcraft-core")
-
 include(":altcraft-target")
 include(":altcraft-push")
 include(":altcraft-profile")

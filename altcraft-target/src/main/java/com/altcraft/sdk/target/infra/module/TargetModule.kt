@@ -7,6 +7,8 @@ package com.altcraft.sdk.target.infra.module
 import android.content.Context
 import com.altcraft.sdk.core.modules.AltcraftModule
 import com.altcraft.sdk.target.data.Constants.MODULE_NAME
+import com.altcraft.sdk.target.data.Constants.ONE_TIME_WORKER_TAGS
+import com.altcraft.sdk.workers.CancelWork.cancelWorkerTask
 
 /**
  * Lifecycle implementation of the optional target module.

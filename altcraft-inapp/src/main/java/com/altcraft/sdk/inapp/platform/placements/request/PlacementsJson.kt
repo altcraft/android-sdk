@@ -8,7 +8,6 @@ import com.altcraft.sdk.inapp.data.Constants.ACID
 import com.altcraft.sdk.inapp.data.Constants.DEVICE_ID
 import com.altcraft.sdk.inapp.data.Constants.LAST_PUBLISH
 import com.altcraft.sdk.inapp.data.Constants.PLACEMENT_RULES_CHECKSUM
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 

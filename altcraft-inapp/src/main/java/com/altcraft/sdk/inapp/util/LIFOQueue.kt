@@ -23,6 +23,9 @@ import java.util.ArrayDeque
  *
  * If [initAwait] is `true`, processing starts only after SDK initialization is ready.
  * If [placementAwait] is `true`, processing starts only after in-app placements are ready.
+ * When the placements gate is re-armed during the wait (SDK data clear or RToken
+ * change), the worker re-parks on the newly installed gate, so queued items are
+ * processed only with fresh placement data.
  */
 internal class LIFOQueue<T>(
     private val scope: CoroutineScope,
@@ -89,7 +92,11 @@ internal class LIFOQueue<T>(
             try {
                 val action: suspend () -> Unit = {
                     if (placementAwait) {
-                        PlacementsProcess.placementsReady.await()
+                        while (true) {
+                            val gate = PlacementsProcess.placementsReady
+                            gate.await()
+                            if (gate === PlacementsProcess.placementsReady) break
+                        }
                     }
 
                     while (isActive) {

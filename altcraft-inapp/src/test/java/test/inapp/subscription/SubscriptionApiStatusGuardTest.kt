@@ -62,7 +62,7 @@ class SubscriptionApiStatusGuardTest {
 
         assertNull(result)
         verify(exactly = 1) {
-            Events.error("[altcraft-inapp] getStatusForCurrentSubscription", any())
+            Events.error("[altcraft-inapp] getSubscriptionStatus", any())
         }
     }
 
@@ -126,7 +126,7 @@ class SubscriptionApiStatusGuardTest {
 
         assertNull(result)
         verify(exactly = 1) {
-            Events.error("[altcraft-inapp] getStatusForCurrentSubscription", any())
+            Events.error("[altcraft-inapp] getSubscriptionStatus", any())
         }
     }
 }

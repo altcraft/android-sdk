@@ -55,7 +55,7 @@ internal object ForegroundBarrier {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    error("foregroundBlock", e)
+                    error("foreground", e)
                 }
             } finally {
                 hasSubscription.set(false)

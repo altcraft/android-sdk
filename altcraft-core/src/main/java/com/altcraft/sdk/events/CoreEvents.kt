@@ -39,6 +39,12 @@ object CoreEvents {
     internal val rTokenIsBlank: SDKEvent =
         Event("Invalid configuration: RToken must not be empty or blank.")
 
+    internal val authDataIsNull: SDKEvent =
+        Event("SDK cannot obtain authentication data required to interact with the platform")
+
+    internal val rTokenChange: SDKEvent =
+        Event("Role token change: SDK database data will be cleared, except for configuration data.")
+
     internal val configIsNotSet: SDKEvent =
         Event("the configuration is not set")
 

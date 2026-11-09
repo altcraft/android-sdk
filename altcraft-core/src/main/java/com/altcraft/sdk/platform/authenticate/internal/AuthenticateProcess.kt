@@ -113,6 +113,11 @@ internal object AuthenticateProcess {
      * Deletes the request on success, retries on recoverable failure
      * retries the request when possible, or clears it when the retry limit is reached.
      *
+     * The identity is re-checked after the request completes: if the user tag
+     * changed while the request was in flight (for example, an RToken change
+     * reset the session mid-flight), the result is discarded and the stale
+     * request is removed instead of being applied to the new identity.
+     *
      * @param context Application context.
      * @param id Optional worker identifier.
      * @return `true` if another retry is needed; `false` otherwise.
@@ -131,6 +136,14 @@ internal object AuthenticateProcess {
         }
 
         val res = request(context, req)
+
+        if (Environment.create(context)
+                .auth.external
+                .user() != req.user
+        ) {
+            reqDao.deleteAll()
+            return false
+        }
 
         if (res.event is retry) return !req.retryLimit(
             reqDao
@@ -183,26 +196,40 @@ internal object AuthenticateProcess {
      */
     suspend fun logOut(context: Context) {
         mutex.withLock {
-            val env = Environment.create(context)
-            val dao = env.room.dao.authState
-            if (dao.get() == null) return@withLock
-
-            event("logOut", CoreEvents.userLogOut)
-            deleteAcidSensitiveRequests(env.room)
-
-            val internalAuth = env.auth.internal()
-
-            dao.insert(
-                AuthenticationEntity(
-                    0,
-                    internalAuth.anonimAcid,
-                    internalAuth.anonimAcid,
-                    internalAuth.deviceId,
-                    null,
-                    time()
-                )
-            )
+            logOutUnlocked(context)
         }
+    }
+
+    /**
+     * Performs [logOut] without acquiring the process mutex.
+     *
+     * Used by the RToken change notification chain, which can be dispatched
+     * while an authentication flow already holds the mutex: taking the lock
+     * here would suspend the notification forever on the same
+     * non-reentrant mutex and hang the whole authentication flow.
+     *
+     * @param context Application context.
+     */
+    internal suspend fun logOutUnlocked(context: Context) {
+        val env = Environment.create(context)
+        val dao = env.room.dao.authState
+        if (dao.get() == null) return
+
+        event("logOut", CoreEvents.userLogOut)
+        deleteAcidSensitiveRequests(env.room)
+
+        val internalAuth = env.auth.internal()
+
+        dao.insert(
+            AuthenticationEntity(
+                0,
+                internalAuth.anonimAcid,
+                internalAuth.anonimAcid,
+                internalAuth.deviceId,
+                null,
+                time()
+            )
+        )
     }
 
     /**
