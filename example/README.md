@@ -78,7 +78,7 @@ val configuration = AltcraftConfiguration.Builder(
     )
     .inAppConfig(
         inAppAutoRequest = true,
-        placementsRequestInterval = 10.minutes,
+        placementsRequestInterval = 33.minutes,
         maxPlacements = 10
     )
     .build()

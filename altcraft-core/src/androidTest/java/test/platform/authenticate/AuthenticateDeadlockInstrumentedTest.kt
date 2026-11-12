@@ -98,6 +98,8 @@ class AuthenticateDeadlockInstrumentedTest {
         every { sdkDBWrapper.configurationDao() } returns db.configurationDao()
         every { sdkDBWrapper.authStateDao() } returns authStateDao
         every { sdkDBWrapper.authRequestDao() } returns authRequestDao
+        every { sdkDBWrapper.dao.authState } returns authStateDao
+        every { sdkDBWrapper.dao.authRequest } returns authRequestDao
 
         mockkObject(InitBarrier)
         every { InitBarrier.current() } returns CompletableDeferred(Unit)
